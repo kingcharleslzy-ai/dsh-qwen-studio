@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { PresetStore } from "../presets.js";
 import { draftDefaults, type CreationDraft } from "./creation-draft.js";
 import { request } from "./api.js";
+import { ParameterHelp } from "./parameter-help.js";
 const KEY = "qwen-studio-active-preset";
 export function draftSignature(draft: CreationDraft) {
   return JSON.stringify(
@@ -164,7 +165,9 @@ export function PresetBar({
     <section className="q2-preset-library" aria-label="整套创作预设">
       <div className="q2-preset-row">
         <label>
-          预设
+          <span className="q2-field-title">创作预设
+            <ParameterHelp name="创作预设" text="保存整套高级参数与资源选择，加载时保留当前画面描述。修改后可重新加载或覆盖保存；管理中可重命名、设默认、删除、导入和导出。JSON 仅包含参数与资源指纹，分享前请检查其中的文件名称和负向词；不含图片、权重文件或连接密钥。" />
+          </span>
           <select
             aria-label="选择创作预设"
             value={selected?.id ?? ""}
@@ -249,6 +252,9 @@ export function PresetBar({
             >
               删除预设
             </button>
+            <button disabled={busy} onClick={() => {
+              void request<PresetStore>("presets").then(setStore).catch((e) => onError(e.message));
+            }}>刷新列表</button>
             <button disabled={busy || !store} onClick={() => void exportJSON()}>
               {selected ? "导出当前" : "导出全部"} JSON
             </button>

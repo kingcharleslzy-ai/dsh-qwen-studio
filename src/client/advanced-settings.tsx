@@ -144,12 +144,10 @@ export function AdvancedSettings({
             </p>
           )
         )}
-        <p className="q2-muted">
-          选中文件会复制到本机资源库，原文件不变；关闭或移除只会改变当前草稿。
-        </p>
         <div className="q2-resource-toolbar">
-          <span className="q2-muted">
-            资源清单合并导入资源、默认文件夹和自定义目录
+          <span className="q2-field-title q2-muted">
+            资源库
+            <ParameterHelp name="资源库" text="清单合并已导入文件、图库下的 loras 文件夹、自定义 LoRA 目录和图库作品。选中新文件会复制到本机资源库，原文件不变；移除选项不会删除文件。图片支持 PNG、JPEG、WebP，单张不超过 64MB。刷新清单不会启动模型。" />
           </span>
           <button onClick={() => void refreshResources()} disabled={!ready}>
             刷新资源清单
@@ -164,10 +162,10 @@ export function AdvancedSettings({
           <section className="q2-effect-section">
             <div className="q2-effect-heading">
               <div>
-                <h3>模型风格</h3>
-                <p>添加 LoRA，为当前模型叠加风格或细节。</p>
+                <h3 className="q2-field-title">LoRA 风格
+                  <ParameterHelp name="LoRA 风格" text="为 Qwen Image 2.1 叠加兼容的风格或细节 LoRA。支持 .safetensors，最多 8 个，单文件不超过 2GB。权重越大通常影响越强，具体范围以作者说明为准。取消勾选可暂时停用；移除不会删除文件。" />
+                </h3>
               </div>
-              <span className="q2-effect-tag">LoRA</span>
             </div>
             <AssetUpload
               kind="lora"
@@ -217,9 +215,7 @@ export function AdvancedSettings({
             />
             {!draft.loras.length && (
               <div className="q2-effect-empty">
-                选择与 Qwen Image 2.1 兼容的 .safetensors 文件
-                <br />
-                <small>支持多个文件，最多 8 个；每个文件不超过 2GB。</small>
+                未选择 LoRA
               </div>
             )}
             <div className="q2-lora-list">
@@ -276,16 +272,13 @@ export function AdvancedSettings({
                 </div>
               ))}
             </div>
-            <small>
-              权重越大通常影响越强，具体范围以 LoRA
-              作者说明为准。取消勾选可暂时停用；移除不会删除原文件。
-            </small>
           </section>
           <section className="q2-effect-section">
             <div className="q2-effect-heading">
               <div>
-                <h3>结构控制</h3>
-                <p>用线稿、姿态、深度或边缘图约束构图。</p>
+                <h3 className="q2-field-title">结构控制
+                  <ParameterHelp name="结构控制" text="用线稿、姿态、深度或边缘图约束构图。这里选择控制图片，不是模型权重；本机模型目录需已配置 Qwen Image 2.1 Union ControlNet。画面内容仍由描述决定。" />
+                </h3>
               </div>
               <label className="q2-inline-check">
                 <input
@@ -340,7 +333,9 @@ export function AdvancedSettings({
               />
             )}
             <label>
-              控制强度 · {Math.round(draft.controlStrength * 100)}%
+              <span className="q2-field-title">控制强度 · {Math.round(draft.controlStrength * 100)}%
+                <ParameterHelp name="控制强度" text="0 为关闭控制，100% 约束最强。提高强度通常更接近控制图的结构，画面内容仍由描述决定。" />
+              </span>
               <input
                 aria-label="结构控制强度"
                 type="range"
@@ -353,18 +348,14 @@ export function AdvancedSettings({
                   update({ controlStrength: Number(e.target.value) })
                 }
               />
-              <small>0 为关闭控制，100% 约束最强。画面内容仍由描述决定。</small>
             </label>
-            <p className="q2-muted">
-              这里选择的是控制图片，不是模型权重；本机模型目录需已配置 Union
-              ControlNet。
-            </p>
           </section>
           <section className="q2-effect-section q2-mask-section">
             <div className="q2-effect-heading">
               <div>
-                <h3>局部重绘</h3>
-                <p>选择原图与蒙版，只重画指定区域。</p>
+                <h3 className="q2-field-title">局部重绘
+                  <ParameterHelp name="局部重绘" text="选择原图与蒙版，白色区域重画，黑色区域保留。灰色按亮度中点划分黑白，不作渐变蒙版；透明区域按保留区处理。输入按输出尺寸缩放，保持原尺寸才能保留原始像素。局部重绘不使用参考图变化幅度。" />
+                </h3>
               </div>
               <label className="q2-inline-check">
                 <input
@@ -467,9 +458,6 @@ export function AdvancedSettings({
                 黑色：保留原图
               </span>
             </div>
-            <small>
-              灰色按亮度中点划为黑或白，不作渐变蒙版。原图与蒙版会按输出尺寸缩放；保持原尺寸才能保留黑色区域的原始像素。局部重绘不使用「变化幅度」。
-            </small>
             {draft.maskEnabled && (!sourceId || !draft.maskId) && (
               <p className="q2-effect-note">请选齐原图和蒙版后再生成。</p>
             )}
@@ -486,7 +474,9 @@ export function AdvancedSettings({
         >
           <h3>文本控制与采样</h3>
           <label>
-            负向提示词
+            <span className="q2-field-title">负向提示词
+              <ParameterHelp name="负向提示词" text="描述希望避免的内容。普通文生图中，负向词非空且 CFG 大于 1 才启用负向分支。填写负向词但 CFG 为 1 时，插件会自动提升到 2.5，并记录实际值。" />
+            </span>
             <textarea
               aria-label="负向提示词"
               rows={3}
@@ -499,10 +489,12 @@ export function AdvancedSettings({
           </label>
           <div className="q2-advanced-fields">
             <label>
-              CFG 引导强度 ·{" "}
-              {draft.negativePrompt.trim() && draft.guidance <= 1
-                ? "实际 2.5（自动）"
-                : draft.guidance}
+              <span className="q2-field-title">CFG 引导强度
+                <ParameterHelp name="CFG 引导强度" text={draft.controlEnabled || draft.maskEnabled
+                  ? "当前使用结构控制或蒙版：CFG 大于 1 时会启用无条件分支，负向词可以为空。它控制引导强度，不是通用画质旋钮。填写负向词且 CFG 为 1 时会自动使用 2.5。"
+                  : "普通文生图中，只有负向词非空且 CFG 大于 1 时才生效；没有负向词时会忽略这个值。它不是通用画质旋钮。填写负向词且 CFG 为 1 时会自动使用 2.5。"} />
+                {draft.negativePrompt.trim() && draft.guidance <= 1 && <small>实际 2.5（自动）</small>}
+              </span>
               <input
                 aria-label="CFG 引导强度"
                 type="number"
@@ -515,7 +507,9 @@ export function AdvancedSettings({
               />
             </label>
             <label>
-              调度器
+              <span className="q2-field-title">调度器
+                <ParameterHelp name="调度器" text="控制采样过程中噪声的变化方式。建议先使用 linear；普通文生图还可选择 flow_match_euler_discrete 或 seedvr2_euler。结构控制和蒙版仅支持 linear，不兼容选项会停用。" />
+              </span>
               <select
                 aria-label="调度器"
                 disabled={remote}
@@ -542,14 +536,6 @@ export function AdvancedSettings({
               </select>
             </label>
           </div>
-          <p className="q2-muted">
-            {draft.controlEnabled || draft.maskEnabled
-              ? "结构控制与蒙版仅支持 linear；CFG 大于 1 时，负向词即使为空也参与无条件分支。"
-              : "普通文生图中，CFG 仅在负向词非空且强度大于 1 时生效；它不是通用画质旋钮。"}
-            {draft.negativePrompt.trim() && draft.guidance <= 1
-              ? " 已填写负向词，提交时会将 CFG 从 1 自动提升到 2.5。"
-              : ""}
-          </p>
           {(draft.controlEnabled || draft.maskEnabled) &&
             draft.scheduler !== "linear" && (
               <p role="alert">当前调度器不兼容，请手动切回 linear 再生成。</p>
@@ -586,7 +572,9 @@ export function AdvancedSettings({
               />
             </label>
             <label>
-              输出尺寸
+              <span className="q2-field-title">输出尺寸
+                <ParameterHelp name="输出尺寸" text="更大尺寸通常需要更多内存和时间。蒙版重绘若要保留原图像素，请使用与原图一致的输出尺寸。" />
+              </span>
               <select
                 aria-label="高级画面尺寸"
                 value={draft.size}
@@ -634,7 +622,9 @@ export function AdvancedSettings({
             </div>
             {!draft.maskEnabled && draft.sourceId && (
               <label>
-                参考图变化幅度 · {Math.round(draft.changeStrength * 100)}%
+                <span className="q2-field-title">参考图变化幅度 · {Math.round(draft.changeStrength * 100)}%
+                  <ParameterHelp name="参考图变化幅度" text="较低值更接近参考原图，较高值变化更大。仅用于参考变体，蒙版重绘不使用这个参数。" />
+                </span>
                 <input
                   aria-label="高级变化幅度"
                   type="range"
@@ -661,7 +651,7 @@ export function AdvancedSettings({
             <RotateCcw />
             恢复默认参数
           </button>
-          <small>加载默认预设或内置参数，保留画面描述。文件原件不变。</small>
+          <ParameterHelp name="恢复默认参数" text="加载默认预设；未设默认预设时使用内置参数。保留当前画面描述，不更改已提交的任务，也不删除文件。" />
           <button className="q2-primary" onClick={close}>
             完成设置
           </button>

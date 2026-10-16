@@ -175,7 +175,7 @@ export function apply(ctx: Context, config: Config = {}) {
                     }
                   }
                 return json(200, {
-                  apiVersion: 6,
+                  apiVersion: 7,
                   jobs,
                   health:
                     worker.mode() === "remote"

@@ -6,6 +6,8 @@
 - Add a reusable resource catalog covering imported inputs, default/custom LoRA folders and gallery images, without starting inference.
 - Add full creation presets with rename, default, delete/undo and portable JSON import/export. Match references by streamed SHA-256; report missing resources instead of silently dropping effects.
 - Add negative prompt, CFG and scheduler controls with backend-specific capability validation and full parameter reuse.
+- Simplify advanced settings into aligned sections with contextual help, explicit preset reload and refreshed imported-resource lists.
+- Expose resource discovery and shared preset management as agent tools; document configuration-only intent, full settings replacement, revision conflicts and the generate/load/save workflow.
 - Use worker v7 for aligned LoRA roots and runtime configuration reporting. Preserve existing settings, image files and job records.
 
 ## 2.5.0 — 2026-10-16

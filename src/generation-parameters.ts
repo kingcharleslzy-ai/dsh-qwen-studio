@@ -1,0 +1,77 @@
+export const generationParameters = {
+        prompt: {
+          type: "string",
+          required: true,
+          description:
+            "Visual description: subject, composition, lighting, style and exact text if needed.",
+        },
+        width: {
+          type: "integer",
+          description: "Width in pixels, 512–2048, multiple of16; default1024.",
+        },
+        height: {
+          type: "integer",
+          description:
+            "Height in pixels, 512–2048, multiple of16; default1024.",
+        },
+        steps: {
+          type: "integer",
+          description: "Sampling steps1–60, default40.",
+        },
+        seed: {
+          type: "integer",
+          description: "Optional reproducible seed0–4294967295.",
+        },
+        source_image_id: {
+          type: "string",
+          description:
+            "Optional 32-character image id from an earlier qwen_generate_image result. Local-only img2img; never invent an id or pass a filesystem path. Omit for a new composition.",
+        },
+        change_strength: {
+          type: "number",
+          description:
+            "Only with source_image_id: variation strength 0.05–0.95, default 0.45. Lower preserves more of the source; higher changes more. Not a guarantee of exact local edits.",
+        },
+        negative_prompt: {
+          type: "string",
+          description:
+            "Local only: unwanted visual characteristics, up to 8000 characters. With a negative prompt, guidance defaults to 2.5 if not above 1. Omit to skip the negative branch.",
+        },
+        guidance: {
+          type: "number",
+          description:
+            "Local only: true CFG strength 1–10, default 1. For plain text-to-image it requires a nonempty negative_prompt. ControlNet/mask branches can use it with an empty negative prompt. Not a general quality control.",
+        },
+        scheduler: {
+          type: "string",
+          description:
+            "Local only: linear (default), flow_match_euler_discrete, or seedvr2_euler. Use linear unless the user requests another supported scheduler.",
+        },
+        lora_paths: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Local only: absolute paths of 1–8 LoRA .safetensors files, stacked on the base model. The files must exist and live under one of the allowed LoRA roots. Pair with lora_scales.",
+        },
+        lora_scales: {
+          type: "array",
+          items: { type: "number" },
+          description:
+            "One weight per lora_paths entry, 0.0–2.0. Omit to use 1.0 for every entry. Use weights compatible with the specific LoRA; do not invent paths.",
+        },
+        controlnet_image_id: {
+          type: "string",
+          description:
+            "Local only: 32-character id of an imported or gallery control image (line art, Canny, depth, pose). Structure comes from the control image and content from the prompt, so it pins composition and pose. Select an existing id with qwen_image_resources; never invent an id or pass a filesystem path.",
+        },
+        controlnet_strength: {
+          type: "number",
+          description:
+            "Only with controlnet_image_id: 0.0–1.0, default 1.0 (strongest); 0 turns the control off. 0.7–1.0 is the common range.",
+        },
+        mask_image_id: {
+          type: "string",
+          description:
+            "Local-only inpaint. 32-character id of an imported or gallery mask where white is redrawn from the prompt and black is preserved. Requires source_image_id as the source image; black areas are copied from the source at output size. Do not pass change_strength with a mask. ControlNet and masks require a complete local Union checkpoint and the default scheduler; source_image_id with ControlNet requires a mask.",
+        },
+      } as const;

@@ -70,8 +70,8 @@ vLLM-Omni协议参考：https://docs.vllm.ai/projects/vllm-omni/en/latest/user_g
 
 ## 本地高级工具与任务恢复
 
-- LoRA：在插件设置选择 LoRA 文件夹（留空默认数据目录下的 `loras`）。工具只接受该文件夹内的 `.safetensors`，1–8 个，权重 0–2。不是任意文件路径访问入口；请自行准备匹配的 Qwen Image 2.1 LoRA。改变组合会重新加载模型。
-- ControlNet：模型目录需要完整的 Qwen Image 2.1 Union 控制分支（含 `controlnet/` 权重）。工具接收已有图库控制图的 ID，强度 0–1。
+- LoRA：在插件设置选择 LoRA 文件夹（留空默认数据目录下的 `loras`）。工具合并接受托管资源、默认 `loras` 和自定义文件夹内的 `.safetensors`，1–8 个，权重 0–2。不是任意文件路径访问入口；请自行准备匹配的 Qwen Image 2.1 LoRA。改变组合会重新加载模型。
+- ControlNet：模型目录需要完整的 Qwen Image 2.1 Union 控制分支（含 `controlnet/` 权重）。工具接收已导入或图库控制图的 ID，强度 0–1。
 - 蒙版：已有源图和蒙版的图库 ID 配对使用，白色重绘、黑色从原图复制。保持源图尺寸可保留黑区原像素；变化幅度不适用于蒙版。可从创作页高级设置选择本机 PNG/JPEG/WebP；输入图保存在独立资源目录，不混入作品图库。
 - ControlNet/蒙版只用默认调度器；远程高级参数明确报错。高级权重不自动下载，缺失和不兼容会显示实际错误。
 - `qwen_image_status` 用返回的完整任务 ID 查询或恢复图片，只读、不重新提交、不启动模型。运行中的任务继续在原会话卡片和创作页显示进度。
@@ -96,3 +96,16 @@ vLLM-Omni协议参考：https://docs.vllm.ai/projects/vllm-omni/en/latest/user_g
 资源库合并 `assets/loras/`、图库的 `loras/` 和设置中的 LoRA 目录；手放文件保留原名，不强制搬移。控制图、蒙版和原图可以从已导入图片和现有作品再次选择。
 
 高级设置顶部保存整套预设；`state/presets.json` 带格式版本与修订号，`presets.backup.json` 用于立即撤销。不要编辑 `runtime-config.json` 保存预设。JSON 导入不会改动连接配置或自动替换当前默认预设，也不包含模型与参考图片；资源需已在本机目录或图库中。
+
+## Agent 配置与保存
+
+本插件内置可由模型自动发现的 `qwen-image` 技能，也可显式加载。完整流程见 [SKILL.md](../skills/qwen-image/SKILL.md)。
+
+- 只配置、不生图：`qwen_image_resources` 查真实 LoRA/图像资源，`qwen_image_presets` 管理预设；这两种操作不会启动模型。
+- 保存某张结果：先 list 取得 revision，再 save(name, from_job_id, revision)，不保存画面描述。
+- 调整已有预设：load 后保留完整 settings，与改动合并，再 save。保存是整套替换，不是局部补丁；省略值回到内置默认。
+- 预设出图：load 检查 issues，把 settings 与用户完整 prompt 合并交给 qwen_generate_image。不要改跑脚本。
+- Agent 与面板共用预设库；已打开的面板可在管理里刷新列表。加载不会擅自覆盖用户正在编辑的面板草稿。
+- 新本机输入文件仍由高级设置选择器导入；查询工具不接受任意路径读取。远程当前仅支持基础文生图，不会静默忽略高级参数。
+
+这两个新宿主工具需要 DSH 正常退出并重开后加载；只看到客户端新界面并不代表宿主工具已经更新。

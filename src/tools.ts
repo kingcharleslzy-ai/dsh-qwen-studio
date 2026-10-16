@@ -8,92 +8,19 @@ import { readJob, imagePath } from "./storage.js";
 import { active } from "./shared.js";
 import { recordInvocation } from "./invocations.js";
 import type { Worker } from "./worker.js";
+import { generationParameters } from "./generation-parameters.js";
+import { registerWorkspaceTools } from "./workspace-tools.js";
 import { registerStatusTool } from "./status-tool.js";
 export function registerTools(ctx: Context, worker: Worker) {
   registerStatusTool(ctx, worker);
+  registerWorkspaceTools(ctx, worker);
   ctx.tools.register(
     defineTool({
       name: "qwen_generate_image",
       description:
-        "Default DSH image-generation route: generate with this tool so the conversation, live progress and gallery stay synchronized. Create images with the configured local Qwen Image or self-hosted server. Use for requests to draw, illustrate, make a poster/product image, or generate a picture (画一张、配图、生图). To make a variation of a previous result while retaining its composition, pass that result's source_image_id and change_strength (local only). Describe the complete desired image, not just an edit instruction. source_image_id alone is strength-based img2img, not instruction editing. External reference attachments are not supported. Local-only negative_prompt / guidance / scheduler are supported. Negative prompts require guidance above 1; the worker uses 2.5 if a negative prompt is supplied with the default guidance. lora_paths / lora_scales stack LoRAs on the base model. controlnet_image_id pins composition and pose from a control image, where structure comes from the control image and content from the prompt. mask_image_id performs masked inpainting over source_image_id: white mask areas are redrawn from the prompt while black areas are copied from the source resized to output dimensions. Returns a visible image attachment plus an id for follow-up variations. No shell, manual server startup, file search, or manual skill installation is needed. If an accepted task times out, query qwen_image_status with its full id; never resubmit or switch to a standalone script automatically.",
+        "Default DSH image-generation route: generate with this tool so the conversation, live progress and gallery stay synchronized. Create images with the configured local Qwen Image or self-hosted server. Use for requests to draw, illustrate, make a poster/product image, or generate a picture (画一张、配图、生图). To make a variation of a previous result while retaining its composition, pass that result's source_image_id and change_strength (local only). Describe the complete desired image, not just an edit instruction. source_image_id alone is strength-based img2img, not instruction editing. External reference attachments are not supported. Local-only negative_prompt / guidance / scheduler are supported. Negative prompts require guidance above 1; the worker uses 2.5 if a negative prompt is supplied with the default guidance. lora_paths / lora_scales stack LoRAs on the base model. controlnet_image_id pins composition and pose from a control image, where structure comes from the control image and content from the prompt. mask_image_id performs masked inpainting over source_image_id: white mask areas are redrawn from the prompt while black areas are copied from the source resized to output dimensions. Returns a visible image attachment plus an id for follow-up variations. Use qwen_image_resources for real LoRA paths and imported image ids; use qwen_image_presets to list/load/save advanced settings. Preset configuration alone must not trigger generation. No shell, manual server startup, file search, or manual skill installation is needed. If an accepted task times out, query qwen_image_status with its full id; never resubmit or switch to a standalone script automatically.",
       timeoutMs: 1200000,
-      parameters: {
-        prompt: {
-          type: "string",
-          required: true,
-          description:
-            "Visual description: subject, composition, lighting, style and exact text if needed.",
-        },
-        width: {
-          type: "integer",
-          description: "Width in pixels, 512–2048, multiple of16; default1024.",
-        },
-        height: {
-          type: "integer",
-          description:
-            "Height in pixels, 512–2048, multiple of16; default1024.",
-        },
-        steps: {
-          type: "integer",
-          description: "Sampling steps1–60, default40.",
-        },
-        seed: {
-          type: "integer",
-          description: "Optional reproducible seed0–4294967295.",
-        },
-        source_image_id: {
-          type: "string",
-          description:
-            "Optional 32-character image id from an earlier qwen_generate_image result. Local-only img2img; never invent an id or pass a filesystem path. Omit for a new composition.",
-        },
-        change_strength: {
-          type: "number",
-          description:
-            "Only with source_image_id: variation strength 0.05–0.95, default 0.45. Lower preserves more of the source; higher changes more. Not a guarantee of exact local edits.",
-        },
-        negative_prompt: {
-          type: "string",
-          description:
-            "Local only: unwanted visual characteristics, up to 8000 characters. With a negative prompt, guidance defaults to 2.5 if not above 1. Omit to skip the negative branch.",
-        },
-        guidance: {
-          type: "number",
-          description:
-            "Local only: true CFG strength 1–10, default 1. Only affects sampling together with a nonempty negative_prompt; it is not a general quality control.",
-        },
-        scheduler: {
-          type: "string",
-          description:
-            "Local only: linear (default), flow_match_euler_discrete, or seedvr2_euler. Use linear unless the user requests another supported scheduler.",
-        },
-        lora_paths: {
-          type: "array",
-          items: { type: "string" },
-          description:
-            "Local only: absolute paths of 1–8 LoRA .safetensors files, stacked on the base model. The files must exist and live under one of the allowed LoRA roots. Pair with lora_scales.",
-        },
-        lora_scales: {
-          type: "array",
-          items: { type: "number" },
-          description:
-            "One weight per lora_paths entry, 0.0–2.0. Omit to use 1.0 for every entry. Use weights compatible with the specific LoRA; do not invent paths.",
-        },
-        controlnet_image_id: {
-          type: "string",
-          description:
-            "Local only: 32-character gallery id of a control image (line art, Canny, depth, pose). Structure comes from the control image and content from the prompt, so it pins composition and pose. The image must already be in the gallery; never invent an id or pass a filesystem path.",
-        },
-        controlnet_strength: {
-          type: "number",
-          description:
-            "Only with controlnet_image_id: 0.0–1.0, default 1.0 (strongest); 0 turns the control off. 0.7–1.0 is the common range.",
-        },
-        mask_image_id: {
-          type: "string",
-          description:
-            "Local-only inpaint. 32-character gallery id of a mask where white is redrawn from the prompt and black is preserved. Requires source_image_id as the source image; black areas are copied from the source at output size. Do not pass change_strength with a mask. ControlNet and masks require a complete local Union checkpoint and the default scheduler; source_image_id with ControlNet requires a mask.",
-        },
-      },
+      parameters: generationParameters,
       output: {
         schema: {
           type: "object",
