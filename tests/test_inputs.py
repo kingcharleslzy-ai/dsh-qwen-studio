@@ -53,3 +53,14 @@ class Inputs(unittest.TestCase):
                 with self.assertRaises(ValueError):q.submit(dict(prompt='A tree',controlnet_image_id='a'*32))
             finally:q.pool.shutdown()
 if __name__=='__main__':unittest.main()
+
+class DefaultAndCustomLoras(unittest.TestCase):
+    def test_custom_folder_does_not_disable_default_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory=Path(tmp);lora=directory/'loras/manual.safetensors';lora.parent.mkdir();lora.write_bytes(b'fixture')
+            w.atomic_json(directory/'state/runtime-config.json',dict(lora_directory=str(directory/'custom')))
+            q=w.JobQueue(directory,lambda *args:{})
+            try:
+                job=q.submit(dict(prompt='A teapot',lora_paths=[str(lora)],lora_scales=[.8]))
+                self.assertEqual(job['lora_paths'],[str(lora)])
+            finally:q.pool.shutdown()

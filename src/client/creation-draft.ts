@@ -4,9 +4,14 @@ export interface LoraChoice {
   name: string;
   scale: number;
   enabled?: boolean;
+  missing?: boolean;
 }
 export interface CreationDraft {
   prompt: string;
+  negativePrompt: string;
+  guidance: number;
+  scheduler: "linear" | "flow_match_euler_discrete" | "seedvr2_euler";
+  missingResources?: Record<string, string>;
   size: string;
   steps: number;
   seed: string;
@@ -26,6 +31,9 @@ export interface CreationDraft {
 }
 export const draftDefaults: CreationDraft = {
   prompt: "",
+  negativePrompt: "",
+  guidance: 1,
+  scheduler: "linear",
   size: "1024x1024",
   steps: 40,
   seed: "",
@@ -56,6 +64,40 @@ export function generationPayload(
       : draft.sourceId;
   const [width, height] = draft.size.split("x").map(Number),
     seed = draft.seed.trim() === "" ? null : Number(draft.seed);
+  if (loras.some((l) => l.missing))
+    throw Error("请重新选择失效的 LoRA，或停用它");
+  const missing = draft.missingResources ?? {};
+  if (
+    (draft.maskEnabled &&
+      (missing.maskSourceId ||
+        (!draft.maskSourceId && missing.sourceId) ||
+        missing.maskId)) ||
+    (draft.controlEnabled && missing.controlId) ||
+    (!draft.maskEnabled && missing.sourceId)
+  )
+    throw Error("预设引用的图片已失效，请重新选择或移除失效引用");
+  if (
+    !Number.isFinite(draft.guidance) ||
+    draft.guidance < 1 ||
+    draft.guidance > 10 ||
+    draft.negativePrompt.length > 8000
+  )
+    throw Error("负向提示词或引导强度无效");
+  if (
+    !["linear", "flow_match_euler_discrete", "seedvr2_euler"].includes(
+      draft.scheduler,
+    )
+  )
+    throw Error("调度器无效");
+  if (controlled(draft) && draft.scheduler !== "linear")
+    throw Error("结构控制与局部重绘仅支持 linear 调度器，请切换后再生成");
+  if (
+    remote &&
+    (draft.negativePrompt.trim() ||
+      draft.guidance !== 1 ||
+      draft.scheduler !== "linear")
+  )
+    throw Error("当前远程接口不支持负向提示词、CFG 与调度器");
   if (!draft.prompt.trim()) throw Error("先描述你想看到的画面");
   if (seed !== null && (!Number.isInteger(seed) || seed < 0 || seed >= 2 ** 32))
     throw Error("种子需为0–4294967295的整数");
@@ -110,6 +152,13 @@ export function generationPayload(
     height,
     steps: draft.steps,
     seed,
+    ...(!remote
+      ? {
+          negative_prompt: draft.negativePrompt.trim() || null,
+          guidance: draft.guidance,
+          scheduler: draft.scheduler,
+        }
+      : {}),
     ...(sourceId
       ? {
           source_image_id: sourceId,
@@ -140,6 +189,10 @@ export function reuseDraft(
 ): Partial<CreationDraft> {
   return {
     prompt: job.prompt,
+    negativePrompt: job.negative_prompt ?? "",
+    guidance: job.guidance ?? 1,
+    scheduler: job.scheduler ?? "linear",
+    missingResources: {},
     size: `${job.width}x${job.height}`,
     steps: job.steps,
     seed: String(job.seed),

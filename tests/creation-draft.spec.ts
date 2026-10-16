@@ -116,7 +116,7 @@ test("advanced settings expose native file inputs and preserve the DSH vocabular
     }),
   );
   expect(html).toContain('aria-label="高级生成设置"');
-  expect((html.match(/type="file"/g) || []).length).toBe(5);
+  expect((html.match(/type="file"/g) || []).length).toBe(6);
   for (const text of [
     "添加 LoRA 文件",
     "选择控制图",
@@ -127,4 +127,44 @@ test("advanced settings expose native file inputs and preserve the DSH vocabular
     "完成设置",
   ])
     expect(html).toContain(text);
+});
+
+test("sampling controls survive reuse and incompatible local/remote combinations fail before submission", () => {
+  const d = {
+    ...base,
+    negativePrompt: "blur",
+    guidance: 1,
+    scheduler: "seedvr2_euler" as const,
+  };
+  expect(generationPayload(d, false, "id")).toMatchObject({
+    negative_prompt: "blur",
+    guidance: 1,
+    scheduler: "seedvr2_euler",
+  });
+  expect(() => generationPayload(d, true, "id")).toThrow("远程");
+  expect(() =>
+    generationPayload(
+      { ...d, controlEnabled: true, controlId: "a".repeat(32) },
+      false,
+      "id",
+    ),
+  ).toThrow("linear");
+  const job = {
+    id: "a".repeat(32),
+    prompt: "A tree",
+    status: "complete",
+    started_at: 1,
+    width: 512,
+    height: 512,
+    steps: 20,
+    seed: 2,
+    negative_prompt: "blur",
+    guidance: 2.5,
+    scheduler: "flow_match_euler_discrete" as const,
+  };
+  expect(reuseDraft(job, false)).toMatchObject({
+    negativePrompt: "blur",
+    guidance: 2.5,
+    scheduler: "flow_match_euler_discrete",
+  });
 });

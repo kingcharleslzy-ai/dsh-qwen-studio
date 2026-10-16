@@ -14,7 +14,7 @@ export async function request<T>(path: string, data?: unknown): Promise<T> {
       ? { cache: "no-store", signal: AbortSignal.timeout(5000) }
       : {
           method: "POST",
-          signal: AbortSignal.timeout(15000),
+          signal: AbortSignal.timeout(path === "presets" ? 120000 : 15000),
           headers: { "content-type": "application/json" },
           body: JSON.stringify(data),
         },

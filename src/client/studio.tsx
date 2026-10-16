@@ -18,6 +18,7 @@ import {
 import { active, statusLabel, type Job, type Snapshot } from "../shared.js";
 import { request, imageURL, download, lastSnapshot, cache } from "./api.js";
 import { CreationPreview } from "./creation-preview.js";
+import { defaultDraft } from "./preset-bar.js";
 import { AdvancedSettings } from "./advanced-settings.js";
 import { ParameterHelp, STEPS_HELP, SEED_HELP } from "./parameter-help.js";
 import {
@@ -66,7 +67,9 @@ export function Studio() {
     [view, setViewState] = useState(
       () => localStorage.getItem("qwen-studio-view") || "create",
     );
-  const enabledLoraCount = draft.loras.filter((l) => l.enabled !== false).length;
+  const enabledLoraCount = draft.loras.filter(
+    (l) => l.enabled !== false,
+  ).length;
   const setView = (value: string) => {
     if (value === "gallery") {
       setFilter(defaultGallery(privacy));
@@ -180,10 +183,26 @@ export function Studio() {
   const closeRef = useRef<HTMLButtonElement>(null);
   const update = (patch: Partial<Draft>) =>
     setDraft((old) => {
-      const value = { ...old, ...patch };
+      const missingResources = { ...old.missingResources };
+      for (const key of ["sourceId", "controlId", "maskId", "maskSourceId"])
+        if (Object.prototype.hasOwnProperty.call(patch, key))
+          delete missingResources[key];
+      const value = { ...old, missingResources, ...patch };
       localStorage.setItem(DRAFT, JSON.stringify(value));
       return value;
     });
+  useEffect(() => {
+    if (localStorage.getItem(DRAFT)) return;
+    let alive = true;
+    void defaultDraft()
+      .then(({ prompt: _, ...values }) => {
+        if (alive && !localStorage.getItem(DRAFT)) update(values);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
   useEffect(() => {
     let alive = true,
       pending = false;
@@ -878,7 +897,7 @@ export function Studio() {
           draft={draft}
           update={update}
           remote={remote}
-          ready={(snapshot?.apiVersion ?? 0) >= 5}
+          ready={(snapshot?.apiVersion ?? 0) >= 6}
           close={closeAdvanced}
         />
       )}

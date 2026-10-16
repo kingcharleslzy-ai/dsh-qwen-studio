@@ -61,11 +61,11 @@ test("worker upgrade releases only a known idle worker and never interrupts busy
   expect(unloads).toBe(1);
   expect(
     await upgradeIdleWorker(
-      { status: "ok", version: 6, busy: true },
+      { status: "ok", version: 7, busy: true },
       unload,
       read,
       pause,
     ),
-  ).toMatchObject({ version: 6 });
+  ).toMatchObject({ version: 7 });
   expect(unloads).toBe(1);
 });

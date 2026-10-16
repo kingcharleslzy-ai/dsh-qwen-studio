@@ -1,7 +1,7 @@
 import type { Context } from "@deepseek-ai/cordis";
 import type {} from "@deepseek-ai/dsh-host-webserver";
 import type { IncomingMessage } from "node:http";
-import { readFile, realpath } from "node:fs/promises";
+import { readFile, realpath, access } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { Config } from "./config.js";
 import { invocationProgress } from "./invocations.js";
@@ -16,16 +16,24 @@ import {
 import { registerTools } from "./tools.js";
 import { API, active } from "./shared.js";
 import { receiveAsset } from "./assets.js";
+import { resolveConfig } from "./resolved-config.js";
+import { listResources } from "./resources.js";
+import {
+  readPresets,
+  mutatePresets,
+  loadPreset,
+  exportPresets,
+} from "./presets.js";
 import { bundledImageSkill } from "./skill.js";
 export { Config };
 export const name = "qwen-studio";
 export const inject = ["webServer", "tools", "attachments"];
-async function body(req: IncomingMessage) {
+async function body(req: IncomingMessage, limit = 65536) {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > 65536) throw Error("请求过大");
+    if (size > limit) throw Error("请求过大");
     chunks.push(Buffer.from(chunk));
   }
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
@@ -62,6 +70,9 @@ export function apply(ctx: Context, config: Config = {}) {
     "check",
     "attachment",
     "assets-upload",
+    "settings",
+    "resources",
+    "presets",
   ])
     ctx.effect(
       () =>
@@ -88,6 +99,36 @@ export function apply(ctx: Context, config: Config = {}) {
                 return;
               }
               const dir = worker.directory();
+              if (route === "settings") {
+                const data = req.method === "POST" ? await body(req) : {};
+                const effective = resolveConfig({
+                  ...current(),
+                  ...(data.config ?? {}),
+                });
+                return json(200, { effective, health: await worker.health() });
+              }
+              if (route === "resources" && req.method === "GET")
+                return json(200, await listResources(resolveConfig(current())));
+              if (route === "presets") {
+                const effective = resolveConfig(current());
+                if (req.method === "GET")
+                  return json(200, await readPresets(dir));
+                if (req.method === "POST") {
+                  const data = await body(req, 1024 * 1024);
+                  if (data.action === "load" || data.action === "export") {
+                    const store = await readPresets(dir),
+                      preset = store.items.find((p) => p.id === data.id);
+                    if (data.action === "export") {
+                      if(data.id&&!preset)throw Error('预设不存在');
+                      return json(200, exportPresets(store, data.id));
+                    }
+                    if (!preset) throw Error("预设不存在");
+                    return json(200, await loadPreset(effective, preset));
+                  }
+                  return json(200, await mutatePresets(effective, data));
+                }
+              }
+
               if (route === "assets-upload" && req.method === "POST") {
                 if (worker.mode() === "remote")
                   throw Error("本机文件高级创作仅支持本地模式");
@@ -96,7 +137,7 @@ export function apply(ctx: Context, config: Config = {}) {
                   await receiveAsset(
                     req,
                     dir,
-                    current().pythonPath || join(dir, "venv/bin/python"),
+                    resolveConfig(current()).pythonPath,
                   ),
                 );
               }
@@ -134,7 +175,7 @@ export function apply(ctx: Context, config: Config = {}) {
                     }
                   }
                 return json(200, {
-                  apiVersion: 5,
+                  apiVersion: 6,
                   jobs,
                   health:
                     worker.mode() === "remote"
@@ -146,7 +187,12 @@ export function apply(ctx: Context, config: Config = {}) {
                   configured:
                     worker.mode() === "remote"
                       ? Boolean(current().remoteBaseURL)
-                      : Boolean(current().pythonPath && current().modelPath),
+                      : await Promise.all([
+                          access(resolveConfig(current()).pythonPath),
+                          access(resolveConfig(current()).modelPath),
+                        ])
+                          .then(() => true)
+                          .catch(() => false),
                 });
               }
               if (route === "check" && req.method === "POST")

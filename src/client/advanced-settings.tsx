@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, RotateCcw, X } from "lucide-react";
 import { ParameterHelp, STEPS_HELP, SEED_HELP } from "./parameter-help.js";
 import { AssetUpload } from "./asset-upload.js";
+import { PresetBar, defaultDraft } from "./preset-bar.js";
+import { ResourcePicker } from "./resource-picker.js";
+import { request } from "./api.js";
+import type { ResourceCatalog } from "../resources.js";
 import { imageURL } from "./api.js";
 import { draftDefaults, type CreationDraft } from "./creation-draft.js";
 function SelectedImage({
@@ -41,6 +45,29 @@ export function AdvancedSettings({
   current.current = draft;
   const [error, setError] = useState("");
   const disabled = remote || !ready;
+  const [catalog, setCatalog] = useState<ResourceCatalog>({
+    items: [],
+    warnings: [],
+  });
+  const refreshResources = () =>
+    request<ResourceCatalog>("resources")
+      .then(setCatalog)
+      .catch((e) => setError(e.message));
+  useEffect(() => {
+    let alive = true;
+    if (ready)
+      request<ResourceCatalog>("resources")
+        .then((v) => {
+          if (alive) setCatalog(v);
+        })
+        .catch((e) => {
+          if (alive) setError(e.message);
+        });
+    return () => {
+      alive = false;
+    };
+  }, [ready]);
+
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     root.current?.querySelector<HTMLButtonElement>("button")?.focus();
@@ -52,7 +79,7 @@ export function AdvancedSettings({
       if (event.key === "Tab") {
         const nodes = [
           ...(root.current?.querySelectorAll<HTMLElement>(
-            "button:not(:disabled),input:not(:disabled):not([hidden]),select:not(:disabled),summary",
+            "button:not(:disabled),input:not(:disabled):not([hidden]),select:not(:disabled),textarea:not(:disabled),summary",
           ) ?? []),
         ].filter((n) => n.getClientRects().length);
         const first = nodes[0],
@@ -73,6 +100,10 @@ export function AdvancedSettings({
       previous?.focus();
     };
   }, [close]);
+  const importedImage = (values: Partial<CreationDraft>) => {
+    update(values);
+    void refreshResources();
+  };
   const sourceId = draft.maskSourceId || draft.sourceId;
   return (
     <div
@@ -91,6 +122,9 @@ export function AdvancedSettings({
         <span className="q2-muted">自动保存到草稿</span>
       </header>
       <div className="q2-advanced-page q2-effects-page">
+        {ready && (
+          <PresetBar draft={draft} update={update} onError={setError} />
+        )}
         {error && (
           <div className="q2-effect-error" role="alert">
             {error}
@@ -113,6 +147,19 @@ export function AdvancedSettings({
         <p className="q2-muted">
           选中文件会复制到本机资源库，原文件不变；关闭或移除只会改变当前草稿。
         </p>
+        <div className="q2-resource-toolbar">
+          <span className="q2-muted">
+            资源清单合并导入资源、默认文件夹和自定义目录
+          </span>
+          <button onClick={() => void refreshResources()} disabled={!ready}>
+            刷新资源清单
+          </button>
+        </div>
+        {catalog.warnings.length > 0 && (
+          <p role="status" className="q2-effect-note">
+            {catalog.warnings.join("；")}
+          </p>
+        )}
         <div className="q2-effects-grid">
           <section className="q2-effect-section">
             <div className="q2-effect-heading">
@@ -138,6 +185,34 @@ export function AdvancedSettings({
                       scale: 0.8,
                     });
                 update({ loras: items.slice(0, 8) });
+                void refreshResources();
+              }}
+            />
+            <ResourcePicker
+              resources={catalog.items}
+              kind="lora"
+              label="LoRA"
+              disabled={disabled}
+              selected={draft.loras.map((l) => l.path)}
+              onChoose={(r) => {
+                const exists = draft.loras.some((l) => l.path === r.path);
+                if (exists)
+                  update({
+                    loras: draft.loras.filter((l) => l.path !== r.path),
+                  });
+                else if (draft.loras.length >= 8) setError("最多8个 LoRA");
+                else
+                  update({
+                    loras: [
+                      ...draft.loras,
+                      {
+                        path: r.path!,
+                        name: r.name,
+                        scale: 0.8,
+                        enabled: true,
+                      },
+                    ],
+                  });
               }}
             />
             {!draft.loras.length && (
@@ -164,7 +239,10 @@ export function AdvancedSettings({
                         })
                       }
                     />
-                    <span title={lora.name}>{lora.name}</span>
+                    <span title={lora.name}>
+                      {lora.name}
+                      {lora.missing ? " · 资源失效" : ""}
+                    </span>
                   </label>
                   <label className="q2-lora-weight">
                     权重
@@ -227,9 +305,23 @@ export function AdvancedSettings({
               onError={setError}
               onAssets={([a]) =>
                 a &&
-                update({
+                importedImage({
                   controlId: a.id,
                   controlName: a.name,
+                  controlEnabled: true,
+                })
+              }
+            />
+            <ResourcePicker
+              resources={catalog.items}
+              kind="control"
+              label="控制图"
+              disabled={disabled}
+              selected={[draft.controlId]}
+              onChoose={(r) =>
+                update({
+                  controlId: r.id,
+                  controlName: r.name,
                   controlEnabled: true,
                 })
               }
@@ -294,7 +386,17 @@ export function AdvancedSettings({
                   disabled={disabled}
                   onError={setError}
                   onAssets={([a]) =>
-                    a && update({ maskSourceId: a.id, maskSourceName: a.name })
+                    a && importedImage({ maskSourceId: a.id, maskSourceName: a.name })
+                  }
+                />
+                <ResourcePicker
+                  resources={catalog.items}
+                  kind="source"
+                  label="重绘原图"
+                  disabled={disabled}
+                  selected={[sourceId]}
+                  onChoose={(r) =>
+                    update({ maskSourceId: r.id, maskSourceName: r.name })
                   }
                 />
                 {sourceId && (
@@ -323,9 +425,23 @@ export function AdvancedSettings({
                   onError={setError}
                   onAssets={([a]) =>
                     a &&
-                    update({
+                    importedImage({
                       maskId: a.id,
                       maskName: a.name,
+                      maskEnabled: true,
+                    })
+                  }
+                />
+                <ResourcePicker
+                  resources={catalog.items}
+                  kind="mask"
+                  label="蒙版"
+                  disabled={disabled}
+                  selected={[draft.maskId]}
+                  onChoose={(r) =>
+                    update({
+                      maskId: r.id,
+                      maskName: r.name,
                       maskEnabled: true,
                     })
                   }
@@ -364,6 +480,81 @@ export function AdvancedSettings({
             )}
           </section>
         </div>
+        <section
+          className="q2-effect-section q2-text-controls"
+          aria-label="文本控制与采样"
+        >
+          <h3>文本控制与采样</h3>
+          <label>
+            负向提示词
+            <textarea
+              aria-label="负向提示词"
+              rows={3}
+              maxLength={8000}
+              disabled={remote}
+              placeholder="描述希望避免的内容，留空时不启用负向词"
+              value={draft.negativePrompt}
+              onChange={(e) => update({ negativePrompt: e.target.value })}
+            />
+          </label>
+          <div className="q2-advanced-fields">
+            <label>
+              CFG 引导强度 ·{" "}
+              {draft.negativePrompt.trim() && draft.guidance <= 1
+                ? "实际 2.5（自动）"
+                : draft.guidance}
+              <input
+                aria-label="CFG 引导强度"
+                type="number"
+                min="1"
+                max="10"
+                step=".1"
+                disabled={remote}
+                value={draft.guidance}
+                onChange={(e) => update({ guidance: Number(e.target.value) })}
+              />
+            </label>
+            <label>
+              调度器
+              <select
+                aria-label="调度器"
+                disabled={remote}
+                value={draft.scheduler}
+                onChange={(e) =>
+                  update({
+                    scheduler: e.target.value as CreationDraft["scheduler"],
+                  })
+                }
+              >
+                <option value="linear">linear · 默认</option>
+                <option
+                  value="flow_match_euler_discrete"
+                  disabled={draft.controlEnabled || draft.maskEnabled}
+                >
+                  flow_match_euler_discrete
+                </option>
+                <option
+                  value="seedvr2_euler"
+                  disabled={draft.controlEnabled || draft.maskEnabled}
+                >
+                  seedvr2_euler
+                </option>
+              </select>
+            </label>
+          </div>
+          <p className="q2-muted">
+            {draft.controlEnabled || draft.maskEnabled
+              ? "结构控制与蒙版仅支持 linear；CFG 大于 1 时，负向词即使为空也参与无条件分支。"
+              : "普通文生图中，CFG 仅在负向词非空且强度大于 1 时生效；它不是通用画质旋钮。"}
+            {draft.negativePrompt.trim() && draft.guidance <= 1
+              ? " 已填写负向词，提交时会将 CFG 从 1 自动提升到 2.5。"
+              : ""}
+          </p>
+          {(draft.controlEnabled || draft.maskEnabled) &&
+            draft.scheduler !== "linear" && (
+              <p role="alert">当前调度器不兼容，请手动切回 linear 再生成。</p>
+            )}
+        </section>
         <details className="q2-base-settings">
           <summary>采样、尺寸与参考变体</summary>
           <div className="q2-advanced-fields">
@@ -422,8 +613,16 @@ export function AdvancedSettings({
                 disabled={disabled}
                 onError={setError}
                 onAssets={([a]) =>
-                  a && update({ sourceId: a.id, sourceName: a.name })
+                  a && importedImage({ sourceId: a.id, sourceName: a.name })
                 }
+              />
+              <ResourcePicker
+                resources={catalog.items}
+                kind="source"
+                label="参考图"
+                disabled={disabled}
+                selected={[draft.sourceId]}
+                onChoose={(r) => update({ sourceId: r.id, sourceName: r.name })}
               />
               {draft.sourceId && (
                 <SelectedImage
@@ -454,18 +653,15 @@ export function AdvancedSettings({
         <footer>
           <button
             onClick={() =>
-              update({
-                ...draftDefaults,
-                prompt: draft.prompt,
-                sourceId: draft.sourceId,
-                sourceName: draft.sourceName,
-              })
+              void defaultDraft()
+                .then(({ prompt: _, ...values }) => update(values))
+                .catch((e) => setError(e.message))
             }
           >
             <RotateCcw />
             恢复默认参数
           </button>
-          <small>清除高级效果，保留画面描述和参考图。文件原件不变。</small>
+          <small>加载默认预设或内置参数，保留画面描述。文件原件不变。</small>
           <button className="q2-primary" onClick={close}>
             完成设置
           </button>

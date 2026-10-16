@@ -1,6 +1,6 @@
 {
   "name": "dsh-qwen-studio",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Qwen Image workspace for DSH：本机文件、LoRA、ControlNet、蒙版重绘、会话进度与隐私图库",
   "type": "module",
   "author": "kingcharleslzy-ai",
@@ -90,9 +90,9 @@
   ],
   "peerDependencies": {
     "@deepseek-ai/cordis": ">=4.0.0 <5",
+    "@deepseek-ai/dsh-tools": ">=0.1.7-rc.2",
     "@deepseek-ai/schemastery": ">=3.18.4 <4",
     "react": ">=18.2.0 <19",
-    "@deepseek-ai/dsh-tools": ">=0.1.7-rc.2",
     "react-dom": ">=18.2.0 <19"
   },
   "peerDependenciesMeta": {
@@ -115,24 +115,25 @@
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.4",
     "@deepseek-ai/dsh-api-remotes": "0.1.7-rc.2",
+    "@deepseek-ai/dsh-attachment": "0.1.7-rc.2",
     "@deepseek-ai/dsh-client-connection": "0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-conversation": "0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-settings": "0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-settings-plugins": "0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-slots": "0.1.7-rc.2",
     "@deepseek-ai/dsh-host-webserver": "0.1.7-rc.2",
+    "@deepseek-ai/dsh-tools": "0.1.7-rc.2",
     "@deepseek-ai/schemastery": "3.18.4",
     "@types/node": "^22.20.0",
     "@types/react": "~18.3.1",
+    "@types/react-dom": "~18.3.7",
     "lucide-react": "^1.38.0",
     "react": "^18.2.0",
     "react-dom": "18.3.1",
+    "react-test-renderer": "^18.3.1",
     "tsdown": "^0.22.2",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.8",
-    "@deepseek-ai/dsh-tools": "0.1.7-rc.2",
-    "@deepseek-ai/dsh-attachment": "0.1.7-rc.2",
-    "@types/react-dom": "~18.3.7"
+    "vitest": "^4.1.8"
   },
   "packageManager": "npm@10.9.8",
   "contributors": [

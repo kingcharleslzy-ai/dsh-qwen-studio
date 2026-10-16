@@ -26,7 +26,7 @@ A local Qwen Image workspace for **DeepSeek Harness** — powered by **MLX / MFL
 - **直接创作**：打开左侧「图像」，输入描述即可生成。LoRA、控制图和蒙版都能在高级设置里直接选择本机文件。
 - **会话创作**：对模型说「帮我画一张」。插件提供技能和工具，会话发起的任务在对话与创作页同步显示阶段、步数和完成图片。
 
-应用里叫 **图像**，安装包叫 `dsh-qwen-studio`。项目独立维护、独立发版，**无需安装旧 `dsh-image-gen` 插件**。当前版本：**2.5.0**。
+应用里叫 **图像**，安装包叫 `dsh-qwen-studio`。项目独立维护、独立发版，**无需安装旧 `dsh-image-gen` 插件**。当前版本：**2.6.0**。
 
 ![在 DSH 创作页完成局部重绘并查看原位结果](docs/media/creation.png)
 
@@ -66,6 +66,20 @@ A local Qwen Image workspace for **DeepSeek Harness** — powered by **MLX / MFL
 
 > 本机选中的文件仅复制到本机资源库，原文件不变。PNG / JPEG / WebP 单张不超过 64MB，最长边 8192 像素且不超过 3200 万像素；LoRA 单文件不超过 2GB。灰色蒙版按亮度中点划分黑白，透明区域按保留区处理。移除草稿关联不会删除文件原件。
 
+## 从调好的一次，到随时复用的一套
+
+**整套预设**保存 LoRA 的选择、顺序、开关和权重，以及控制图、蒙版、原图、采样尺寸、步数、随机/固定种子、负向词、CFG 和调度器。支持保存、另存、切换、重命名、删除与立即撤销、设为默认和 JSON 导入/导出。画面描述始终由当前创作保留，预设不会覆盖已经提交的任务。
+
+高级设置顶部可选择预设；修改参数后会显示「已修改」。默认预设只用于首次空白草稿和主动「恢复默认参数」，不会在每次进页面时覆盖现有草稿。预设与运行配置分开保存在图库的 `state/` 下。
+
+**资源库选择**合并托管 LoRA、图库下 `loras/` 和自定义 LoRA 目录；已导入图片与图库作品可作为图像输入再次选择，无需重复上传。刷新清单不启动推理。
+
+**配置值可见**：连接设置显示解析后的实际路径与「默认／已设置／环境变量」来源，支持恢复继承；只原子保存实际修改的字段，不会把未改动的默认路径写死。运行中 worker 的 Python、模型和缓存路径单独展示，避免把下次启动配置误当成当前值。API Key 只显示配置状态，不回显完整密钥。
+
+导出的 JSON 不携带权重、图像文件、设备绝对路径或连接密钥。导入后按资源内容哈希重新匹配，缺失或已变化的资源会明确提示，须重新选择、移除或停用后才能生成。它是参数分享格式，不是完整模型或图库备份。
+
+普通文生图中，CFG 需配合非空负向词使用；填写负向词且 CFG 为 1 时，界面会注明实际自动提升到 2.5。ControlNet/蒙版分支允许空负向词配合 CFG 大于 1，但仅支持 `linear` 调度器。远程模式不发送这些本地高级参数。
+
 ## 为 DSH 的使用方式设计
 
 - **跟随宿主外观**：字体、字号、主题色和基础控件沿用 DSH，参数区可滚动，生成按钮保持可用。
@@ -88,14 +102,14 @@ A local Qwen Image workspace for **DeepSeek Harness** — powered by **MLX / MFL
 从 [Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载编译好的安装包，再运行：
 
 ```sh
-dsh plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.5.0.tgz
+dsh plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.6.0.tgz
 ```
 
 macOS 没有全局 `dsh` 命令时，可使用桌面版内置 CLI：
 
 ```sh
 sh "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" \
-  plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.5.0.tgz
+  plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.6.0.tgz
 ```
 
 正常退出并重新打开 DSH，进入插件设置配置「图像」。发布包已包含编译好的前后端、技能、worker 与环境安装脚本；**模型权重需要自行准备**。

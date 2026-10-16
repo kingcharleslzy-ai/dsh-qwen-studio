@@ -1,5 +1,9 @@
 export const API = "/api/qwen-studio";
 export interface Job {
+  negative_prompt?: string;
+  guidance?: number;
+  guidance_auto_raised?: boolean;
+  scheduler?: "linear" | "flow_match_euler_discrete" | "seedvr2_euler";
   source_image_id?: string;
   controlnet_image_id?: string;
   controlnet_strength?: number;
@@ -27,6 +31,7 @@ export interface Job {
   archived?: boolean;
 }
 export interface Health {
+  runtime?: { pythonPath: string; modelPath: string; hfHome: string };
   status: string;
   version?: number;
   busy?: boolean;

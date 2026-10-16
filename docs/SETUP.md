@@ -4,7 +4,7 @@
 
 ## 安装插件
 
-从 [本项目 Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载安装包，运行 `dsh plugin --profile desktop add /绝对路径/dsh-qwen-studio-2.5.0.tgz`。若没有全局 dsh 命令，使用 README 中的桌面版内置 CLI。然后手动退出并重新打开 DSH，在插件设置中启用并配置「图像」。
+从 [本项目 Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载安装包，运行 `dsh plugin --profile desktop add /绝对路径/dsh-qwen-studio-2.6.0.tgz`。若没有全局 dsh 命令，使用 README 中的桌面版内置 CLI。然后手动退出并重新打开 DSH，在插件设置中启用并配置「图像」。
 
 包内的脚本和说明位于安装后 dsh-qwen-studio 包目录；也可从源代码包解压使用。
 
@@ -75,7 +75,7 @@ vLLM-Omni协议参考：https://docs.vllm.ai/projects/vllm-omni/en/latest/user_g
 - 蒙版：已有源图和蒙版的图库 ID 配对使用，白色重绘、黑色从原图复制。保持源图尺寸可保留黑区原像素；变化幅度不适用于蒙版。可从创作页高级设置选择本机 PNG/JPEG/WebP；输入图保存在独立资源目录，不混入作品图库。
 - ControlNet/蒙版只用默认调度器；远程高级参数明确报错。高级权重不自动下载，缺失和不兼容会显示实际错误。
 - `qwen_image_status` 用返回的完整任务 ID 查询或恢复图片，只读、不重新提交、不启动模型。运行中的任务继续在原会话卡片和创作页显示进度。
-- 发布包更新后手动重开 DSH；已有旧 worker 需先空闲退出或在插件中释放模型，再由下一次调用启动 v6。已知的空闲旧 worker 会由插件正常释放后替换；正在生成时不会被中断。新宿主不会向旧 worker 静默发送高级参数。
+- 发布包更新后手动重开 DSH；已有旧 worker 需先空闲退出或在插件中释放模型，再由下一次调用启动 v7。已知的空闲旧 worker 会由插件正常释放后替换；正在生成时不会被中断。新宿主不会向旧 worker 静默发送高级参数。
 
 ## 创作页的高级设置
 
@@ -88,3 +88,11 @@ vLLM-Omni协议参考：https://docs.vllm.ai/projects/vllm-omni/en/latest/user_g
 - 返回创作后直接点生成。效果参数与已选文件关联随草稿保留；任务接收前会复制输入图片，移动原文件或切页不影响已接收任务。
 - PNG/JPEG/WebP 输入图最大64MB、最长边8192像素且不超过3200万像素；不接受动画。LoRA 不会传到远程服务器，本机高级创作在远程模式下禁用。
 - 移除关联不删除原文件或已导入资源。输入资源按设计保留以支持历史参数复用；导入失败和取消时仅清理该次临时文件。
+
+## 配置值、资源库和预设
+
+设置页显示实际解析的路径，并根据 DSH 原始用户配置标明来源。恢复默认清除用户覆盖；保存只提交编辑过的字段。修改 Python/模型/缓存路径不会中断运行任务，当前 worker 路径与下次启动配置分别展示。
+
+资源库合并 `assets/loras/`、图库的 `loras/` 和设置中的 LoRA 目录；手放文件保留原名，不强制搬移。控制图、蒙版和原图可以从已导入图片和现有作品再次选择。
+
+高级设置顶部保存整套预设；`state/presets.json` 带格式版本与修订号，`presets.backup.json` 用于立即撤销。不要编辑 `runtime-config.json` 保存预设。JSON 导入不会改动连接配置或自动替换当前默认预设，也不包含模型与参考图片；资源需已在本机目录或图库中。

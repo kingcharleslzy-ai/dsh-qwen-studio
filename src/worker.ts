@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { openSync, closeSync } from "node:fs";
 import { access, readFile, mkdir } from "node:fs/promises";
 import { resolve, join, dirname } from "node:path";
-import { homedir } from "node:os";
+import { resolveConfig } from "./resolved-config.js";
 import { fileURLToPath } from "node:url";
 import { copyFile } from "node:fs/promises";
 import { RemoteQueue, remoteURL, headers } from "./remote.js";
@@ -14,26 +14,24 @@ import type { Health } from "./shared.js";
 const BASE = "http://127.0.0.1:19388";
 export class Worker {
   readonly remote = new RemoteQueue();
+  transportConfig(): Config {
+    return { ...this.config(), ...resolveConfig(this.config()) };
+  }
   mode() {
-    return this.config().connectionMode ?? "local";
+    return resolveConfig(this.config()).connectionMode;
   }
   private starting: Promise<void> | undefined;
   private settingsKey = "";
   constructor(private config: () => Config) {}
   directory() {
-    const dir =
-      this.config().localMfluxDirectory ||
-      join(homedir(), ".dsh", "qwen-studio");
-    if (!dir.startsWith("/")) throw Error("数据目录需为绝对路径");
-    return resolve(dir);
+    return resolveConfig(this.config()).localMfluxDirectory;
   }
+
   async sync() {
-    const dir = this.directory(),
-      minutes = Number(this.config().localMfluxIdleMinutes ?? 10);
-    if (!Number.isFinite(minutes) || minutes < 0.1 || minutes > 1440)
-      throw Error("空闲时间应为0.1–1440分钟");
-    const loraDirectory = this.config().loraDirectory || join(dir, "loras");
-    if (!loraDirectory.startsWith("/")) throw Error("LoRA 文件夹需为绝对路径");
+    const effective = resolveConfig(this.config()),
+      dir = effective.localMfluxDirectory,
+      minutes = effective.localMfluxIdleMinutes,
+      loraDirectory = effective.loraDirectory;
     const key = JSON.stringify([dir, minutes, loraDirectory]);
     if (key === this.settingsKey) return;
     await mkdir(join(dir, "state"), { recursive: true });
@@ -69,7 +67,7 @@ export class Worker {
       () => this.health(),
     );
     if (h.status === "ok" && !h.closing) {
-      if (h.version !== 6)
+      if (h.version !== 7)
         throw Error("旧版生图服务尚未退出，请等待空闲卸载后重试");
       return;
     }
@@ -79,9 +77,8 @@ export class Worker {
       h = await this.health();
     }
     const dir = this.directory(),
-      python = this.config().pythonPath || resolve(dir, "venv/bin/python");
-    const model =
-      this.config().modelPath || resolve(dir, "models/qwen-image-2.1");
+      python = resolveConfig(this.config()).pythonPath;
+    const model = resolveConfig(this.config()).modelPath;
     await access(model);
     const bundled = resolve(
       dirname(fileURLToPath(import.meta.url)),
@@ -98,7 +95,7 @@ export class Worker {
         HF_HUB_OFFLINE: "1",
         QWEN_DATA_DIR: dir,
         QWEN_MODEL_PATH: model,
-        ...(this.config().hfHome ? { HF_HOME: this.config().hfHome } : {}),
+        HF_HOME: resolveConfig(this.config()).hfHome,
       },
     });
     closeSync(fd);
@@ -112,7 +109,7 @@ export class Worker {
       if (child.exitCode !== null)
         throw Error("本地服务启动失败，请查看service.log");
       h = await this.health();
-      if (h.status === "ok" && h.version === 6 && !h.closing) return;
+      if (h.status === "ok" && h.version === 7 && !h.closing) return;
       await new Promise((r) => setTimeout(r, 150));
     }
     throw Error("本地服务启动超时");
@@ -120,11 +117,14 @@ export class Worker {
 
   async check() {
     if (this.mode() === "remote") {
-      const response = await fetch(remoteURL(this.config()) + "/models", {
-        headers: headers(this.config()),
-        signal: AbortSignal.timeout(8000),
-        redirect: "error",
-      });
+      const response = await fetch(
+        remoteURL(this.transportConfig()) + "/models",
+        {
+          headers: headers(this.transportConfig()),
+          signal: AbortSignal.timeout(8000),
+          redirect: "error",
+        },
+      );
       if (!response.ok) throw Error(`远程连接失败：HTTP ${response.status}`);
       const data = (await response.json()) as { data?: { id: string }[] };
       return {
@@ -134,8 +134,8 @@ export class Worker {
       };
     }
     const dir = this.directory(),
-      python = this.config().pythonPath || resolve(dir, "venv/bin/python"),
-      model = this.config().modelPath || resolve(dir, "models/qwen-image-2.1");
+      python = resolveConfig(this.config()).pythonPath,
+      model = resolveConfig(this.config()).modelPath;
     await access(python);
     try {
       await Promise.any(
@@ -159,7 +159,7 @@ export class Worker {
     if (start && this.mode() === "remote")
       return this.remote.submit(
         this.directory(),
-        this.config(),
+        this.transportConfig(),
         data as Record<string, unknown>,
       );
     if (path === "/v1/cancel") {

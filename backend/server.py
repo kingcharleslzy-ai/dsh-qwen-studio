@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Qwen Image worker v6. Durable generation and reference-image variations."""
+"""Qwen Image worker v7. Durable generation and reference-image variations."""
 import base64
 import concurrent.futures
 import json
 import math
 import gc
 import os
+import sys
 from pathlib import Path
 import re
 import secrets
@@ -148,7 +149,7 @@ class JobQueue:
             if params.get('lora_paths'):
                 try: setting = json.loads((self.root/'state/runtime-config.json').read_text())
                 except (OSError, ValueError): setting = {}
-                lora_roots = [Path(setting.get('lora_directory') or self.root/'loras').resolve(), (self.root/'assets/loras').resolve()]
+                lora_roots = [Path(setting.get('lora_directory') or self.root/'loras').resolve(), (self.root/'loras').resolve(), (self.root/'assets/loras').resolve()]
                 for filename in params['lora_paths']:
                     path = Path(filename).resolve()
                     if not any(path.is_relative_to(root) for root in lora_roots) or not path.is_file(): raise ValueError('请选择插件管理的 LoRA 或设置文件夹内的权重')
@@ -244,7 +245,7 @@ class JobQueue:
     def health(self):
         with self.lock:
             current = self.jobs.get(self.current, {})
-            return dict(status='ok', version=6, pid=os.getpid(), loaded=self.loaded, busy=self.pending > 0,
+            return dict(status='ok', version=7, runtime=dict(pythonPath=sys.executable, modelPath=os.environ.get('QWEN_MODEL_PATH', str(self.root/'models/qwen-image-2.1')), hfHome=os.environ.get('HF_HOME', '')),  pid=os.getpid(), loaded=self.loaded, busy=self.pending > 0,
                 pending=self.pending, closing=self.closing, current_id=self.current, phase=current.get('phase','idle'),
                 step=current.get('step',0), steps=current.get('steps',40), idle_seconds=self.idle_seconds(),
                 idle_remaining_seconds=None if self.pending else max(0, round(self.idle_seconds()-(time.monotonic()-self.last_finished))))
@@ -381,7 +382,7 @@ def main():
                     print('Idle timeout: unloading model and stopping backend',flush=True)
                     threading.Thread(target=server.shutdown,daemon=True).start()
     threading.Thread(target=watch,daemon=True).start()
-    print('Qwen worker v6 listening on 127.0.0.1:19388',flush=True)
+    print('Qwen worker v7 listening on 127.0.0.1:19388',flush=True)
     try: server.serve_forever()
     finally: server.server_close(); QUEUE.pool.shutdown(wait=True)
 

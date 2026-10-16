@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.6.0 — 2026-10-16
+
+- Show resolved connection values and their inheritance source; save edited settings atomically without pinning defaults. Keep secrets masked and report running worker paths separately.
+- Add a reusable resource catalog covering imported inputs, default/custom LoRA folders and gallery images, without starting inference.
+- Add full creation presets with rename, default, delete/undo and portable JSON import/export. Match references by streamed SHA-256; report missing resources instead of silently dropping effects.
+- Add negative prompt, CFG and scheduler controls with backend-specific capability validation and full parameter reuse.
+- Use worker v7 for aligned LoRA roots and runtime configuration reporting. Preserve existing settings, image files and job records.
+
 ## 2.5.0 — 2026-10-16
 
 - Bring LoRA, ControlNet and masked inpainting into the creation page advanced settings, with native file pickers, previews, per-LoRA toggles and weights, and persistent draft selections.
