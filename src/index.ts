@@ -15,6 +15,7 @@ import {
 } from "./storage.js";
 import { registerTools } from "./tools.js";
 import { API, active } from "./shared.js";
+import { receiveAsset } from "./assets.js";
 import { bundledImageSkill } from "./skill.js";
 export { Config };
 export const name = "qwen-studio";
@@ -50,11 +51,7 @@ export function apply(ctx: Context, config: Config = {}) {
     const skills = owner.get("skills") as {
       register(skill: object): () => void;
     };
-    owner.effect(
-      () =>
-        skills.register(bundledImageSkill()),
-      "图像 skill",
-    );
+    owner.effect(() => skills.register(bundledImageSkill()), "图像 skill");
   });
   for (const route of [
     "state",
@@ -64,6 +61,7 @@ export function apply(ctx: Context, config: Config = {}) {
     "action",
     "check",
     "attachment",
+    "assets-upload",
   ])
     ctx.effect(
       () =>
@@ -90,6 +88,18 @@ export function apply(ctx: Context, config: Config = {}) {
                 return;
               }
               const dir = worker.directory();
+              if (route === "assets-upload" && req.method === "POST") {
+                if (worker.mode() === "remote")
+                  throw Error("本机文件高级创作仅支持本地模式");
+                return json(
+                  201,
+                  await receiveAsset(
+                    req,
+                    dir,
+                    current().pythonPath || join(dir, "venv/bin/python"),
+                  ),
+                );
+              }
               if (route === "progress" && req.method === "POST") {
                 const data = await body(req);
                 return json(
@@ -124,7 +134,7 @@ export function apply(ctx: Context, config: Config = {}) {
                     }
                   }
                 return json(200, {
-                  apiVersion: 4,
+                  apiVersion: 5,
                   jobs,
                   health:
                     worker.mode() === "remote"

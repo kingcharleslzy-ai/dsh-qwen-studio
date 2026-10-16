@@ -9,6 +9,7 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import { inputImagePath } from "./assets.js";
 import { active, type Job } from "./shared.js";
 export const validId = (id: string) => /^[a-f0-9]{32}$/.test(id);
 export async function atomicJSON(path: string, value: unknown) {
@@ -24,44 +25,81 @@ async function flags(dir: string): Promise<Flags> {
     return {};
   }
 }
-function jobRecord(raw: Record<string, any>, id: string, marks: Flags, folder: string): Job {
+function jobRecord(
+  raw: Record<string, any>,
+  id: string,
+  marks: Flags,
+  folder: string,
+): Job {
   return {
-    id, worker_pid: raw.worker_pid, prompt: raw.prompt, status: raw.status,
-    width: raw.width, height: raw.height, steps: raw.steps,
-    sampling_steps: raw.sampling_steps, source_image_id: raw.source_image_id,
-    change_strength: raw.change_strength, seed: raw.seed, started_at: raw.started_at,
-    step: raw.step, elapsed_seconds: raw.elapsed_seconds, error: raw.error,
-    source: raw.source ?? "local", ...marks[id], deleted: folder === "trash",
+    id,
+    worker_pid: raw.worker_pid,
+    prompt: raw.prompt,
+    status: raw.status,
+    width: raw.width,
+    height: raw.height,
+    steps: raw.steps,
+    sampling_steps: raw.sampling_steps,
+    source_image_id: raw.source_image_id,
+    controlnet_image_id: raw.controlnet_image_id,
+    controlnet_strength: raw.controlnet_strength,
+    mask_image_id: raw.mask_image_id,
+    lora_paths: raw.lora_paths,
+    lora_scales: raw.lora_scales,
+    lora_names: raw.lora_names,
+    change_strength: raw.change_strength,
+    seed: raw.seed,
+    started_at: raw.started_at,
+    step: raw.step,
+    elapsed_seconds: raw.elapsed_seconds,
+    error: raw.error,
+    source: raw.source ?? "local",
+    ...marks[id],
+    deleted: folder === "trash",
   };
 }
 async function recordAt(dir: string, folder: string, id: string, marks: Flags) {
   const path = join(dir, folder, id, "job.json");
   try {
-    if (await realpath(path) !== path) throw Error("任务路径无效");
-    return jobRecord(JSON.parse(await readFile(path, "utf8")), id, marks, folder);
+    if ((await realpath(path)) !== path) throw Error("任务路径无效");
+    return jobRecord(
+      JSON.parse(await readFile(path, "utf8")),
+      id,
+      marks,
+      folder,
+    );
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw error;
   }
 }
 /** Read only the accepted task; unrelated gallery records cannot delay or break progress. */
-export async function readJob(dir: string, id: string): Promise<Job | undefined> {
+export async function readJob(
+  dir: string,
+  id: string,
+): Promise<Job | undefined> {
   if (!validId(id)) throw Error("图片ID无效");
-  try { dir = await realpath(dir); }
-  catch (error) {
+  try {
+    dir = await realpath(dir);
+  } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw error;
   }
   const marks = await flags(dir);
-  return await recordAt(dir, "images", id, marks) ?? await recordAt(dir, "trash", id, marks);
+  return (
+    (await recordAt(dir, "images", id, marks)) ??
+    (await recordAt(dir, "trash", id, marks))
+  );
 }
 export async function readJobs(dir: string): Promise<Job[]> {
-  try { dir = await realpath(dir); }
-  catch (error) {
+  try {
+    dir = await realpath(dir);
+  } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw error;
   }
-  const marks = await flags(dir), jobs: Job[] = [];
+  const marks = await flags(dir),
+    jobs: Job[] = [];
   for (const folder of ["images", "trash"]) {
     const entries = await readdir(join(dir, folder)).catch(() => []);
     for (const id of entries.filter(validId)) {
@@ -151,7 +189,11 @@ export function setFlag(
 export async function imagePath(dir: string, id: string) {
   if (!validId(id)) throw Error("图片ID无效");
   const job = await readJob(dir, id);
-  if (!job) throw Error("图片不存在");
+  if (!job) {
+    const input = await inputImagePath(dir, id);
+    if (input) return input;
+    throw Error("图片不存在");
+  }
   const parent = await realpath(join(dir, job.deleted ? "trash" : "images"));
   const path = await realpath(join(parent, id, "image.png"));
   if (path !== join(parent, id, "image.png")) throw Error("图片路径无效");

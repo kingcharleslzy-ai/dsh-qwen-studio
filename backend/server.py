@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Qwen Image worker v4. Durable generation and reference-image variations."""
+"""Qwen Image worker v6. Durable generation and reference-image variations."""
 import base64
 import concurrent.futures
 import json
@@ -83,6 +83,10 @@ def validate(data):
             raise ValueError('LoRA 权重需与文件数量一致，范围0–2')
         params.update(lora_paths=paths, lora_scales=[float(v) for v in scales])
     elif scales is not None: raise ValueError('LoRA 权重需要配合 LoRA 文件')
+    if 'lora_names' in data:
+        names = data['lora_names']
+        if not paths or not isinstance(names, list) or len(names) != len(paths) or any(not isinstance(n, str) or len(n) > 180 for n in names): raise ValueError('LoRA 文件名记录无效')
+        params['lora_names'] = names
     for key in ('controlnet_image_id', 'mask_image_id'):
         if key in data:
             if not isinstance(data[key], str) or not re.fullmatch('[a-f0-9]{32}', data[key]): raise ValueError('控制图或蒙版ID无效')
@@ -144,18 +148,25 @@ class JobQueue:
             if params.get('lora_paths'):
                 try: setting = json.loads((self.root/'state/runtime-config.json').read_text())
                 except (OSError, ValueError): setting = {}
-                lora_root = Path(setting.get('lora_directory') or self.root/'loras').resolve()
+                lora_roots = [Path(setting.get('lora_directory') or self.root/'loras').resolve(), (self.root/'assets/loras').resolve()]
                 for filename in params['lora_paths']:
                     path = Path(filename).resolve()
-                    if not path.is_relative_to(lora_root) or not path.is_file(): raise ValueError('LoRA 文件需位于插件设置的 LoRA 文件夹内')
+                    if not any(path.is_relative_to(root) for root in lora_roots) or not path.is_file(): raise ValueError('请选择插件管理的 LoRA 或设置文件夹内的权重')
             inputs = {}
             for key, name in (('source_image_id', 'reference'), ('controlnet_image_id', 'control'), ('mask_image_id', 'mask')):
                 if not params.get(key): continue
                 source_folder = self.root/'images'/params[key]
                 source_path = source_folder/'image.png'
                 if source_path.resolve() != source_path: raise ValueError('参考图片路径无效')
-                source_job = json.loads((source_folder/'job.json').read_text())
-                if source_job.get('status') != 'complete': raise ValueError('参考图片尚未生成完成')
+                if not source_path.is_file():
+                    source_folder = self.root/'assets/images'/params[key]
+                    source_path = source_folder/'image.png'
+                    if source_path.resolve() != source_path: raise ValueError('参考图片路径无效')
+                    asset = json.loads((source_folder/'asset.json').read_text())
+                    if asset.get('id') != params[key] or asset.get('kind') not in ('source','control','mask'): raise ValueError('输入图片记录无效')
+                else:
+                    source_job = json.loads((source_folder/'job.json').read_text())
+                    if source_job.get('status') != 'complete': raise ValueError('参考图片尚未生成完成')
                 if source_path.stat().st_size > 64*1024*1024: raise ValueError('参考图片过大')
                 pixels = source_path.read_bytes()
                 if not pixels.startswith(b'\x89PNG\r\n\x1a\n'): raise ValueError('参考图片不是PNG')
@@ -233,7 +244,7 @@ class JobQueue:
     def health(self):
         with self.lock:
             current = self.jobs.get(self.current, {})
-            return dict(status='ok', version=5, pid=os.getpid(), loaded=self.loaded, busy=self.pending > 0,
+            return dict(status='ok', version=6, pid=os.getpid(), loaded=self.loaded, busy=self.pending > 0,
                 pending=self.pending, closing=self.closing, current_id=self.current, phase=current.get('phase','idle'),
                 step=current.get('step',0), steps=current.get('steps',40), idle_seconds=self.idle_seconds(),
                 idle_remaining_seconds=None if self.pending else max(0, round(self.idle_seconds()-(time.monotonic()-self.last_finished))))
@@ -370,7 +381,7 @@ def main():
                     print('Idle timeout: unloading model and stopping backend',flush=True)
                     threading.Thread(target=server.shutdown,daemon=True).start()
     threading.Thread(target=watch,daemon=True).start()
-    print('Qwen worker v5 listening on 127.0.0.1:19388',flush=True)
+    print('Qwen worker v6 listening on 127.0.0.1:19388',flush=True)
     try: server.serve_forever()
     finally: server.server_close(); QUEUE.pool.shutdown(wait=True)
 

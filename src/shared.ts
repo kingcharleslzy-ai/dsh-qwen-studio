@@ -1,6 +1,12 @@
 export const API = "/api/qwen-studio";
 export interface Job {
   source_image_id?: string;
+  controlnet_image_id?: string;
+  controlnet_strength?: number;
+  mask_image_id?: string;
+  lora_paths?: string[];
+  lora_scales?: number[];
+  lora_names?: string[];
   change_strength?: number;
   sampling_steps?: number;
   source?: "local" | "remote";

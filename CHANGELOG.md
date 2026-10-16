@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.5.0 — 2026-10-16
+
+- Bring LoRA, ControlNet and masked inpainting into the creation page advanced settings, with native file pickers, previews, per-LoRA toggles and weights, and persistent draft selections.
+- Import selected bytes into private local assets: normalize PNG/JPEG/WebP without loading MLX, stream LoRA uploads with content deduplication, and keep inputs out of the artwork gallery. No arbitrary local-path reading endpoint.
+- Snapshot imported image inputs before task admission; preserve advanced parameters when reusing results. Validate incomplete combinations and remote-mode limits before submission.
+- Use worker protocol v6 for imported inputs; gracefully replace known idle older workers without interrupting another session’s active generation.
+
 ## 2.4.0 — 2026-10-16
 
 - Unify the DSH skill catalog and instructions from one bundled source. Image requests use the plugin queue; prompt-only requests do not submit jobs, and failures do not silently fall back to independent scripts.

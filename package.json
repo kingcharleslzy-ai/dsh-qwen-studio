@@ -1,7 +1,7 @@
 {
   "name": "dsh-qwen-studio",
-  "version": "2.4.0",
-  "description": "图像 for DSH：Qwen Image 本地与自部署创作、持久任务、隐私图库及会话生图",
+  "version": "2.5.0",
+  "description": "Qwen Image workspace for DSH：本机文件、LoRA、ControlNet、蒙版重绘、会话进度与隐私图库",
   "type": "module",
   "author": "kingcharleslzy-ai",
   "repository": {
@@ -33,6 +33,7 @@
     "LICENSE",
     "README.md",
     "backend/server.py",
+    "backend/normalize_image.py",
     "scripts/setup-local.sh",
     "skills/**/*.md",
     "docs/*.md",
@@ -73,9 +74,19 @@
     "deepseek-harness",
     "dsh-plugin",
     "qwen-image",
+    "qwen-image-2.1",
     "mlx",
     "mflux",
-    "local-image-generation"
+    "apple-silicon",
+    "local-ai",
+    "image-generation",
+    "text-to-image",
+    "image-to-image",
+    "lora",
+    "controlnet",
+    "inpainting",
+    "private-gallery",
+    "self-hosted"
   ],
   "peerDependencies": {
     "@deepseek-ai/cordis": ">=4.0.0 <5",

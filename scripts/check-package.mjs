@@ -16,6 +16,7 @@ for (const file of [
   "lib/index.js",
   "lib/client.js",
   "backend/server.py",
+  "backend/normalize_image.py",
   "scripts/setup-local.sh",
   "skills/qwen-image/SKILL.md",
   "cordis.patch.yml",

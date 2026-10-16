@@ -18,3 +18,54 @@ test("local connection check accepts actual Qwen pipeline model_index layout", a
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("worker upgrade releases only a known idle worker and never interrupts busy or unknown services", async () => {
+  const { upgradeIdleWorker } = await import("../src/worker-upgrade.js");
+  let unloads = 0,
+    reads = 0;
+  const unload = async () => {
+      unloads++;
+    },
+    read = async () => {
+      reads++;
+      return { status: "offline" };
+    },
+    pause = async () => {};
+  await expect(
+    upgradeIdleWorker(
+      { status: "ok", version: 5, busy: true },
+      unload,
+      read,
+      pause,
+    ),
+  ).rejects.toThrow("不会中断");
+  expect(unloads).toBe(0);
+  expect(reads).toBe(0);
+  await expect(
+    upgradeIdleWorker(
+      { status: "ok", version: 99, busy: false },
+      unload,
+      read,
+      pause,
+    ),
+  ).rejects.toThrow("版本未知");
+  expect(unloads).toBe(0);
+  expect(
+    await upgradeIdleWorker(
+      { status: "ok", version: 5, busy: false },
+      unload,
+      read,
+      pause,
+    ),
+  ).toEqual({ status: "offline" });
+  expect(unloads).toBe(1);
+  expect(
+    await upgradeIdleWorker(
+      { status: "ok", version: 6, busy: true },
+      unload,
+      read,
+      pause,
+    ),
+  ).toMatchObject({ version: 6 });
+  expect(unloads).toBe(1);
+});

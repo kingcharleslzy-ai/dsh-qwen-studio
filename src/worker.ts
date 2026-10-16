@@ -8,6 +8,7 @@ import { copyFile } from "node:fs/promises";
 import { RemoteQueue, remoteURL, headers } from "./remote.js";
 import { readJobs } from "./storage.js";
 import { atomicJSON } from "./storage.js";
+import { upgradeIdleWorker } from "./worker-upgrade.js";
 import type { Config } from "./config.js";
 import type { Health } from "./shared.js";
 const BASE = "http://127.0.0.1:19388";
@@ -62,9 +63,13 @@ export class Worker {
   }
   private async start() {
     await this.sync();
-    let h = await this.health();
+    let h = await upgradeIdleWorker(
+      await this.health(),
+      () => this.post("/v1/unload", {}),
+      () => this.health(),
+    );
     if (h.status === "ok" && !h.closing) {
-      if (h.version !== 5)
+      if (h.version !== 6)
         throw Error("旧版生图服务尚未退出，请等待空闲卸载后重试");
       return;
     }
@@ -107,7 +112,7 @@ export class Worker {
       if (child.exitCode !== null)
         throw Error("本地服务启动失败，请查看service.log");
       h = await this.health();
-      if (h.status === "ok" && h.version === 5 && !h.closing) return;
+      if (h.status === "ok" && h.version === 6 && !h.closing) return;
       await new Promise((r) => setTimeout(r, 150));
     }
     throw Error("本地服务启动超时");

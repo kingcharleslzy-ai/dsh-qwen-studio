@@ -1,25 +1,46 @@
-import { useEffect, useRef } from "react";
-import { ArrowLeft, RotateCcw } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, RotateCcw, X } from "lucide-react";
 import { ParameterHelp, STEPS_HELP, SEED_HELP } from "./parameter-help.js";
-interface Parameters {
-  size: string;
-  steps: number;
-  seed: string;
-  sourceId: string;
-  changeStrength: number;
+import { AssetUpload } from "./asset-upload.js";
+import { imageURL } from "./api.js";
+import { draftDefaults, type CreationDraft } from "./creation-draft.js";
+function SelectedImage({
+  id,
+  name,
+  remove,
+}: {
+  id: string;
+  name: string;
+  remove(): void;
+}) {
+  return (
+    <div className="q2-selected-image">
+      <img src={imageURL(id)} alt={name} />
+      <span title={name}>{name}</span>
+      <button aria-label={`移除${name}`} onClick={remove}>
+        <X />
+      </button>
+    </div>
+  );
 }
 export function AdvancedSettings({
   draft,
   update,
   remote,
+  ready,
   close,
 }: {
-  draft: Parameters;
-  update: (value: Partial<Parameters>) => void;
+  draft: CreationDraft;
+  update(value: Partial<CreationDraft>): void;
   remote: boolean;
-  close: () => void;
+  ready: boolean;
+  close(): void;
 }) {
-  const root = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLDivElement>(null),
+    current = useRef(draft);
+  current.current = draft;
+  const [error, setError] = useState("");
+  const disabled = remote || !ready;
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     root.current?.querySelector<HTMLButtonElement>("button")?.focus();
@@ -31,9 +52,9 @@ export function AdvancedSettings({
       if (event.key === "Tab") {
         const nodes = [
           ...(root.current?.querySelectorAll<HTMLElement>(
-            "button:not(:disabled),input:not(:disabled),select:not(:disabled)",
+            "button:not(:disabled),input:not(:disabled):not([hidden]),select:not(:disabled),summary",
           ) ?? []),
-        ];
+        ].filter((n) => n.getClientRects().length);
         const first = nodes[0],
           last = nodes.at(-1);
         if (event.shiftKey && document.activeElement === first) {
@@ -52,6 +73,7 @@ export function AdvancedSettings({
       previous?.focus();
     };
   }, [close]);
+  const sourceId = draft.maskSourceId || draft.sourceId;
   return (
     <div
       ref={root}
@@ -63,17 +85,287 @@ export function AdvancedSettings({
       <header>
         <button aria-label="返回创作" onClick={close}>
           <ArrowLeft />
-          返回
+          返回创作
         </button>
-        <strong>高级生成设置</strong>
-        <span />
+        <strong>高级设置</strong>
+        <span className="q2-muted">自动保存到草稿</span>
       </header>
-      <div className="q2-advanced-page">
+      <div className="q2-advanced-page q2-effects-page">
+        {error && (
+          <div className="q2-effect-error" role="alert">
+            {error}
+            <button aria-label="关闭高级设置提示" onClick={() => setError("")}>
+              <X />
+            </button>
+          </div>
+        )}
+        {remote ? (
+          <p role="status" className="q2-effect-note">
+            LoRA、结构控制和局部重绘仅支持本地模式。已选文件会保留，切回本地后可继续使用。
+          </p>
+        ) : (
+          !ready && (
+            <p role="status" className="q2-effect-note">
+              请重新打开 DSH，加载本机文件导入接口。
+            </p>
+          )
+        )}
         <p className="q2-muted">
-          修改会自动保存在当前创作草稿中，下次生成时使用。
+          选中文件会复制到本机资源库，原文件不变；关闭或移除只会改变当前草稿。
         </p>
-        <section>
-          <h3>采样与复现</h3>
+        <div className="q2-effects-grid">
+          <section className="q2-effect-section">
+            <div className="q2-effect-heading">
+              <div>
+                <h3>模型风格</h3>
+                <p>添加 LoRA，为当前模型叠加风格或细节。</p>
+              </div>
+              <span className="q2-effect-tag">LoRA</span>
+            </div>
+            <AssetUpload
+              kind="lora"
+              label="添加 LoRA 文件"
+              disabled={disabled}
+              maxFiles={8 - draft.loras.length}
+              onError={setError}
+              onAssets={(assets) => {
+                const items = [...current.current.loras];
+                for (const asset of assets)
+                  if (asset.path && !items.some((l) => l.path === asset.path))
+                    items.push({
+                      path: asset.path,
+                      name: asset.name,
+                      scale: 0.8,
+                    });
+                update({ loras: items.slice(0, 8) });
+              }}
+            />
+            {!draft.loras.length && (
+              <div className="q2-effect-empty">
+                选择与 Qwen Image 2.1 兼容的 .safetensors 文件
+                <br />
+                <small>支持多个文件，最多 8 个；每个文件不超过 2GB。</small>
+              </div>
+            )}
+            <div className="q2-lora-list">
+              {draft.loras.map((lora, i) => (
+                <div className="q2-lora-item" key={lora.path}>
+                  <label className="q2-inline-check">
+                    <input
+                      type="checkbox"
+                      aria-label={`启用 LoRA ${lora.name}`}
+                      checked={lora.enabled !== false}
+                      disabled={disabled}
+                      onChange={(e) =>
+                        update({
+                          loras: draft.loras.map((l, j) =>
+                            j === i ? { ...l, enabled: e.target.checked } : l,
+                          ),
+                        })
+                      }
+                    />
+                    <span title={lora.name}>{lora.name}</span>
+                  </label>
+                  <label className="q2-lora-weight">
+                    权重
+                    <input
+                      aria-label={`LoRA 权重 ${lora.name}`}
+                      type="number"
+                      min="0"
+                      max="2"
+                      step="0.05"
+                      disabled={disabled || lora.enabled === false}
+                      value={lora.scale}
+                      onChange={(e) =>
+                        update({
+                          loras: draft.loras.map((l, j) =>
+                            j === i
+                              ? { ...l, scale: Number(e.target.value) }
+                              : l,
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+                  <button
+                    aria-label={`移除 LoRA ${lora.name}`}
+                    onClick={() =>
+                      update({ loras: draft.loras.filter((_, j) => j !== i) })
+                    }
+                  >
+                    <X />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <small>
+              权重越大通常影响越强，具体范围以 LoRA
+              作者说明为准。取消勾选可暂时停用；移除不会删除原文件。
+            </small>
+          </section>
+          <section className="q2-effect-section">
+            <div className="q2-effect-heading">
+              <div>
+                <h3>结构控制</h3>
+                <p>用线稿、姿态、深度或边缘图约束构图。</p>
+              </div>
+              <label className="q2-inline-check">
+                <input
+                  type="checkbox"
+                  aria-label="启用结构控制"
+                  disabled={disabled}
+                  checked={draft.controlEnabled}
+                  onChange={(e) => update({ controlEnabled: e.target.checked })}
+                />
+                启用
+              </label>
+            </div>
+            <AssetUpload
+              kind="control"
+              label={draft.controlId ? "更换控制图" : "选择控制图"}
+              disabled={disabled}
+              onError={setError}
+              onAssets={([a]) =>
+                a &&
+                update({
+                  controlId: a.id,
+                  controlName: a.name,
+                  controlEnabled: true,
+                })
+              }
+            />
+            {draft.controlId && (
+              <SelectedImage
+                id={draft.controlId}
+                name={draft.controlName || "控制图"}
+                remove={() =>
+                  update({
+                    controlId: "",
+                    controlName: "",
+                    controlEnabled: false,
+                  })
+                }
+              />
+            )}
+            <label>
+              控制强度 · {Math.round(draft.controlStrength * 100)}%
+              <input
+                aria-label="结构控制强度"
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                disabled={disabled || !draft.controlEnabled}
+                value={draft.controlStrength}
+                onChange={(e) =>
+                  update({ controlStrength: Number(e.target.value) })
+                }
+              />
+              <small>0 为关闭控制，100% 约束最强。画面内容仍由描述决定。</small>
+            </label>
+            <p className="q2-muted">
+              这里选择的是控制图片，不是模型权重；本机模型目录需已配置 Union
+              ControlNet。
+            </p>
+          </section>
+          <section className="q2-effect-section q2-mask-section">
+            <div className="q2-effect-heading">
+              <div>
+                <h3>局部重绘</h3>
+                <p>选择原图与蒙版，只重画指定区域。</p>
+              </div>
+              <label className="q2-inline-check">
+                <input
+                  type="checkbox"
+                  aria-label="启用局部重绘"
+                  disabled={disabled}
+                  checked={draft.maskEnabled}
+                  onChange={(e) => update({ maskEnabled: e.target.checked })}
+                />
+                启用
+              </label>
+            </div>
+            <div className="q2-mask-inputs">
+              <div>
+                <span className="q2-option-label">原图</span>
+                <AssetUpload
+                  kind="source"
+                  label={sourceId ? "更换重绘原图" : "选择重绘原图"}
+                  disabled={disabled}
+                  onError={setError}
+                  onAssets={([a]) =>
+                    a && update({ maskSourceId: a.id, maskSourceName: a.name })
+                  }
+                />
+                {sourceId && (
+                  <SelectedImage
+                    id={sourceId}
+                    name={
+                      draft.maskSourceName || draft.sourceName || "参考原图"
+                    }
+                    remove={() =>
+                      update({
+                        maskSourceId: "",
+                        maskSourceName: "",
+                        sourceId: "",
+                        sourceName: "",
+                      })
+                    }
+                  />
+                )}
+              </div>
+              <div>
+                <span className="q2-option-label">蒙版</span>
+                <AssetUpload
+                  kind="mask"
+                  label={draft.maskId ? "更换蒙版" : "选择蒙版"}
+                  disabled={disabled}
+                  onError={setError}
+                  onAssets={([a]) =>
+                    a &&
+                    update({
+                      maskId: a.id,
+                      maskName: a.name,
+                      maskEnabled: true,
+                    })
+                  }
+                />
+                {draft.maskId && (
+                  <SelectedImage
+                    id={draft.maskId}
+                    name={draft.maskName || "蒙版"}
+                    remove={() =>
+                      update({ maskId: "", maskName: "", maskEnabled: false })
+                    }
+                  />
+                )}
+              </div>
+            </div>
+            <div className="q2-mask-legend">
+              <span>
+                <i className="white" />
+                白色：重新生成
+              </span>
+              <span>
+                <i className="black" />
+                黑色：保留原图
+              </span>
+            </div>
+            <small>
+              灰色按亮度中点划为黑或白，不作渐变蒙版。原图与蒙版会按输出尺寸缩放；保持原尺寸才能保留黑色区域的原始像素。局部重绘不使用「变化幅度」。
+            </small>
+            {draft.maskEnabled && (!sourceId || !draft.maskId) && (
+              <p className="q2-effect-note">请选齐原图和蒙版后再生成。</p>
+            )}
+            {draft.controlEnabled && draft.sourceId && !draft.maskEnabled && (
+              <p className="q2-effect-note">
+                已有参考原图；与结构控制组合使用时，需要开启局部重绘并选择蒙版。只按控制图生图时请移除参考图。
+              </p>
+            )}
+          </section>
+        </div>
+        <details className="q2-base-settings">
+          <summary>采样、尺寸与参考变体</summary>
           <div className="q2-advanced-fields">
             <label>
               <span className="q2-field-title">
@@ -102,79 +394,81 @@ export function AdvancedSettings({
                 onChange={(e) => update({ seed: e.target.value })}
               />
             </label>
-          </div>
-          <button onClick={() => update({ seed: "" })}>使用随机种子</button>
-        </section>
-        <section>
-          <h3>输出尺寸</h3>
-          <label>
-            分辨率
-            <select
-              aria-label="高级画面尺寸"
-              value={draft.size}
-              onChange={(e) => update({ size: e.target.value })}
-            >
-              {[
-                "1024x1024",
-                "1344x768",
-                "768x1344",
-                "1216x832",
-                "832x1216",
-                "512x512",
-              ].map((s) => (
-                <option key={s} value={s}>
-                  {s.replace("x", " × ")}
-                </option>
-              ))}
-            </select>
-          </label>
-          <p className="q2-muted">
-            更大尺寸通常需要更多内存与时间。512 × 512 可用于快速试稿。
-          </p>
-        </section>
-        <section>
-          <h3>参考图变化</h3>
-          {!remote && draft.sourceId ? (
             <label>
-              变化幅度 · {Math.round(draft.changeStrength * 100)}%
-              <input
-                aria-label="高级变化幅度"
-                type="range"
-                min="5"
-                max="95"
-                step="5"
-                value={draft.changeStrength * 100}
-                onChange={(e) =>
-                  update({ changeStrength: Number(e.target.value) / 100 })
+              输出尺寸
+              <select
+                aria-label="高级画面尺寸"
+                value={draft.size}
+                onChange={(e) => update({ size: e.target.value })}
+              >
+                {[
+                  "1024x1024",
+                  "1344x768",
+                  "768x1344",
+                  "1216x832",
+                  "832x1216",
+                  "512x512",
+                ].map((size) => (
+                  <option key={size} value={size}>
+                    {size.replace("x", " × ")}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div>
+              <AssetUpload
+                kind="source"
+                label="选择参考图"
+                disabled={disabled}
+                onError={setError}
+                onAssets={([a]) =>
+                  a && update({ sourceId: a.id, sourceName: a.name })
                 }
               />
-              <small>
-                越低越接近原图，越高变化越多。此模式不保证精准局部编辑。
-              </small>
-            </label>
-          ) : (
-            <p className="q2-muted">
-              {remote
-                ? "当前远程接口未提供参考图变体能力。"
-                : "在结果预览中选择「用作参考」后，可在这里调整变化幅度。"}
-            </p>
-          )}
-        </section>
+              {draft.sourceId && (
+                <SelectedImage
+                  id={draft.sourceId}
+                  name={draft.sourceName || "参考图"}
+                  remove={() => update({ sourceId: "", sourceName: "" })}
+                />
+              )}
+            </div>
+            {!draft.maskEnabled && draft.sourceId && (
+              <label>
+                参考图变化幅度 · {Math.round(draft.changeStrength * 100)}%
+                <input
+                  aria-label="高级变化幅度"
+                  type="range"
+                  min="0.05"
+                  max="0.95"
+                  step="0.05"
+                  value={draft.changeStrength}
+                  onChange={(e) =>
+                    update({ changeStrength: Number(e.target.value) })
+                  }
+                />
+              </label>
+            )}
+          </div>
+        </details>
         <footer>
           <button
             onClick={() =>
               update({
-                size: "1024x1024",
-                steps: 40,
-                seed: "",
-                changeStrength: 0.45,
+                ...draftDefaults,
+                prompt: draft.prompt,
+                sourceId: draft.sourceId,
+                sourceName: draft.sourceName,
               })
             }
           >
             <RotateCcw />
             恢复默认参数
           </button>
-          <small>保留画面描述和参考图。</small>
+          <small>清除高级效果，保留画面描述和参考图。文件原件不变。</small>
+          <button className="q2-primary" onClick={close}>
+            完成设置
+          </button>
         </footer>
       </div>
     </div>

@@ -29,22 +29,12 @@ import { previewCandidate } from "./preview-follow.js";
 import { STYLE } from "./style.js";
 const DRAFT = "qwen-studio-draft-v1",
   RECEIPT = "qwen-studio-submission-v1";
-interface Draft {
-  prompt: string;
-  size: string;
-  steps: number;
-  seed: string;
-  sourceId: string;
-  changeStrength: number;
-}
-const defaults: Draft = {
-  prompt: "",
-  size: "1024x1024",
-  steps: 40,
-  seed: "",
-  sourceId: "",
-  changeStrength: 0.45,
-};
+type Draft = import("./creation-draft.js").CreationDraft;
+import {
+  draftDefaults as defaults,
+  generationPayload,
+  reuseDraft,
+} from "./creation-draft.js";
 function readDraft(): Draft {
   try {
     return { ...defaults, ...JSON.parse(localStorage.getItem(DRAFT) ?? "{}") };
@@ -76,6 +66,7 @@ export function Studio() {
     [view, setViewState] = useState(
       () => localStorage.getItem("qwen-studio-view") || "create",
     );
+  const enabledLoraCount = draft.loras.filter((l) => l.enabled !== false).length;
   const setView = (value: string) => {
     if (value === "gallery") {
       setFilter(defaultGallery(privacy));
@@ -138,7 +129,8 @@ export function Studio() {
   );
   const seenActive = useRef(new Set<string>());
   const previewCursor = useRef(
-    Number(localStorage.getItem("qwen-studio-preview-cursor")) || Date.now() / 1000,
+    Number(localStorage.getItem("qwen-studio-preview-cursor")) ||
+      Date.now() / 1000,
   );
   useEffect(() => {
     const jobs = snapshot?.jobs ?? [];
@@ -151,8 +143,17 @@ export function Studio() {
     );
     for (const job of jobs) seenActive.current.add(job.id);
     if (snapshot) {
-      previewCursor.current = jobs.reduce((cursor, job) => Number.isFinite(job.started_at) ? Math.max(cursor, job.started_at) : cursor, previewCursor.current);
-      localStorage.setItem("qwen-studio-preview-cursor", String(previewCursor.current));
+      previewCursor.current = jobs.reduce(
+        (cursor, job) =>
+          Number.isFinite(job.started_at)
+            ? Math.max(cursor, job.started_at)
+            : cursor,
+        previewCursor.current,
+      );
+      localStorage.setItem(
+        "qwen-studio-preview-cursor",
+        String(previewCursor.current),
+      );
     }
     if (candidate) remember(candidate.id);
   }, [snapshot]);
@@ -165,7 +166,15 @@ export function Studio() {
     chooseResult("");
     setHistoryIds([]);
     localStorage.removeItem("qwen-studio-history");
-    update({ sourceId: "" });
+    update({
+      sourceId: "",
+      sourceName: "",
+      maskId: "",
+      maskName: "",
+      maskEnabled: false,
+      maskSourceId: "",
+      maskSourceName: "",
+    });
     setNotice("已清除预览，图库原图和后台任务均保留");
   };
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -223,35 +232,19 @@ export function Studio() {
     setError("");
     setBusy(true);
     try {
-      const [width, height] = draft.size.split("x").map(Number),
-        seed = draft.seed.trim() === "" ? null : Number(draft.seed);
-      if (!draft.prompt.trim()) throw Error("先描述你想看到的画面");
+      const saved = reuseReceipt ? localStorage.getItem(RECEIPT) : null;
+      const payload = saved
+        ? JSON.parse(saved)
+        : generationPayload(
+            draft,
+            snapshot?.mode === "remote",
+            crypto.randomUUID().replaceAll("-", ""),
+          );
       if (
-        seed !== null &&
-        (!Number.isInteger(seed) || seed < 0 || seed >= 2 ** 32)
+        (enabledLoraCount || draft.controlEnabled || draft.maskEnabled) &&
+        (snapshot?.apiVersion ?? 0) < 5
       )
-        throw Error("种子需为0–4294967295的整数");
-      if (!Number.isInteger(draft.steps) || draft.steps < 1 || draft.steps > 60)
-        throw Error("步数需为1–60");
-      if (draft.sourceId && snapshot?.mode === "remote")
-        throw Error("当前远程接口不支持参考图，请切换本地模式或移除参考图");
-      const saved = reuseReceipt ? localStorage.getItem(RECEIPT) : null,
-        payload = saved
-          ? JSON.parse(saved)
-          : {
-              id: crypto.randomUUID().replaceAll("-", ""),
-              prompt: draft.prompt,
-              width,
-              height,
-              steps: draft.steps,
-              seed,
-              ...(draft.sourceId
-                ? {
-                    source_image_id: draft.sourceId,
-                    change_strength: draft.changeStrength,
-                  }
-                : {}),
-            };
+        throw Error("请先重新打开 DSH，加载高级创作服务");
       localStorage.setItem(RECEIPT, JSON.stringify(payload));
       setRetry(true);
       remember(payload.id);
@@ -308,7 +301,13 @@ export function Studio() {
   );
   const detail = jobs.find((j) => j.id === detailId),
     mode = snapshot?.mode ?? "local",
-    remote = mode === "remote";
+    remote = mode === "remote",
+    referenceId = draft.maskEnabled
+      ? draft.maskSourceId || draft.sourceId
+      : draft.sourceId,
+    referenceName = draft.maskEnabled
+      ? draft.maskSourceName || draft.sourceName
+      : draft.sourceName;
   const status = !snapshot
     ? "连接中"
     : remote
@@ -325,14 +324,7 @@ export function Studio() {
       return next;
     });
   const reuse = (job: Job, asReference = false) => {
-    update({
-      prompt: job.prompt,
-      size: `${job.width}x${job.height}`,
-      steps: job.steps,
-      seed: String(job.seed),
-      sourceId: asReference ? job.id : (job.source_image_id ?? ""),
-      changeStrength: asReference ? 0.45 : (job.change_strength ?? 0.45),
-    });
+    update(reuseDraft(job, asReference));
     remember(job.id);
     setDetailId(null);
     setView("create");
@@ -438,39 +430,58 @@ export function Studio() {
                   }}
                 />
               </label>
-              {draft.sourceId && (
+              {referenceId && (
                 <div className="q2-reference" aria-label="参考图设置">
                   <div className="q2-reference-head">
-                    <img src={imageURL(draft.sourceId)} alt="参考图" />
+                    <img src={imageURL(referenceId)} alt="参考图" />
                     <div>
-                      <span>参考图</span>
-                      <small>以这张图的构图与色彩为起点</small>
+                      <span>{referenceName || "参考图"}</span>
+                      <small>
+                        {draft.maskEnabled
+                          ? "局部重绘的原图 · 蒙版黑色区域保留"
+                          : "以这张图的构图与色彩为起点"}
+                      </small>
                     </div>
                     <button
                       aria-label="移除参考图"
-                      onClick={() => update({ sourceId: "" })}
+                      onClick={() =>
+                        update({
+                          sourceId: "",
+                          sourceName: "",
+                          maskId: "",
+                          maskEnabled: false,
+                          maskSourceId: "",
+                          maskSourceName: "",
+                        })
+                      }
                     >
                       <X />
                     </button>
                   </div>
-                  <label>
-                    变化幅度{" "}
-                    <span>{Math.round(draft.changeStrength * 100)}%</span>
-                    <input
-                      aria-label="变化幅度"
-                      type="range"
-                      min="5"
-                      max="95"
-                      step="5"
-                      value={draft.changeStrength * 100}
-                      onChange={(e) =>
-                        update({ changeStrength: Number(e.target.value) / 100 })
-                      }
-                    />
-                  </label>
-                  <small>
-                    越低越接近原图，越高变化越多。请描述目标画面；此模式不保证精准局部编辑。
-                  </small>
+                  {!draft.maskEnabled && (
+                    <>
+                      <label>
+                        变化幅度{" "}
+                        <span>{Math.round(draft.changeStrength * 100)}%</span>
+                        <input
+                          aria-label="变化幅度"
+                          type="range"
+                          min="5"
+                          max="95"
+                          step="5"
+                          value={draft.changeStrength * 100}
+                          onChange={(e) =>
+                            update({
+                              changeStrength: Number(e.target.value) / 100,
+                            })
+                          }
+                        />
+                      </label>
+                      <small>
+                        越低越接近原图，越高变化越多。请描述目标画面；此模式不保证精准局部编辑。
+                      </small>
+                    </>
+                  )}
                 </div>
               )}
               <div className="q2-options">
@@ -572,6 +583,23 @@ export function Studio() {
                       </button>
                     ))}
                 </div>
+              )}
+              {(enabledLoraCount > 0 ||
+                draft.controlEnabled ||
+                draft.maskEnabled) && (
+                <button
+                  className="q2-advanced-summary"
+                  onClick={() => setAdvancedOpen(true)}
+                >
+                  <SlidersHorizontal />
+                  {[
+                    enabledLoraCount ? `LoRA ${enabledLoraCount}` : "",
+                    draft.controlEnabled ? "结构控制" : "",
+                    draft.maskEnabled ? "局部重绘" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </button>
               )}
               <p>
                 {remote
@@ -850,6 +878,7 @@ export function Studio() {
           draft={draft}
           update={update}
           remote={remote}
+          ready={(snapshot?.apiVersion ?? 0) >= 5}
           close={closeAdvanced}
         />
       )}
