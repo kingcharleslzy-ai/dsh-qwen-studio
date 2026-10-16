@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[下载最新版](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) · [安装与配置](docs/SETUP.md) · [更新记录](CHANGELOG.md)
+[下载最新版](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) · [安装与配置](docs/SETUP.md) · [更新记录](CHANGELOG.md) · [验证范围](docs/VERIFICATION.md)
 
 应用中显示为 **图像**，包名为 `dsh-qwen-studio`。项目独立维护、独立发版，安装时不需要 `dsh-image-gen`。当前发布版本 **2.2.0**。
 
@@ -41,7 +41,7 @@
 
 插件设置里关闭隐私模式后，会恢复「全部作品」的浏览方式；不会移动图片，也不会改掉已有收藏标记。
 
-> 隐私图库是一种本机展示规则，不提供加密、密码或访问控制，也不会隐藏已经发到 DSH 会话里的图片。
+> 隐私图库是一种本机展示规则，不提供加密、密码或访问控制，**对话里的生成进度、新图片和历史图片始终正常显示。**
 
 删除先移入插件回收站，可以恢复；永久删除需再次确认。DSH 对话附件由宿主单独保存，图库删除不会同步清理会话附件。
 

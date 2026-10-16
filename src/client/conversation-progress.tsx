@@ -59,7 +59,7 @@ export const progressDefinition = {
       : context.state;
   },
   buildViewNode(context: { state?: Progress; key: string; id: string }) {
-    if (!context.state || context.state.ended) return null;
+    if (!context.state) return null;
     return {
       key: context.key,
       kind: PROGRESS_KIND,
@@ -67,7 +67,7 @@ export const progressDefinition = {
       target: "chat",
       anchorSeq: context.state.seq,
       location: { kind: "session" },
-      visibility: "visible",
+      visibility: context.state.ended ? "hidden" : "visible",
       data: context.state,
     };
   },

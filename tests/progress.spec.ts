@@ -120,13 +120,21 @@ test("progress node starts only for image calls and retires on paired result", (
     role: "update",
   });
   const ended = progressDefinition.update({ state }, { event: result });
-  expect(
-    progressDefinition.buildViewNode({
-      state: ended,
-      key: "p",
-      id: "call-one",
-    }),
-  ).toBeNull();
+  const retired = progressDefinition.buildViewNode({
+    state: ended,
+    key: "p",
+    id: "call-one",
+  });
+  expect(retired).toMatchObject({
+    key: "p",
+    id: "call-one",
+    anchorSeq: 4,
+    visibility: "hidden",
+  });
+  // DSH upserts materialized nodes; withdrawing one would freeze later events.
+  expect(retired?.key).toBe(
+    progressDefinition.buildViewNode({ state, key: "p", id: "call-one" })?.key,
+  );
 });
 test("creation follows new running jobs but honors clear and historical selection", () => {
   const a = job("a"),

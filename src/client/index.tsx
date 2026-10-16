@@ -179,7 +179,7 @@ function Settings({ scope }: { scope?: Scope }) {
         <div>
           <h3>隐私图库</h3>
           <p className="q2-muted">
-            默认只展示收藏。未收藏的作品从图库右上角菜单进入隐私图库查看。
+            仅控制图库分类：新作品默认放入隐私图库，收藏后显示在正常图库。
           </p>
         </div>
         <button
@@ -199,7 +199,7 @@ function Settings({ scope }: { scope?: Scope }) {
           <span />
         </button>
         <small>
-          在此设备立即生效。关闭后恢复全部作品；不移动或加密文件，不隐藏会话中已有的图片。
+          在此设备立即生效。关闭后恢复全部作品。对话里的生成进度、新图片和历史图片始终正常显示。隐私图库不提供文件加密。
         </small>
       </section>
       <div className="q2-segment" aria-label="运行位置">
