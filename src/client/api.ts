@@ -1,0 +1,44 @@
+import { API, type Snapshot } from "../shared.js";
+export class APIError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
+export async function request<T>(path: string, data?: unknown): Promise<T> {
+  const r = await fetch(
+    `${API}/${path}`,
+    data === undefined
+      ? { cache: "no-store", signal: AbortSignal.timeout(5000) }
+      : {
+          method: "POST",
+          signal: AbortSignal.timeout(15000),
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(data),
+        },
+  );
+  const value = await r.json();
+  if (!r.ok)
+    throw new APIError(value.error ?? `请求失败 (${r.status})`, r.status);
+  return value as T;
+}
+export const imageURL = (id: string) => `${API}/image?id=${id}`;
+export async function download(id: string) {
+  const r = await fetch(imageURL(id));
+  if (!r.ok) throw Error("无法读取图片");
+  const blob = await r.blob(),
+    url = URL.createObjectURL(blob),
+    a = document.createElement("a");
+  a.href = url;
+  a.download = `qwen-${id.slice(0, 8)}.png`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+export let lastSnapshot: Snapshot | undefined;
+export function cache(snapshot: Snapshot) {
+  lastSnapshot = snapshot;
+}

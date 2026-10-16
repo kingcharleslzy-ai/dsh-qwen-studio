@@ -1,0 +1,130 @@
+{
+  "name": "dsh-qwen-studio",
+  "version": "2.2.0",
+  "description": "图像 for DSH：Qwen Image 本地与自部署创作、持久任务、隐私图库及会话生图",
+  "type": "module",
+  "author": "kingcharleslzy-ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kingcharleslzy-ai/dsh-qwen-studio.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kingcharleslzy-ai/dsh-qwen-studio/issues"
+  },
+  "homepage": "https://github.com/kingcharleslzy-ai/dsh-qwen-studio#readme",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "lib/types/**/*.d.ts",
+    "cordis.patch.yml",
+    "LICENSE",
+    "README.md",
+    "backend/server.py",
+    "scripts/setup-local.sh",
+    "skills/**/*.md",
+    "docs/*.md",
+    "NOTICE",
+    "CHANGELOG.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-settings-plugins",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ],
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "build": "tsc && tsdown",
+    "prepare": "npm run build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "test:worker": "python3 -m unittest discover -s tests -p \"test_*.py\"",
+    "check": "npm run typecheck && npm test && npm run test:worker && npm run build",
+    "check:package": "node scripts/check-package.mjs"
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "qwen-image",
+    "mlx",
+    "mflux",
+    "local-image-generation"
+  ],
+  "peerDependencies": {
+    "@deepseek-ai/cordis": ">=4.0.0 <5",
+    "@deepseek-ai/schemastery": ">=3.18.4 <4",
+    "react": ">=18.2.0 <19",
+    "@deepseek-ai/dsh-tools": ">=0.1.7-rc.2",
+    "react-dom": ">=18.2.0 <19"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.4",
+    "@deepseek-ai/dsh-api-remotes": "0.1.7-rc.2",
+    "@deepseek-ai/dsh-client-connection": "0.1.7-rc.2",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.1.7-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings": "0.1.7-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings-plugins": "0.1.7-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "0.1.7-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "0.1.7-rc.2",
+    "@deepseek-ai/schemastery": "3.18.4",
+    "@types/node": "^22.20.0",
+    "@types/react": "~18.3.1",
+    "lucide-react": "^1.38.0",
+    "react": "^18.2.0",
+    "react-dom": "18.3.1",
+    "tsdown": "^0.22.2",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8",
+    "@deepseek-ai/dsh-tools": "0.1.7-rc.2",
+    "@deepseek-ai/dsh-attachment": "0.1.7-rc.2",
+    "@types/react-dom": "~18.3.7"
+  },
+  "packageManager": "npm@10.9.8",
+  "contributors": [
+    "shanliuling (original DSH image-generation integration)"
+  ]
+}
