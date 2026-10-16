@@ -8,7 +8,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [下载最新版](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) · [安装与配置](docs/SETUP.md) · [更新记录](CHANGELOG.md) · [验证范围](docs/VERIFICATION.md)
 
-应用中显示为 **图像**，包名为 `dsh-qwen-studio`。项目独立维护、独立发版，安装时不需要 `dsh-image-gen`。当前发布版本 **2.2.0**。
+应用中显示为 **图像**，包名为 `dsh-qwen-studio`。项目独立维护、独立发版，安装时不需要 `dsh-image-gen`。当前发布版本 **2.4.0**。
 
 ## 为什么做这个插件
 
@@ -19,7 +19,7 @@
 | 你想做的事 | 图像的处理方式 |
 | --- | --- |
 | 不经过文字模型，直接生图 | 左侧「图像 → 创作」直接提交；进度和结果原位显示，会话发起的活动任务也会同步到预览 |
-| 在对话里要一张配图 | 注册 `qwen_generate_image` 工具和 `qwen-image` 技能，对话显示阶段、步数与完成图片 |
+| 在对话里要一张配图 | 注册 `qwen_generate_image` / `qwen_image_status` 工具和 `qwen-image` 技能，对话显示阶段、步数与完成图片 |
 | 生图时切到其他页面 | 任务独立保存，切页不取消；回来继续查看进度和结果 |
 | 不想一直占用 Mac 内存 | 首次调用启动 MFLUX；任务结束后按设定空闲时间退出，也可手动释放 |
 | 不想所有试稿直接出现在图库首页 | 隐私图库默认开启，正常图库只显示收藏，未收藏作品从菜单进入 |
@@ -47,17 +47,17 @@
 
 ## 安装
 
-到 [Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载 `dsh-qwen-studio-2.2.0.tgz`，使用 DSH 的插件安装命令：
+到 [Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载 `dsh-qwen-studio-2.4.0.tgz`，使用 DSH 的插件安装命令：
 
 ```sh
-dsh plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.2.0.tgz
+dsh plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.4.0.tgz
 ```
 
 若桌面版没有把 `dsh` 加入 PATH，macOS 可使用内置启动脚本：
 
 ```sh
 sh "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" \
-  plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.2.0.tgz
+  plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.4.0.tgz
 ```
 
 正常退出并重新打开 DSH，在插件设置中配置「图像」，随后从左侧进入。**发布包包含编译好的前后端、技能与本地环境安装脚本；不包含模型权重。**
@@ -94,6 +94,10 @@ sh scripts/setup-local.sh "$HOME/.local/share/qwen-studio/venv"
 >
 > 沿用刚才那张图的构图，再做一版水彩风格。
 
+技能简介和完整说明来自同一份 `SKILL.md`，避免模型目录中的触发说明与实际流程不一致。提示词类技能提供画面描述，实际执行优先走插件工具；失败时不会建议自动改跑独立脚本。仅写提示词、讨论方案、搜索已有图片时不自动出图。
+
+等待中断或稍后取图时，调用 `qwen_image_status(id)`：只读现有任务，完成后返回原图附件，不重新生图、不启动模型、不产生重复图库记录。回收站中的图不会由查询工具重新展示。
+
 进度追踪仅针对 `qwen_generate_image` 的插件队列任务；绕过插件运行独立 CLI 的任务需要另行接入，不会自动获得进度卡片。
 
 工具执行时，对话中显示进度卡片：本地提供阶段与真实采样步数，远程显示处理状态。完成后替换为结果图片，不提供逐步的半成品图片预览。
@@ -108,8 +112,11 @@ sh scripts/setup-local.sh "$HOME/.local/share/qwen-studio/venv"
 | `source_image_id` / `change_strength` | 以先前生成结果为参考，变化幅度 0.05–0.95，本地模式支持 |
 | `negative_prompt` / `guidance` | 本地负向分支；非空负向词需要 guidance > 1，缺省时自动使用 2.5 并记入任务 |
 | `scheduler` | 本地采样调度器，默认 `linear` |
+| `lora_paths` / `lora_scales` | 本地 LoRA 组合：1–8 个 safetensors 文件，路径位于设置的 LoRA 文件夹，权重 0–2 |
+| `controlnet_image_id` / `controlnet_strength` | 图库控制图与强度 0–1；需要完整本地 Union 权重 |
+| `mask_image_id` | 配合 `source_image_id` 局部重绘，白色重画、黑色复制原图；不传变化幅度 |
 
-负向、CFG 和调度器当前通过工具提供，尚未加入创作页高级设置。guidance 在没有负向词时不作为质量旋钮。技能能帮助模型发现工具；自动选择仍取决于调用模型的工具能力和 DSH 权限设置，直接创作面板可独立使用。
+负向、CFG、调度器、LoRA、ControlNet 和蒙版当前通过工具提供，尚未加入创作页高级设置。guidance 在没有负向词时不作为质量旋钮。技能能帮助模型发现工具；自动选择仍取决于调用模型的工具能力和 DSH 权限设置，直接创作面板可独立使用。
 
 ## 当前能力与验证范围
 
@@ -119,16 +126,19 @@ sh scripts/setup-local.sh "$HOME/.local/share/qwen-studio/venv"
 | 以前次结果为起点的强度式图生图 | 支持 | 尚未接入 |
 | 按需启动、空闲退出 | 支持 | 由远程部署管理 |
 | 负向提示词、CFG、调度器工具参数 | 支持 | 显式拒绝，避免静默忽略 |
-| 任意外部参考附件、精准指令编辑、蒙版局部重绘 | 尚未接入 | 尚未接入 |
+| LoRA 组合、图库控制图、蒙版重绘工具参数 | 支持，需匹配资源 | 显式拒绝 |
+| 任意外部参考附件、精准指令编辑 | 尚未接入 | 尚未接入 |
 
 - 已在 macOS 的 DSH 桌面端实测本地生图、切页保留任务、参考变体、会话图片、空闲退出和图库交互。
 - 远程协议使用模拟服务回归；尚未对所有远程推理后端做真实 GPU 验收。
 - 自动测试覆盖任务持久化/去重/取消、图库分流与恢复、远程协议和会话结果展示；CI 不下载模型、不运行 GPU 推理。
-- 当前对接常规 Qwen Image 2.1；不同架构、Turbo、LoRA、ControlNet 等独立实验或 MFLUX 自身能力不等于本插件已提供完整入口。
+- 当前对接常规 Qwen Image 2.1；不同架构、Turbo 或 MFLUX 自身的其他能力不等于本插件已接入。
+- ControlNet 与蒙版需要模型目录下的兼容 Union 权重和完整组件，只支持默认调度器；控制图加参考图需同时提供蒙版。蒙版黑色区域按输出尺寸保留，源图与输出同尺寸时保持原像素。暂不提供任意外部图导入工具，控制图/蒙版必须已有图库 ID。
+- LoRA 组合变化会重新加载单个模型，避免烘焙权重泄漏到后续普通任务。插件不自动下载高级权重，不把不兼容参数静默丢弃。
 
 ## 开发与发布
 
-要求 Node.js `^22.19.0 || >=24`，Python 3.12+ 用于 worker 单元测试。DSH 运行环境提供宿主服务；开发依赖固定在锁文件中，`.npmrc` 避免自动安装另一整套宿主 peer 依赖。
+要求 Node.js `^22.19.0 || >=24`，Python 3.12+ 与 Pillow 11–12 用于 worker 单元测试。DSH 运行环境提供宿主服务；开发依赖固定在锁文件中，`.npmrc` 避免自动安装另一整套宿主 peer 依赖。
 
 ```sh
 git clone https://github.com/kingcharleslzy-ai/dsh-qwen-studio.git

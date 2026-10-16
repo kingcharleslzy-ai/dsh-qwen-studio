@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.4.0 — 2026-10-16
+
+- Unify the DSH skill catalog and instructions from one bundled source. Image requests use the plugin queue; prompt-only requests do not submit jobs, and failures do not silently fall back to independent scripts.
+- Add read-only `qwen_image_status` to recover an accepted task and its visible conversation attachment without starting inference or creating another gallery item.
+- Read exact task records for conversation polling, tool waits and image lookup instead of scanning every gallery image.
+- Follow jobs that finish while the creation page is unmounted; respect cleared previews. Preserve HTTP status when old hosts return non-JSON errors.
+- Complete the earlier local 2.3.0 tool-only experiment: validate and dispatch LoRA, ControlNet and mask parameters through the persistent worker, with input snapshots, allowed LoRA directory, model cache isolation and exact preservation of black mask pixels at output size.
+- Reject incompatible parameter combinations and unsupported remote advanced requests instead of silently generating a plain image. Advance the local worker protocol to v5 so an old worker cannot acknowledge unsupported parameters.
+
+
 ## 2.2.0 — 2026-10-16
 
 First independently maintained public release as `dsh-qwen-studio` (display name: 图像).

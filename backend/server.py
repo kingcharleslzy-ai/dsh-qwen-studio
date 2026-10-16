@@ -3,6 +3,8 @@
 import base64
 import concurrent.futures
 import json
+import math
+import gc
 import os
 from pathlib import Path
 import re
@@ -72,6 +74,31 @@ def validate(data):
         params.update(source_image_id=source, change_strength=strength)
     elif 'change_strength' in data:
         raise ValueError('变化幅度需要配合参考图片')
+    paths, scales = data.get('lora_paths'), data.get('lora_scales')
+    if paths is not None:
+        if not isinstance(paths, list) or not 1 <= len(paths) <= 8 or any(not isinstance(p, str) or not Path(p).is_absolute() or Path(p).suffix != '.safetensors' for p in paths):
+            raise ValueError('LoRA 需为1–8个绝对路径的 .safetensors 文件')
+        if scales is None: scales = [1.0] * len(paths)
+        if not isinstance(scales, list) or len(scales) != len(paths) or any(type(v) not in (int, float) or not math.isfinite(v) or not 0 <= v <= 2 for v in scales):
+            raise ValueError('LoRA 权重需与文件数量一致，范围0–2')
+        params.update(lora_paths=paths, lora_scales=[float(v) for v in scales])
+    elif scales is not None: raise ValueError('LoRA 权重需要配合 LoRA 文件')
+    for key in ('controlnet_image_id', 'mask_image_id'):
+        if key in data:
+            if not isinstance(data[key], str) or not re.fullmatch('[a-f0-9]{32}', data[key]): raise ValueError('控制图或蒙版ID无效')
+            params[key] = data[key]
+    if 'controlnet_image_id' in params:
+        strength = data.get('controlnet_strength', 1.0)
+        if type(strength) not in (int, float) or not math.isfinite(strength) or not 0 <= strength <= 1: raise ValueError('控制强度应为0–1')
+        params['controlnet_strength'] = float(strength)
+    elif 'controlnet_strength' in data: raise ValueError('控制强度需要配合控制图')
+    if params.get('mask_image_id') and not source: raise ValueError('蒙版需要配合参考图片')
+    controlled = params.get('controlnet_image_id') or params.get('mask_image_id')
+    if controlled:
+        if scheduler != 'linear': raise ValueError('ControlNet 与蒙版当前仅支持默认 linear 调度器')
+        if source and not params.get('mask_image_id'): raise ValueError('控制图与参考图片同时使用时需提供蒙版，不会忽略参考图')
+        if 'change_strength' in data: raise ValueError('蒙版重绘不使用变化幅度，请移除 change_strength')
+        if source: params.pop('change_strength', None)
     return params
 
 
@@ -80,7 +107,7 @@ class Cancelled(Exception): pass
 
 class JobQueue:
     def __init__(self, root, runner):
-        self.root, self.runner = Path(root), runner
+        self.root, self.runner = Path(root).resolve(), runner
         self.lock = threading.RLock()
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         self.jobs, self.events, self.futures = {}, {}, {}
@@ -114,25 +141,35 @@ class JobQueue:
                 if request != params: raise ValueError('任务ID已被其他参数使用')
                 return dict(job)
             if self.closing or self.pending >= 4: raise RuntimeError('队列已满或服务正在退出，请稍后重试')
-            if params.get('source_image_id'):
-                source_folder = self.root/'images'/params['source_image_id']
-                source_path = (source_folder/'image.png').resolve()
-                if not source_path.is_relative_to((self.root/'images').resolve()): raise ValueError('参考图片路径无效')
+            if params.get('lora_paths'):
+                try: setting = json.loads((self.root/'state/runtime-config.json').read_text())
+                except (OSError, ValueError): setting = {}
+                lora_root = Path(setting.get('lora_directory') or self.root/'loras').resolve()
+                for filename in params['lora_paths']:
+                    path = Path(filename).resolve()
+                    if not path.is_relative_to(lora_root) or not path.is_file(): raise ValueError('LoRA 文件需位于插件设置的 LoRA 文件夹内')
+            inputs = {}
+            for key, name in (('source_image_id', 'reference'), ('controlnet_image_id', 'control'), ('mask_image_id', 'mask')):
+                if not params.get(key): continue
+                source_folder = self.root/'images'/params[key]
+                source_path = source_folder/'image.png'
+                if source_path.resolve() != source_path: raise ValueError('参考图片路径无效')
                 source_job = json.loads((source_folder/'job.json').read_text())
                 if source_job.get('status') != 'complete': raise ValueError('参考图片尚未生成完成')
                 if source_path.stat().st_size > 64*1024*1024: raise ValueError('参考图片过大')
                 pixels = source_path.read_bytes()
                 if not pixels.startswith(b'\x89PNG\r\n\x1a\n'): raise ValueError('参考图片不是PNG')
-                # Own the input before acknowledging admission. Moving/deleting the
-                # source later must not change this already accepted job.
+                inputs[name] = pixels
+            # Snapshot all image inputs before the durable admission receipt.
+            for name, pixels in inputs.items():
                 folder = self.root/'images'/job_id
                 folder.mkdir(parents=True, exist_ok=True)
-                reference = folder/'reference.pending.png'
+                reference = folder/(name+'.pending.png')
                 with reference.open('wb') as f:
                     f.write(pixels); f.flush(); os.fsync(f.fileno())
-                os.replace(reference, folder/'reference.png')
+                os.replace(reference, folder/(name+'.png'))
             job = dict(id=job_id, status='queued', model=MODEL_ID, started_at=time.time(), **params)
-            job['sampling_steps'] = params['steps'] - max(1, int(params['steps'] * (1-params['change_strength']))) if params.get('source_image_id') else params['steps']
+            job['sampling_steps'] = params['steps'] - max(1, int(params['steps'] * (1-params['change_strength']))) if params.get('source_image_id') and not params.get('mask_image_id') else params['steps']
             job['request'] = dict(params)
             job['seed'] = params['seed'] if params['seed'] is not None else secrets.randbelow(2**32)
             job.update(step=0, phase='queued', worker_pid=os.getpid())
@@ -196,7 +233,7 @@ class JobQueue:
     def health(self):
         with self.lock:
             current = self.jobs.get(self.current, {})
-            return dict(status='ok', version=4, pid=os.getpid(), loaded=self.loaded, busy=self.pending > 0,
+            return dict(status='ok', version=5, pid=os.getpid(), loaded=self.loaded, busy=self.pending > 0,
                 pending=self.pending, closing=self.closing, current_id=self.current, phase=current.get('phase','idle'),
                 step=current.get('step',0), steps=current.get('steps',40), idle_seconds=self.idle_seconds(),
                 idle_remaining_seconds=None if self.pending else max(0, round(self.idle_seconds()-(time.monotonic()-self.last_finished))))
@@ -209,21 +246,66 @@ class JobQueue:
 
 
 QWEN = None
+ENGINE_KEY = None
 QUEUE = None
 
+def engine_key(job):
+    paths = job.get('lora_paths', [])
+    stamps = [(p, Path(p).stat().st_size, Path(p).stat().st_mtime_ns) for p in paths]
+    return (bool(job.get('controlnet_image_id') or job.get('mask_image_id')), tuple(stamps), tuple(job.get('lora_scales', [])))
+
+def load_engine(job):
+    from mflux.models.common.resolution.config_resolution import ConfigResolution
+    model = Path(os.environ.get('QWEN_MODEL_PATH', str(ROOT/'models/qwen-image-2.1')))
+    kwargs = dict(model_path=str(model))
+    if job.get('lora_paths'):
+        kwargs.update(lora_paths=job['lora_paths'], lora_scales=job['lora_scales'])
+    if job.get('controlnet_image_id') or job.get('mask_image_id'):
+        from mflux.models.qwen21.variants.controlnet.qwen_image_21_controlnet import QwenImage21Controlnet
+        config = ConfigResolution.resolve_restricted(None, 'qwen-image-2.1-controlnet-union', model_path=str(model))
+        # A complete local Union checkpoint is required. No download is initiated.
+        return QwenImage21Controlnet(model_config=config, **kwargs)
+    from mflux.models.qwen21.variants.txt2img.qwen_image_21 import QwenImage21
+    config = ConfigResolution.resolve_restricted('qwen-image-2.1','qwen-image-2.1',model_path=str(model),base_model='qwen-image-2.1')
+    return QwenImage21(model_config=config, **kwargs)
+
+def generation_args(job, folder):
+    args = dict(prompt=job['prompt'], seed=job['seed'], width=job['width'], height=job['height'],
+                num_inference_steps=job['steps'], guidance=job.get('guidance', 1.0), negative_prompt=job.get('negative_prompt'))
+    controlled = job.get('controlnet_image_id') or job.get('mask_image_id')
+    if controlled:
+        # This MFLUX variant has no scheduler or image_strength argument.
+        if args['guidance'] > 1 and args['negative_prompt'] is None: args['negative_prompt'] = ''
+        if job.get('controlnet_image_id'):
+            args.update(controlnet_image_path=str(folder/'control.png'), controlnet_strength=job['controlnet_strength'])
+        if job.get('mask_image_id'):
+            args.update(image_path=str(folder/'reference.png'), mask_image=str(folder/'mask.png'))
+    else:
+        args['scheduler'] = job.get('scheduler', 'linear')
+        if job.get('source_image_id'):
+            args.update(image_path=str(folder/'reference.png'), image_strength=1-job['change_strength'])
+    return args
+
+def preserve_unmasked(output, folder):
+    from PIL import Image
+    with Image.open(folder/'reference.png') as source, Image.open(folder/'mask.png') as mask, Image.open(output) as result:
+        source = source.convert('RGB').resize(result.size, Image.Resampling.LANCZOS)
+        mask = mask.convert('L').resize(result.size, Image.Resampling.NEAREST).point(lambda v: 255 if v >= 128 else 0)
+        Image.composite(result.convert('RGB'), source, mask).save(output)
+
 def generate(job, output, progress, cancel):
-    global QWEN
+    global QWEN, ENGINE_KEY
     os.environ['HF_HUB_OFFLINE'] = '1'
     import mlx.core as mx
-    if QWEN is None:
+    wanted = engine_key(job)
+    if QWEN is None or wanted != ENGINE_KEY:
         progress('loading')
-        from mflux.models.qwen21.variants.txt2img.qwen_image_21 import QwenImage21
-        from mflux.models.common.resolution.config_resolution import ConfigResolution
-        model = Path(os.environ.get('QWEN_MODEL_PATH', str(ROOT/'models/qwen-image-2.1')))
-        config = ConfigResolution.resolve_restricted('qwen-image-2.1','qwen-image-2.1',model_path=str(model),base_model='qwen-image-2.1')
-        QWEN = QwenImage21(model_config=config, model_path=str(model))
-        QUEUE.loaded = True
-    # One model, one executor, one active job. Callback reads this job only.
+        # Never bake the next LoRA into the previous task's model or retain two engines.
+        QWEN = None; ENGINE_KEY = None
+        if QUEUE: QUEUE.loaded = False
+        gc.collect(); mx.clear_cache()
+        QWEN = load_engine(job); ENGINE_KEY = wanted
+        if QUEUE: QUEUE.loaded = True
     offset = job['steps'] - job.get('sampling_steps', job['steps'])
     class Progress:
         def call_in_loop(self, t, **kwargs): progress('running', int(t)-offset+1)
@@ -231,20 +313,14 @@ def generate(job, output, progress, cancel):
     QWEN.callbacks.register(callback)
     try:
         progress('running')
-        reference = dict(image_path=str(output.parent/'reference.png'), image_strength=1-job['change_strength']) if job.get('source_image_id') else {}
-        # guidance / negative_prompt / scheduler 缺省时行为与改动前完全一致
-        # （guidance 1.0 = 跳过错向分支，scheduler linear = 原采样器）。
-        image = QWEN.generate_image(
-            prompt=job['prompt'], seed=job['seed'], width=job['width'], height=job['height'],
-            num_inference_steps=job['steps'],
-            guidance=job.get('guidance', 1.0),
-            scheduler=job.get('scheduler', 'linear'),
-            negative_prompt=job.get('negative_prompt'),
-            **reference)
+        image = QWEN.generate_image(**generation_args(job, output.parent))
         progress('saving', job.get('sampling_steps', job['steps']))
         temp = output.with_name('image.pending.png')
         image.save(path=str(temp), export_json_metadata=True)
+        if job.get('mask_image_id'): preserve_unmasked(temp, output.parent)
         os.replace(temp, output)
+        metadata = temp.with_suffix('.metadata.json')
+        if metadata.exists(): os.replace(metadata, output.with_suffix('.metadata.json'))
         return {'peak_mlx_gb': round(mx.get_peak_memory()/1e9, 2)}
     finally:
         QWEN.callbacks.in_loop.remove(callback)
@@ -294,7 +370,7 @@ def main():
                     print('Idle timeout: unloading model and stopping backend',flush=True)
                     threading.Thread(target=server.shutdown,daemon=True).start()
     threading.Thread(target=watch,daemon=True).start()
-    print('Qwen worker v3 listening on 127.0.0.1:19388',flush=True)
+    print('Qwen worker v5 listening on 127.0.0.1:19388',flush=True)
     try: server.serve_forever()
     finally: server.server_close(); QUEUE.pool.shutdown(wait=True)
 

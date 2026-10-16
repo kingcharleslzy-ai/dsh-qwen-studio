@@ -24,37 +24,52 @@ async function flags(dir: string): Promise<Flags> {
     return {};
   }
 }
+function jobRecord(raw: Record<string, any>, id: string, marks: Flags, folder: string): Job {
+  return {
+    id, worker_pid: raw.worker_pid, prompt: raw.prompt, status: raw.status,
+    width: raw.width, height: raw.height, steps: raw.steps,
+    sampling_steps: raw.sampling_steps, source_image_id: raw.source_image_id,
+    change_strength: raw.change_strength, seed: raw.seed, started_at: raw.started_at,
+    step: raw.step, elapsed_seconds: raw.elapsed_seconds, error: raw.error,
+    source: raw.source ?? "local", ...marks[id], deleted: folder === "trash",
+  };
+}
+async function recordAt(dir: string, folder: string, id: string, marks: Flags) {
+  const path = join(dir, folder, id, "job.json");
+  try {
+    if (await realpath(path) !== path) throw Error("任务路径无效");
+    return jobRecord(JSON.parse(await readFile(path, "utf8")), id, marks, folder);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
+}
+/** Read only the accepted task; unrelated gallery records cannot delay or break progress. */
+export async function readJob(dir: string, id: string): Promise<Job | undefined> {
+  if (!validId(id)) throw Error("图片ID无效");
+  try { dir = await realpath(dir); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
+  const marks = await flags(dir);
+  return await recordAt(dir, "images", id, marks) ?? await recordAt(dir, "trash", id, marks);
+}
 export async function readJobs(dir: string): Promise<Job[]> {
-  const marks = await flags(dir),
-    jobs: Job[] = [];
+  try { dir = await realpath(dir); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
+  }
+  const marks = await flags(dir), jobs: Job[] = [];
   for (const folder of ["images", "trash"]) {
     const entries = await readdir(join(dir, folder)).catch(() => []);
-    for (const id of entries.filter(validId))
+    for (const id of entries.filter(validId)) {
       try {
-        const raw = JSON.parse(
-          await readFile(join(dir, folder, id, "job.json"), "utf8"),
-        );
-        jobs.push({
-          id,
-          worker_pid: raw.worker_pid,
-          prompt: raw.prompt,
-          status: raw.status,
-          width: raw.width,
-          height: raw.height,
-          steps: raw.steps,
-          sampling_steps: raw.sampling_steps,
-          source_image_id: raw.source_image_id,
-          change_strength: raw.change_strength,
-          seed: raw.seed,
-          started_at: raw.started_at,
-          step: raw.step,
-          elapsed_seconds: raw.elapsed_seconds,
-          error: raw.error,
-          source: raw.source ?? "local",
-          ...marks[id],
-          deleted: folder === "trash",
-        });
+        const job = await recordAt(dir, folder, id, marks);
+        if (job) jobs.push(job);
       } catch {}
+    }
   }
   return jobs.sort((a, b) => b.started_at - a.started_at);
 }
@@ -135,7 +150,7 @@ export function setFlag(
 }
 export async function imagePath(dir: string, id: string) {
   if (!validId(id)) throw Error("图片ID无效");
-  const job = (await readJobs(dir)).find((j) => j.id === id);
+  const job = await readJob(dir, id);
   if (!job) throw Error("图片不存在");
   const parent = await realpath(join(dir, job.deleted ? "trash" : "images"));
   const path = await realpath(join(parent, id, "image.png"));

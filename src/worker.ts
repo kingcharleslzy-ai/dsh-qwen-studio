@@ -31,11 +31,14 @@ export class Worker {
       minutes = Number(this.config().localMfluxIdleMinutes ?? 10);
     if (!Number.isFinite(minutes) || minutes < 0.1 || minutes > 1440)
       throw Error("空闲时间应为0.1–1440分钟");
-    const key = JSON.stringify([dir, minutes]);
+    const loraDirectory = this.config().loraDirectory || join(dir, "loras");
+    if (!loraDirectory.startsWith("/")) throw Error("LoRA 文件夹需为绝对路径");
+    const key = JSON.stringify([dir, minutes, loraDirectory]);
     if (key === this.settingsKey) return;
     await mkdir(join(dir, "state"), { recursive: true });
     await atomicJSON(join(dir, "state/runtime-config.json"), {
       idle_seconds: Math.round(minutes * 60),
+      lora_directory: loraDirectory,
     });
     this.settingsKey = key;
   }
@@ -61,7 +64,7 @@ export class Worker {
     await this.sync();
     let h = await this.health();
     if (h.status === "ok" && !h.closing) {
-      if (h.version !== 4)
+      if (h.version !== 5)
         throw Error("旧版生图服务尚未退出，请等待空闲卸载后重试");
       return;
     }
@@ -104,7 +107,7 @@ export class Worker {
       if (child.exitCode !== null)
         throw Error("本地服务启动失败，请查看service.log");
       h = await this.health();
-      if (h.status === "ok" && h.version === 4 && !h.closing) return;
+      if (h.status === "ok" && h.version === 5 && !h.closing) return;
       await new Promise((r) => setTimeout(r, 150));
     }
     throw Error("本地服务启动超时");

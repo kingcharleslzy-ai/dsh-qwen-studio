@@ -1,6 +1,6 @@
 {
   "name": "dsh-qwen-studio",
-  "version": "2.2.0",
+  "version": "2.4.0",
   "description": "图像 for DSH：Qwen Image 本地与自部署创作、持久任务、隐私图库及会话生图",
   "type": "module",
   "author": "kingcharleslzy-ai",

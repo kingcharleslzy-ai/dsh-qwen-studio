@@ -4,7 +4,7 @@
 
 ## 安装插件
 
-从 [本项目 Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载安装包，运行 `dsh plugin --profile desktop add /绝对路径/dsh-qwen-studio-2.2.0.tgz`。若没有全局 dsh 命令，使用 README 中的桌面版内置 CLI。然后手动退出并重新打开 DSH，在插件设置中启用并配置「图像」。
+从 [本项目 Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载安装包，运行 `dsh plugin --profile desktop add /绝对路径/dsh-qwen-studio-2.4.0.tgz`。若没有全局 dsh 命令，使用 README 中的桌面版内置 CLI。然后手动退出并重新打开 DSH，在插件设置中启用并配置「图像」。
 
 包内的脚本和说明位于安装后 dsh-qwen-studio 包目录；也可从源代码包解压使用。
 
@@ -17,7 +17,7 @@
 5. 请先确认磁盘空间及统一内存能容纳选用的权重；插件不会自动下载几十GB模型，也不会自动删除缓存。
 
 官方参考：https://github.com/mflux-community/mflux/blob/main/src/mflux/models/qwen21/README.md
-本插件当前本地适配器支持Qwen Image2.1文生图及强度式图生图；未接入精准参考编辑、蒙版、外部附件或Turbo等不同管线。
+本插件当前本地适配器支持Qwen Image2.1文生图及强度式图生图；会话工具另支持 LoRA、已有图库控制图和蒙版重绘。未接入外部附件导入、精准指令编辑或 Turbo 等不同管线。
 
 ## 远程自部署Qwen
 
@@ -67,3 +67,12 @@ vLLM-Omni协议参考：https://docs.vllm.ai/projects/vllm-omni/en/latest/user_g
 ## 会话生成进度
 
 正式调用 qwen_generate_image 后，插件保存会话/调用与任务 ID 的对应回执；对话卡片按对应回执读取阶段与真实步数，完成后交给图片结果卡片展示。创作页会自动选择新活动任务，切页返回也能跟踪；手动清除后不会反复弹回同一任务，可从后台任务按钮重新打开。远程仅显示处理状态。独立 CLI 不经过本插件队列，需要另行接入。新增进度接口后需正常退出并重开 DSH。
+
+## 本地高级工具与任务恢复
+
+- LoRA：在插件设置选择 LoRA 文件夹（留空默认数据目录下的 `loras`）。工具只接受该文件夹内的 `.safetensors`，1–8 个，权重 0–2。不是任意文件路径访问入口；请自行准备匹配的 Qwen Image 2.1 LoRA。改变组合会重新加载模型。
+- ControlNet：模型目录需要完整的 Qwen Image 2.1 Union 控制分支（含 `controlnet/` 权重）。工具接收已有图库控制图的 ID，强度 0–1。
+- 蒙版：已有源图和蒙版的图库 ID 配对使用，白色重绘、黑色从原图复制。保持源图尺寸可保留黑区原像素；变化幅度不适用于蒙版。暂不提供任意外部图导入工具。
+- ControlNet/蒙版只用默认调度器；远程高级参数明确报错。高级权重不自动下载，缺失和不兼容会显示实际错误。
+- `qwen_image_status` 用返回的完整任务 ID 查询或恢复图片，只读、不重新提交、不启动模型。运行中的任务继续在原会话卡片和创作页显示进度。
+- 发布包更新后手动重开 DSH；已有旧 worker 需先空闲退出或在插件中释放模型，再由下一次调用启动 v5。新宿主不会向旧 worker 静默发送高级参数。

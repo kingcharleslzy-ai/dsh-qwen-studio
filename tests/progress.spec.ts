@@ -149,3 +149,13 @@ test("creation follows new running jobs but honors clear and historical selectio
     previewCandidate([job("c", "complete")], "", new Set(), new Set()),
   ).toBeUndefined();
 });
+
+test("creation recovers completion while away, without resurrecting old or cleared results", () => {
+  const completed = { ...job("new", "complete"), started_at: 20 };
+  const old = { ...job("old", "complete"), started_at: 5 };
+  expect(previewCandidate([completed, old], "", new Set(), new Set(), 10)?.id).toBe("new");
+  expect(previewCandidate([old], "", new Set(), new Set(), 10)).toBeUndefined();
+  expect(previewCandidate([completed], "", new Set(["new"]), new Set(), 10)).toBeUndefined();
+  expect(previewCandidate([completed], "old", new Set(), new Set(["new"]), 10)).toBeUndefined();
+  expect(previewCandidate([{ ...completed, deleted: true }], "", new Set(), new Set(), 10)).toBeUndefined();
+});

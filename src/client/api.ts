@@ -19,9 +19,14 @@ export async function request<T>(path: string, data?: unknown): Promise<T> {
           body: JSON.stringify(data),
         },
   );
-  const value = await r.json();
+  let value: any;
+  try { value = await r.json(); }
+  catch {
+    if (!r.ok) throw new APIError(`请求失败 (${r.status})`, r.status);
+    throw new APIError("服务返回了无效的 JSON 数据", r.status);
+  }
   if (!r.ok)
-    throw new APIError(value.error ?? `请求失败 (${r.status})`, r.status);
+    throw new APIError(typeof value?.error === "string" ? value.error : `请求失败 (${r.status})`, r.status);
   return value as T;
 }
 export const imageURL = (id: string) => `${API}/image?id=${id}`;

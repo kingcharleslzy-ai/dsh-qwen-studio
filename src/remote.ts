@@ -50,6 +50,8 @@ export class RemoteQueue {
       throw Error(
         "负向提示词、CFG 与调度器目前仅接入本地模式；远程接口不会忽略这些参数继续生成",
       );
+    if (["lora_paths", "lora_scales", "controlnet_image_id", "controlnet_strength", "mask_image_id"].some(key => data[key] !== undefined))
+      throw Error("LoRA、ControlNet 与蒙版目前仅支持本地模式；远程不会忽略这些参数继续生成");
     remoteURL(config);
     const id = data.id as string;
     if (!validId(id)) throw Error("任务ID无效");

@@ -1,4 +1,5 @@
-import importlib.util, json, tempfile, threading, time, unittest
+import importlib.util, json, tempfile, threading, time, unittest, types, sys
+from unittest.mock import patch
 from pathlib import Path
 spec=importlib.util.spec_from_file_location('worker',Path(__file__).parents[1]/'backend/server.py')
 w=importlib.util.module_from_spec(spec);spec.loader.exec_module(w)
@@ -81,4 +82,77 @@ class Tests(unittest.TestCase):
         (source/'image.png').symlink_to(outside)
         w.atomic_json(source/'job.json',dict(id='c'*32,status='complete'))
         with self.assertRaises(ValueError):self.q.submit({**self.payload(),'source_image_id':'c'*32})
+    def test_advanced_parameters_are_not_silently_dropped(self):
+        changes = dict(lora_paths=['/models/style.safetensors'], lora_scales=[.7], controlnet_image_id='c'*32, controlnet_strength=.8)
+        params = w.validate({**self.payload(), **changes})
+        for key, value in changes.items(): self.assertEqual(params[key], value)
+        mask = w.validate({**self.payload(), 'source_image_id':'b'*32, 'mask_image_id':'c'*32})
+        self.assertNotIn('change_strength',mask)
+        args = w.generation_args(mask, self.root)
+        self.assertEqual(args['mask_image'],str(self.root/'mask.png'))
+        self.assertNotIn('scheduler',args);self.assertNotIn('image_strength',args)
+        for changes in [dict(lora_paths=[]),dict(lora_paths=['relative.safetensors']),dict(lora_paths=['/model.pt']),dict(lora_paths=['/a.safetensors'],lora_scales=[float('nan')]),dict(lora_scales=[1]),dict(controlnet_strength=.8),dict(controlnet_image_id='c'*32,controlnet_strength=True),dict(mask_image_id='c'*32),dict(source_image_id='c'*32,controlnet_image_id='b'*32),dict(controlnet_image_id='c'*32,scheduler='seedvr2_euler'),dict(source_image_id='b'*32,mask_image_id='c'*32,change_strength=.5)]:
+            with self.assertRaises(ValueError): w.validate({**self.payload(), **changes})
+
+    def test_control_and_mask_inputs_are_snapshotted_before_receipt(self):
+        for c in 'bcd':
+            source=self.root/'images'/(c*32);source.mkdir(parents=True)
+            (source/'image.png').write_bytes(b'\x89PNG\r\n\x1a\n'+c.encode())
+            w.atomic_json(source/'job.json',dict(id=c*32,status='complete'))
+        params={**self.payload(), 'source_image_id':'b'*32, 'mask_image_id':'c'*32, 'controlnet_image_id':'d'*32}
+        job=self.q.submit(params)
+        for c,name in [('b','reference'),('c','mask'),('d','control')]:
+            (self.root/'images'/(c*32)/'image.png').unlink()
+            self.assertEqual((self.root/'images'/job['id']/(name+'.png')).read_bytes(),b'\x89PNG\r\n\x1a\n'+c.encode())
+        self.assertEqual(job['sampling_steps'],job['steps'])
+
+    def test_lora_directory_and_cache_identity(self):
+        lora=self.root/'loras'/'style.safetensors';lora.parent.mkdir();lora.write_bytes(b'fixture')
+        params={**self.payload(),'lora_paths':[str(lora)],'lora_scales':[.8]}
+        job=self.q.submit(params)
+        self.assertEqual(job['lora_scales'],[.8])
+        base=w.engine_key(self.payload());adapted=w.engine_key(job)
+        self.assertNotEqual(base,adapted)
+        lora.write_bytes(b'changed')
+        self.assertNotEqual(adapted,w.engine_key(job))
+        outside=self.root/'outside.safetensors';outside.write_bytes(b'fixture')
+        with self.assertRaises(ValueError):self.q.submit({**self.payload('f'*32),'lora_paths':[str(outside)]})
+        link=lora.parent/'escaped.safetensors';link.symlink_to(outside)
+        with self.assertRaises(ValueError):self.q.submit({**self.payload('f'*32),'lora_paths':[str(link)]})
+
+    def test_mask_black_pixels_are_source_and_white_are_generated(self):
+        from PIL import Image
+        Image.new('RGB',(4,4),(10,20,30)).save(self.root/'reference.png')
+        mask=Image.new('L',(4,4),0);mask.putpixel((1,1),255);mask.save(self.root/'mask.png')
+        result=self.root/'generated.png';Image.new('RGB',(4,4),(200,100,50)).save(result)
+        w.preserve_unmasked(result,self.root)
+        with Image.open(result) as image:
+            for y in range(4):
+                for x in range(4):self.assertEqual(image.getpixel((x,y)),(200,100,50) if (x,y)==(1,1) else (10,20,30))
+
+    def test_engine_switch_reloads_instead_of_leaking_baked_lora(self):
+        loads=[]
+        class Callbacks:
+            def __init__(self):self.in_loop=[]
+            def register(self,callback):self.in_loop.append(callback)
+        class Generated:
+            def save(self,path,**kwargs):Path(path).write_bytes(b'PNG')
+        class Engine:
+            def __init__(self):self.callbacks=Callbacks()
+            def generate_image(self,**kwargs):return Generated()
+        def loader(job):loads.append(w.engine_key(job));return Engine()
+        mx=types.ModuleType('mlx.core');mx.clear_cache=lambda:None;mx.get_peak_memory=lambda:0
+        old_engine,old_key,old_queue=w.QWEN,w.ENGINE_KEY,w.QUEUE
+        lora=self.root/'style.safetensors';lora.write_bytes(b'fixture')
+        base=w.validate(self.payload());base['seed']=1
+        adapted={**base,'lora_paths':[str(lora)],'lora_scales':[.8]}
+        try:
+            w.QWEN=None;w.ENGINE_KEY=None;w.QUEUE=None
+            with patch.dict(sys.modules,{'mlx':types.ModuleType('mlx'),'mlx.core':mx}),patch.object(w,'load_engine',loader):
+                for job in [base,base,adapted,adapted,base]:
+                    w.generate(job,self.root/'out.png',lambda *args:None,threading.Event())
+            self.assertEqual(len(loads),3)
+            self.assertEqual(loads[0],loads[2]);self.assertNotEqual(loads[0],loads[1])
+        finally:w.QWEN,w.ENGINE_KEY,w.QUEUE=old_engine,old_key,old_queue
+
 if __name__=='__main__':unittest.main()

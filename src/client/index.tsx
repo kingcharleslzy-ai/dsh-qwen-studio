@@ -251,6 +251,14 @@ function Settings({ scope }: { scope?: Scope }) {
             onChange={(v) => change("hfHome", v)}
             onError={setMessage}
           />
+          <PathField
+            label="LoRA 文件夹（可选）"
+            name="LoRA 文件夹"
+            value={value.loraDirectory ?? ""}
+            placeholder="默认使用图库目录下的 loras 文件夹"
+            onChange={(v) => change("loraDirectory", v)}
+            onError={setMessage}
+          />
           <label>
             空闲后释放模型{" "}
             <span className="q2-input-unit">

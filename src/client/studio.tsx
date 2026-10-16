@@ -137,6 +137,9 @@ export function Studio() {
     ),
   );
   const seenActive = useRef(new Set<string>());
+  const previewCursor = useRef(
+    Number(localStorage.getItem("qwen-studio-preview-cursor")) || Date.now() / 1000,
+  );
   useEffect(() => {
     const jobs = snapshot?.jobs ?? [];
     const candidate = previewCandidate(
@@ -144,13 +147,17 @@ export function Studio() {
       selectedId,
       dismissed.current,
       seenActive.current,
+      previewCursor.current,
     );
-    for (const job of jobs) if (active(job)) seenActive.current.add(job.id);
+    for (const job of jobs) seenActive.current.add(job.id);
+    if (snapshot) {
+      previewCursor.current = jobs.reduce((cursor, job) => Number.isFinite(job.started_at) ? Math.max(cursor, job.started_at) : cursor, previewCursor.current);
+      localStorage.setItem("qwen-studio-preview-cursor", String(previewCursor.current));
+    }
     if (candidate) remember(candidate.id);
   }, [snapshot]);
   const clearPreview = () => {
-    for (const job of snapshot?.jobs ?? [])
-      if (active(job)) dismissed.current.add(job.id);
+    for (const job of snapshot?.jobs ?? []) dismissed.current.add(job.id);
     localStorage.setItem(
       "qwen-studio-dismissed",
       JSON.stringify([...dismissed.current].slice(-128)),

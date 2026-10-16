@@ -4,16 +4,18 @@ import type {} from "@deepseek-ai/dsh-attachment";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { setTimeout as wait } from "node:timers/promises";
-import { readJobs, imagePath } from "./storage.js";
+import { readJob, imagePath } from "./storage.js";
 import { active } from "./shared.js";
 import { recordInvocation } from "./invocations.js";
 import type { Worker } from "./worker.js";
+import { registerStatusTool } from "./status-tool.js";
 export function registerTools(ctx: Context, worker: Worker) {
+  registerStatusTool(ctx, worker);
   ctx.tools.register(
     defineTool({
       name: "qwen_generate_image",
       description:
-        "Create images with the configured local Qwen Image or self-hosted server. Use for requests to draw, illustrate, make a poster/product image, or generate a picture (画一张、配图、生图). To make a variation of a previous result while retaining its composition, pass that result's source_image_id and change_strength (local only). Describe the complete desired image, not just an edit instruction. This is strength-based img2img, not precise masked or instruction editing; external reference attachments and multiple reference images are not supported. Local-only negative_prompt / guidance / scheduler are supported. Negative prompts require guidance above 1; the worker uses 2.5 if a negative prompt is supplied with the default guidance. Returns a visible image attachment plus an id for follow-up variations. No shell, manual server startup, file search, or manual skill installation is needed.",
+        "Default DSH image-generation route: generate with this tool so the conversation, live progress and gallery stay synchronized. Create images with the configured local Qwen Image or self-hosted server. Use for requests to draw, illustrate, make a poster/product image, or generate a picture (画一张、配图、生图). To make a variation of a previous result while retaining its composition, pass that result's source_image_id and change_strength (local only). Describe the complete desired image, not just an edit instruction. source_image_id alone is strength-based img2img, not instruction editing. External reference attachments are not supported. Local-only negative_prompt / guidance / scheduler are supported. Negative prompts require guidance above 1; the worker uses 2.5 if a negative prompt is supplied with the default guidance. lora_paths / lora_scales stack LoRAs on the base model. controlnet_image_id pins composition and pose from a control image, where structure comes from the control image and content from the prompt. mask_image_id performs masked inpainting over source_image_id: white mask areas are redrawn from the prompt while black areas are copied from the source resized to output dimensions. Returns a visible image attachment plus an id for follow-up variations. No shell, manual server startup, file search, or manual skill installation is needed. If an accepted task times out, query qwen_image_status with its full id; never resubmit or switch to a standalone script automatically.",
       timeoutMs: 1200000,
       parameters: {
         prompt: {
@@ -64,6 +66,33 @@ export function registerTools(ctx: Context, worker: Worker) {
           description:
             "Local only: linear (default), flow_match_euler_discrete, or seedvr2_euler. Use linear unless the user requests another supported scheduler.",
         },
+        lora_paths: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Local only: absolute paths of 1–8 LoRA .safetensors files, stacked on the base model. The files must exist and live under one of the allowed LoRA roots. Pair with lora_scales.",
+        },
+        lora_scales: {
+          type: "array",
+          items: { type: "number" },
+          description:
+            "One weight per lora_paths entry, 0.0–2.0. Omit to use 1.0 for every entry. Use weights compatible with the specific LoRA; do not invent paths.",
+        },
+        controlnet_image_id: {
+          type: "string",
+          description:
+            "Local only: 32-character gallery id of a control image (line art, Canny, depth, pose). Structure comes from the control image and content from the prompt, so it pins composition and pose. The image must already be in the gallery; never invent an id or pass a filesystem path.",
+        },
+        controlnet_strength: {
+          type: "number",
+          description:
+            "Only with controlnet_image_id: 0.0–1.0, default 1.0 (strongest); 0 turns the control off. 0.7–1.0 is the common range.",
+        },
+        mask_image_id: {
+          type: "string",
+          description:
+            "Local-only inpaint. 32-character gallery id of a mask where white is redrawn from the prompt and black is preserved. Requires source_image_id as the source image; black areas are copied from the source at output size. Do not pass change_strength with a mask. ControlNet and masks require a complete local Union checkpoint and the default scheduler; source_image_id with ControlNet requires a mask.",
+        },
       },
       output: {
         schema: {
@@ -113,6 +142,7 @@ export function registerTools(ctx: Context, worker: Worker) {
         ],
       },
       async execute(args, exec) {
+        if (args.mask_image_id && args.change_strength !== undefined) throw Error("蒙版重绘不使用 change_strength，请移除此参数");
         if (args.change_strength !== undefined && !args.source_image_id)
           throw Error("变化幅度必须配合上一张图片的source_image_id");
         const id = randomUUID().replaceAll("-", ""),
@@ -138,7 +168,7 @@ export function registerTools(ctx: Context, worker: Worker) {
               ...(args.source_image_id
                 ? {
                     source_image_id: args.source_image_id,
-                    change_strength: args.change_strength ?? 0.45,
+                    ...(!args.mask_image_id ? { change_strength: args.change_strength ?? 0.45 } : {}),
                   }
                 : {}),
               ...(args.negative_prompt
@@ -148,6 +178,13 @@ export function registerTools(ctx: Context, worker: Worker) {
                 ? { guidance: args.guidance }
                 : {}),
               ...(args.scheduler ? { scheduler: args.scheduler } : {}),
+              ...(args.lora_paths ? { lora_paths: args.lora_paths } : {}),
+              ...(args.lora_scales ? { lora_scales: args.lora_scales } : {}),
+              ...(args.controlnet_image_id ? { controlnet_image_id: args.controlnet_image_id } : {}),
+              ...(args.controlnet_strength !== undefined ? { controlnet_strength: args.controlnet_strength } : {}),
+              ...(args.mask_image_id
+                ? { mask_image_id: args.mask_image_id }
+                : {}),
             },
             true,
           );
@@ -160,16 +197,16 @@ export function registerTools(ctx: Context, worker: Worker) {
             error instanceof Error ? error.message : String(error),
             exec.agent?.id ?? "",
           );
-          throw error;
+          throw Error(`提交任务 ${id} 未确认：${error instanceof Error ? error.message : String(error)}。先用 qwen_image_status 查询该 ID，勿自动重试或运行脚本。`);
         }
         const started = Date.now();
         while (Date.now() - started < 20 * 60 * 1000) {
           if (exec.signal.aborted)
-            throw Error(`等待已取消，任务${id}仍可在图像查看或取消。`);
-          const job = (await readJobs(dir)).find((j) => j.id === id);
+            throw Error(`等待已取消，任务 ${id} 仍保留；用 qwen_image_status 查询或在图像中取消。`);
+          const job = await readJob(dir, id);
           if (job && !active(job)) {
             if (job.status !== "complete")
-              throw Error(job.error ?? `生成${job.status}`);
+              throw Error(`任务 ${id}：${job.error ?? job.status}。可用 qwen_image_status 查看，勿自动换脚本或重复提交。`);
             const data = await readFile(await imagePath(dir, id));
             const attachment = await ctx.attachments.saveImage({
               data,
@@ -178,10 +215,11 @@ export function registerTools(ctx: Context, worker: Worker) {
             });
             return { id, attachment };
           }
-          await wait(1000, undefined, { signal: exec.signal });
+          try { await wait(1000, undefined, { signal: exec.signal }); }
+          catch { throw Error(`等待已取消，任务 ${id} 仍保留；用 qwen_image_status 查询或在图像中取消。`); }
         }
         throw Error(
-          `等待超时，任务${id}仍保留在图像，先查看状态，不要重复提交。`,
+          `等待超时，任务 ${id} 仍保留；用 qwen_image_status 查询，不要重复提交或改跑脚本。`,
         );
       },
       presentResult: (_args, result) => ({

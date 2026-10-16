@@ -14,9 +14,8 @@ import {
   type GalleryAction,
 } from "./storage.js";
 import { registerTools } from "./tools.js";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { API, active } from "./shared.js";
+import { bundledImageSkill } from "./skill.js";
 export { Config };
 export const name = "qwen-studio";
 export const inject = ["webServer", "tools", "attachments"];
@@ -51,26 +50,9 @@ export function apply(ctx: Context, config: Config = {}) {
     const skills = owner.get("skills") as {
       register(skill: object): () => void;
     };
-    const path = fileURLToPath(
-      new URL("../skills/qwen-image/SKILL.md", import.meta.url),
-    );
-    const content = readFileSync(path, "utf8").replace(
-      /^---[\s\S]*?---\s*/,
-      "",
-    );
     owner.effect(
       () =>
-        skills.register({
-          name: "qwen-image",
-          description:
-            "图像创作：用已配置的Qwen Image生成配图、插画、海报、产品图；也可对本工具之前生成的图片做图生图变体。用户说画一张、帮我配图、再来一版、沿用这张构图时加载。包含工具参数、图片ID复用、强度选择和结果呈现流程。",
-          whenToUse:
-            "用户要求新图片、Qwen Image、本地生图，或基于本工具上次结果生成另一版时。无需用户说技能名或工具名。",
-          content,
-          source: "图像",
-          path,
-          invocation: { modelInvocable: true, userInvocable: true },
-        }),
+        skills.register(bundledImageSkill()),
       "图像 skill",
     );
   });

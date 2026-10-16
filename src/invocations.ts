@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { atomicJSON, readJobs } from "./storage.js";
+import { atomicJSON, readJob } from "./storage.js";
 const key = (callId: string, prompt: string, sessionId: string) =>
   createHash("sha256")
     .update(JSON.stringify([sessionId, callId, prompt]))
@@ -56,10 +56,8 @@ export async function invocationProgress(
     throw error;
   }
   if (receipt.startedAt < since - 1000) return { status: "waiting" };
-  const job = (await readJobs(dir)).find(
-    (j) => j.id === receipt.id && !j.deleted,
-  );
-  if (job) return { status: "accepted", job };
+  const job = await readJob(dir, receipt.id);
+  if (job && !job.deleted) return { status: "accepted", job };
   return receipt.error
     ? { status: "failed", error: receipt.error }
     : { status: "submitting" };

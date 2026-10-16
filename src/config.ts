@@ -6,6 +6,7 @@ export interface Config {
   pythonPath?: string;
   modelPath?: string;
   hfHome?: string;
+  loraDirectory?: string;
   remoteBaseURL?: string;
   remoteModel?: string;
   remoteApiKey?: string;
@@ -17,6 +18,7 @@ export const Config = z.object({
   pythonPath: z.string().default("").volatile(),
   modelPath: z.string().default("").volatile(),
   hfHome: z.string().default("").volatile(),
+  loraDirectory: z.string().default("").volatile(),
   remoteBaseURL: z.string().default("").volatile(),
   remoteModel: z.string().default("qwen-image").volatile(),
   remoteApiKey: z.string().default("").role("secret").volatile(),

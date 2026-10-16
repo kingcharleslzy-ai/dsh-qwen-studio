@@ -56,6 +56,8 @@ test("remote Images protocol persists response and deduplicates accepted receipt
         queue.submit(dir, config, { ...data, ...params }),
       ).rejects.toThrow("仅接入本地模式");
     }
+    for (const params of [{ lora_paths: ["/model/style.safetensors"] }, { mask_image_id: "a".repeat(32) }, { controlnet_image_id: "a".repeat(32) }])
+      await expect(queue.submit(dir, config, { ...data, ...params })).rejects.toThrow("仅支持本地模式");
     expect(count).toBe(0);
     await Promise.all([
       queue.submit(dir, config, data),
