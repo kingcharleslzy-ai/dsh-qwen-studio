@@ -47,6 +47,7 @@ function jobRecord(
     scheduler: raw.scheduler,
     guidance_auto_raised: raw.guidance_auto_raised,
     source_image_id: raw.source_image_id,
+    reference_mode: raw.reference_mode,
     controlnet_image_id: raw.controlnet_image_id,
     controlnet_strength: raw.controlnet_strength,
     mask_image_id: raw.mask_image_id,

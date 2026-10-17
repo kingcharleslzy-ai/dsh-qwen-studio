@@ -69,3 +69,10 @@ test("worker upgrade releases only a known idle worker and never interrupts busy
   ).toMatchObject({ version: 7 });
   expect(unloads).toBe(1);
 });
+
+
+test("local worker rejects unsupported native editing before model startup", async () => {
+ const worker = new Worker(() => ({ connectionMode: "local" }));
+ try { await expect(worker.post("/v1/jobs", { reference_mode: "edit" }, true)).rejects.toThrow("远程 Qwen 网关"); }
+ finally { await worker.dispose(); }
+});

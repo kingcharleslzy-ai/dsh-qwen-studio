@@ -21,6 +21,7 @@ export function draftFromSettings(p: Record<string, any>): CreationDraft {
     seed: p.seed == null ? "" : String(p.seed), negativePrompt: p.negative_prompt ?? "",
     guidance: p.guidance ?? 1, scheduler: p.scheduler ?? "linear",
     changeStrength: p.change_strength ?? .45,
+    referenceMode: p.reference_mode ?? "variation",
     sourceId: p.mask_image_id ? "" : (p.source_image_id ?? ""),
     maskSourceId: p.mask_image_id ? (p.source_image_id ?? "") : "",
     maskId: p.mask_image_id ?? "", maskEnabled: Boolean(p.mask_image_id),
@@ -32,6 +33,7 @@ export function draftFromSettings(p: Record<string, any>): CreationDraft {
   };
   if (p.lora_scales && p.lora_scales.length !== d.loras.length) throw Error("每个 LoRA 必须对应一个权重");
   if (p.mask_image_id && p.change_strength !== undefined) throw Error("蒙版重绘不使用 change_strength");
+  if (p.reference_mode === "edit" && (!p.source_image_id || p.mask_image_id || p.change_strength !== undefined)) throw Error("原生参考编辑需要原图，且不能使用变化幅度或蒙版");
   generationPayload(d, false, "");
   return d;
 }

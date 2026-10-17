@@ -80,3 +80,10 @@ model_patches/qwen_image_2.1_fun_controlnet_union_int8_convrot.safetensors
 工具输入/本机任务记录里保留 Mac 路径，以便复用已有预设。网络任务中没有这个路径，只有 `loras: [{sha, scale}]`。插件读取文件、计算 SHA256，检查远程是否已有该内容，缺失时上传；服务器校验上传内容的 SHA256 并保存为 `<sha>.safetensors`。相同名字不同内容不会混用，相同内容改名仍可复用缓存。删除或移动本机资源会被资源检查发现，应重新选择，不会猜测远程文件名。
 
 MLX 与 PyTorch/CUDA 的同一个 seed 不保证产生相同初始噪声；量化、精度和算子也会改变输出。复现和参数差异测试应固定同一后端、模型/精度及全部输入。跨后端的质量比较依然有意义，应使用多提示词、多种子和一致的输出规格；不能把相同数字种子当成逐像素对照。
+
+
+## 原生参考编辑（2.10.0）
+
+更新服务器端 qwen_workflow.py 并在网关空闲时重启网关；capabilities.features 应含 reference_edit。客户端选择 reference_mode=edit 会把 source_sha 送入 TextEncodeQwenImage21 的 images.image_1、VAE参考潜变量与空目标潜变量，使用完整采样表，不截断为旧的部分降噪。使用 linear、32倍数尺寸，不传 change_strength、蒙版或控制图。旧的 source_image_id + change_strength 继续执行参考变体，未改已有预设。
+
+原生模式更适合按指令换风格，仍不保证任意位置严格不变；有像素保留要求时使用原来的蒙版流程。目前本机未接入这条编辑分支，客户端会明确拒绝，不自动切后端。

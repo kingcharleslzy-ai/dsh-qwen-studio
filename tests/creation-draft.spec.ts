@@ -168,3 +168,16 @@ test("sampling controls survive reuse and incompatible local/remote combinations
     scheduler: "flow_match_euler_discrete",
   });
 });
+
+
+test("native reference edit is explicit, roundtrips results and leaves legacy strength presets unchanged", () => {
+  const sourceId = "a".repeat(32);
+  const edit = generationPayload({ ...base, sourceId, referenceMode: "edit" }, false, "id");
+  expect(edit).toMatchObject({ source_image_id: sourceId, reference_mode: "edit", steps: 40 });
+  expect(edit).not.toHaveProperty("change_strength");
+  expect(generationPayload({ ...base, sourceId }, false, "id")).toMatchObject({ change_strength: .45 });
+  expect(() => generationPayload({ ...base, sourceId, referenceMode: "edit", scheduler: "seedvr2_euler" }, false, "id")).toThrow("linear");
+  expect(reuseDraft({ ...edit, id: sourceId, status: "complete", started_at: 1, seed: 1 } as any, false)).toMatchObject({ referenceMode: "edit" });
+  const html = renderToStaticMarkup(createElement(AdvancedSettings, { draft: { ...base, sourceId, referenceMode: "edit" }, update() {}, remote: false, nativeEdit: true, ready: true, close() {} }));
+  expect(html).toContain("按指令编辑"); expect(html).not.toContain('aria-label="高级变化幅度"');
+});

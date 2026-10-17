@@ -61,7 +61,7 @@ export class RemoteQueue {
     reconnect?: () => Promise<void>,
   ) {
     const capabilities = await this.capabilities(config);
-    if (!capabilities && (data.source_image_id != null || data.change_strength != null))
+    if (!capabilities && (data.source_image_id != null || data.change_strength != null || data.reference_mode != null))
       throw Error(
         "当前远程接口仅支持文生图，不能忽略参考图继续生成；请切换本地模式或移除参考图",
       );

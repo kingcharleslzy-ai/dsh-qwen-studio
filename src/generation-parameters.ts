@@ -30,7 +30,11 @@ export const generationParameters = {
         change_strength: {
           type: "number",
           description:
-            "Only with source_image_id: variation strength 0.05–0.95, default 0.45. Lower preserves more of the source; higher changes more. Not a guarantee of exact local edits.",
+            "Only with source_image_id and variation mode (never edit): variation strength 0.05–0.95, default 0.45. Lower preserves more of the source; higher changes more. Not a guarantee of exact local edits.",
+        },
+        reference_mode: {
+          type: "string",
+          description: "variation (default, preserves old presets) uses partial denoising and change_strength; edit uses native Qwen 2.1 image+text reference conditioning and the full sampling schedule for instruction/style edits. edit currently requires the updated Qwen remote gateway, source_image_id, linear scheduler and dimensions divisible by32; do not supply change_strength, mask or ControlNet. Query remote_capabilities.features for reference_edit. Use edit for watercolor/style transfer or requested changes; variation may strongly reconstruct the photo despite a different prompt.",
         },
         negative_prompt: {
           type: "string",

@@ -5,6 +5,7 @@ export interface Job {
   guidance_auto_raised?: boolean;
   scheduler?: "linear" | "flow_match_euler_discrete" | "seedvr2_euler";
   source_image_id?: string;
+  reference_mode?: "variation" | "edit";
   controlnet_image_id?: string;
   controlnet_strength?: number;
   mask_image_id?: string;
@@ -48,6 +49,7 @@ export interface Health {
 export interface Snapshot {
   apiVersion?: number;
   remoteAdvanced?: boolean;
+  referenceEditSupported?: boolean;
   jobs: Job[];
   health: Health;
   directory: string;

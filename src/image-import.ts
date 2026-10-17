@@ -48,7 +48,7 @@ export async function openPublicImage(input: string, signal: AbortSignal): Promi
     const response = await new Promise<IncomingMessage>((accept, reject) => {
       const request = (url.protocol === "https:" ? httpsRequest : httpRequest)(url, {
         agent: false, signal,
-        headers: { Accept: "image/png,image/jpeg,image/webp", "User-Agent": "DSH-Qwen-Studio/2.9 image-import" },
+        headers: { Accept: "image/png,image/jpeg,image/webp", "User-Agent": "DSH-Qwen-Studio image-import" },
         lookup: (_hostname, options, callback) => {
           if (options.all) callback(null, [{ address: selected.address, family: selected.family }]);
           else callback(null, selected.address, selected.family);

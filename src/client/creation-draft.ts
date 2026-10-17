@@ -17,6 +17,7 @@ export interface CreationDraft {
   seed: string;
   sourceId: string;
   sourceName: string;
+  referenceMode: "variation" | "edit";
   changeStrength: number;
   loras: LoraChoice[];
   controlId: string;
@@ -39,6 +40,7 @@ export const draftDefaults: CreationDraft = {
   seed: "",
   sourceId: "",
   sourceName: "",
+  referenceMode: "variation",
   changeStrength: 0.45,
   loras: [],
   controlId: "",
@@ -64,6 +66,10 @@ export function generationPayload(
       : draft.sourceId;
   const [width, height] = draft.size.split("x").map(Number),
     seed = draft.seed.trim() === "" ? null : Number(draft.seed);
+  if (!["variation", "edit"].includes(draft.referenceMode ?? "variation")) throw Error("参考图模式无效");
+  const editing = draft.referenceMode === "edit" && Boolean(sourceId) && !draft.maskEnabled;
+  if (editing && (draft.controlEnabled || draft.scheduler !== "linear" || width! % 32 || height! % 32))
+    throw Error("原生参考编辑需要 linear、32的倍数尺寸，且不能叠加结构控制");
   if (loras.some((l) => l.missing))
     throw Error("请重新选择失效的 LoRA，或停用它");
   const missing = draft.missingResources ?? {};
@@ -163,7 +169,7 @@ export function generationPayload(
       ? {
           source_image_id: sourceId,
           ...(!draft.maskEnabled
-            ? { change_strength: draft.changeStrength }
+            ? editing ? { reference_mode: "edit" as const } : { change_strength: draft.changeStrength }
             : {}),
         }
       : {}),
@@ -202,6 +208,7 @@ export function reuseDraft(
         ? ""
         : (job.source_image_id ?? ""),
     sourceName: asReference ? "上一张生成结果" : "参考原图",
+    referenceMode: asReference ? "variation" : job.reference_mode ?? "variation",
     changeStrength: asReference ? 0.45 : (job.change_strength ?? 0.45),
     // A new reference variation starts with no previous control/mask; parameter reuse retains them.
     controlId: asReference ? "" : (job.controlnet_image_id ?? ""),

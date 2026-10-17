@@ -31,12 +31,14 @@ export function AdvancedSettings({
   draft,
   update,
   remote,
+  nativeEdit = false,
   ready,
   close,
 }: {
   draft: CreationDraft;
   update(value: Partial<CreationDraft>): void;
   remote: boolean;
+  nativeEdit?: boolean;
   ready: boolean;
   close(): void;
 }) {
@@ -621,6 +623,13 @@ export function AdvancedSettings({
               )}
             </div>
             {!draft.maskEnabled && draft.sourceId && (
+              <label><span className="q2-field-title">参考图用法
+                <ParameterHelp name="参考图用法" text="参考变体按变化幅度保留原图，可能难以换画风。原生参考编辑把图片与指令一起交给 Qwen 2.1，适合水彩化、换颜色等编辑，按完整步数生成，不使用变化幅度。目前需配套远程 Qwen 网关和 linear，不能叠加控制图或蒙版；旧预设保持参考变体。" />
+              </span><select aria-label="参考图用法" value={draft.referenceMode ?? "variation"} onChange={e=>update({referenceMode:e.target.value as "variation"|"edit"})}>
+                <option value="variation">参考变体</option><option value="edit" disabled={!nativeEdit}>按指令编辑 · Qwen 原生</option>
+              </select></label>
+            )}
+            {!draft.maskEnabled && draft.sourceId && draft.referenceMode !== "edit" && (
               <label>
                 <span className="q2-field-title">参考图变化幅度 · {Math.round(draft.changeStrength * 100)}%
                   <ParameterHelp name="参考图变化幅度" text="较低值更接近参考原图，较高值变化更大。仅用于参考变体，蒙版重绘不使用这个参数。" />

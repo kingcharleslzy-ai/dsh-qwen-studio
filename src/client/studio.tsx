@@ -897,6 +897,7 @@ export function Studio() {
         <AdvancedSettings
           draft={draft}
           update={update}
+          nativeEdit={Boolean(snapshot?.referenceEditSupported)}
           remote={remote && !snapshot?.remoteAdvanced}
           ready={(snapshot?.apiVersion ?? 0) >= 6}
           close={closeAdvanced}

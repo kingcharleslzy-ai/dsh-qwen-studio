@@ -64,7 +64,7 @@ export class Worker {
       sshOptions(this.transportConfig());
       // Configured Qwen protocol contract; actual handshake is mandatory at submission.
       // Passive reads must never create an SSH connection.
-      return { protocol: "dsh-qwen", version: 1, features: [...requiredFeatures], schedulers: ["linear", "flow_match_euler_discrete", "seedvr2_euler"], verification: "on_generation" } as RemoteCapabilities;
+      return { protocol: "dsh-qwen", version: 1, features: [...requiredFeatures, "reference_edit"], schedulers: ["linear", "flow_match_euler_discrete", "seedvr2_euler"], verification: "on_generation" } as RemoteCapabilities;
     }
     return this.remote.capabilities(this.transportConfig());
   }
@@ -232,6 +232,8 @@ export class Worker {
     return this.submit(path, data, false);
   }
   private async submit(path: string, data: unknown, start = true) {
+    const referenceMode = (data as Record<string, unknown>)?.reference_mode;
+    if (path === "/v1/jobs" && referenceMode === "edit" && this.mode() !== "remote") throw Error("原生参考编辑当前需要配套远程 Qwen 网关；本机仍可用参考变体，不会自动切换后端");
     if (start && this.mode() === "remote") {
       const config = this.transportConfig();
       let release: (() => void) | undefined;

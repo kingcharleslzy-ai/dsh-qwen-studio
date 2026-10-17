@@ -81,6 +81,11 @@ test("agent imports a local reference and saves its real id into a reusable pres
     const store = await f.preset({ action: "save", name: "参考图组合", revision: 0, settings: { ...imported.settings, change_strength: .4, steps: 20 } });
     const loaded = await f.preset({ action: "load", id: store.presets[0].id });
     expect(loaded.issues).toEqual([]); expect(loaded.settings).toMatchObject({ source_image_id: imported.id, change_strength: .4 });
+    const native = await f.preset({ action: "save", name: "原生编辑组合", revision: store.revision, settings: { source_image_id: imported.id, reference_mode: "edit", steps: 20, width: 512, height: 512 } });
+    const nativeLoaded = await f.preset({ action: "load", id: native.presets.find((p: any) => p.name === "原生编辑组合").id });
+    expect(nativeLoaded.settings).toMatchObject({ reference_mode: "edit", source_image_id: imported.id });
+    expect(nativeLoaded.settings).not.toHaveProperty("change_strength");
+
     expect(f.worker.ensure).not.toHaveBeenCalled(); expect(f.worker.post).not.toHaveBeenCalled();
   } finally { await rm(f.dir, { recursive: true, force: true }); }
 });

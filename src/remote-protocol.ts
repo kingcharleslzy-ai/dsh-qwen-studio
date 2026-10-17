@@ -23,9 +23,15 @@ export async function responseJSON(response: Response) {
 }
 export function advancedParameters(data: Record<string, any>, capabilities: RemoteCapabilities) {
   const result: Record<string, any> = {};
-  for (const key of ["negative_prompt", "guidance", "scheduler", "source_image_id", "change_strength", "controlnet_image_id", "controlnet_strength", "mask_image_id", "lora_paths", "lora_scales", "lora_names"])
+  for (const key of ["negative_prompt", "guidance", "scheduler", "source_image_id", "reference_mode", "change_strength", "controlnet_image_id", "controlnet_strength", "mask_image_id", "lora_paths", "lora_scales", "lora_names"])
     if (data[key] != null) result[key] = data[key];
   const negative = result.negative_prompt ?? "";
+  if (result.reference_mode !== undefined && !["variation", "edit"].includes(result.reference_mode)) throw Error("参考图模式无效");
+  if (result.reference_mode === "edit") {
+    if (!capabilities.features.includes("reference_edit")) throw Error("远程网关尚未支持原生参考编辑，请更新网关；不会退回参考变体");
+    if (!result.source_image_id || result.mask_image_id || result.controlnet_image_id || result.change_strength !== undefined || (result.scheduler ?? "linear") !== "linear" || Number(data.width ?? 1024) % 32 || Number(data.height ?? 1024) % 32)
+      throw Error("原生参考编辑需要原图、linear和32倍数尺寸，不使用变化幅度、蒙版或结构控制");
+  }
   if (typeof negative !== "string" || negative.length > 8000) throw Error("负向提示词无效");
   const guidance = result.guidance ?? 1;
   if (!Number.isFinite(guidance) || guidance < 1 || guidance > 10) throw Error("CFG 范围1–10");
@@ -51,7 +57,7 @@ export async function runExtended({ base, headers, dir, config, job, signal, pat
 }) {
   const inputs: { path: string; kind: "image" | "lora"; field: string; scale?: number }[] = [];
   const body: Record<string, any> = { id: job.id, model: config.remoteModel || "qwen-image", prompt: job.prompt, width: job.width, height: job.height, steps: job.steps, seed: job.seed, loras: [] };
-  for (const k of ["negative_prompt", "guidance", "scheduler", "change_strength", "controlnet_strength"])
+  for (const k of ["negative_prompt", "guidance", "scheduler", "reference_mode", "change_strength", "controlnet_strength"])
     if (job[k] != null) body[k] = job[k];
   for (const [key, field] of [["source_image_id", "source_sha"], ["controlnet_image_id", "control_sha"], ["mask_image_id", "mask_sha"]])
     if (job[key!]) inputs.push({ path: await imagePath(dir, job[key!]), kind: "image", field: field! });

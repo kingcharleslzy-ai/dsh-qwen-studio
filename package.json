@@ -1,6 +1,6 @@
 {
   "name": "dsh-qwen-studio",
-  "version": "2.9.0",
+  "version": "2.10.0",
   "description": "Qwen Image workspace for DSH：本机文件、LoRA、ControlNet、蒙版重绘、会话进度与隐私图库",
   "type": "module",
   "author": "kingcharleslzy-ai",

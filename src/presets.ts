@@ -44,6 +44,7 @@ export function presetValues(input: unknown): Values {
   if (Object.keys(value).some((k) => !allowed.includes(k)))
     throw Error("预设含有不支持的字段；连接配置、路径设置和密钥不可导入");
   const d: any = { ...draftDefaults, ...value };
+  if (!["variation", "edit"].includes(d.referenceMode)) throw Error("参考图模式无效");
   delete d.prompt;
   for (const key of [
     "size",

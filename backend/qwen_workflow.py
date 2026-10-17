@@ -4,11 +4,11 @@ import os
 import re
 
 SCHEDULERS = ('linear', 'flow_match_euler_discrete', 'seedvr2_euler')
-FEATURES = ('lora', 'controlnet', 'mask', 'img2img', 'negative_prompt', 'guidance', 'progress', 'cancel')
+FEATURES = ('lora', 'controlnet', 'mask', 'img2img', 'negative_prompt', 'guidance', 'progress', 'cancel', 'reference_edit')
 
 def normalize(data):
     allowed = {'id', 'model', 'prompt', 'width', 'height', 'steps', 'seed', 'source_sha', 'mask_sha', 'control_sha',
-               'change_strength', 'controlnet_strength', 'loras', 'negative_prompt', 'guidance', 'scheduler'}
+               'change_strength', 'reference_mode', 'controlnet_strength', 'loras', 'negative_prompt', 'guidance', 'scheduler'}
     if set(data) - allowed: raise ValueError('Unknown generation fields: '+', '.join(sorted(set(data)-allowed)))
     p = {**data}
     if not re.fullmatch('[a-f0-9]{32}', str(p.get('id', ''))): raise ValueError('Invalid job id')
@@ -32,7 +32,12 @@ def normalize(data):
     if p.get('control_sha') and p.get('source_sha') and not p.get('mask_sha'): raise ValueError('Control plus source requires mask')
     if 'controlnet_strength' in p and not p.get('control_sha'): raise ValueError('Control strength requires control image')
     if p.get('control_sha'): number('controlnet_strength',1.0,0,1)
-    if p.get('source_sha') and not p.get('mask_sha'): number('change_strength',.45,.05,.95)
+    mode=p.get('reference_mode','variation')
+    if mode not in ('variation','edit'): raise ValueError('Invalid reference mode')
+    if mode=='edit':
+        if not p.get('source_sha') or p.get('mask_sha') or p.get('control_sha') or 'change_strength' in p or p['scheduler']!='linear' or p['width']%32 or p['height']%32:
+            raise ValueError('Native reference edit requires source, linear and multiples of32; no strength, mask or control')
+    elif p.get('source_sha') and not p.get('mask_sha') and p.get('reference_mode')!='edit': number('change_strength',.45,.05,.95)
     if (p.get('control_sha') or p.get('mask_sha')) and p['scheduler']!='linear': raise ValueError('ControlNet and masks require linear scheduler')
     p.setdefault('loras',[])
     if not isinstance(p['loras'],list) or len(p['loras'])>8: raise ValueError('At most 8 LoRAs')
@@ -56,7 +61,7 @@ def sigmas(p):
         shifted=[math.exp(mu)/(math.exp(mu)+(1/t-1)) for t in raw]
         scale=(1-shifted[-1])/.98
         values=[1-(1-v)/scale for v in shifted]+[0.0]
-    if p.get('source_sha') and not p.get('mask_sha'):
+    if p.get('source_sha') and not p.get('mask_sha') and p.get('reference_mode')!='edit':
         values=values[-max(1,math.ceil(n*p['change_strength']))-1:]
     return values
 
@@ -88,8 +93,11 @@ def graph(p):
         g['15']={'class_type':'ZImageFunControlnet','inputs':inputs};model=['15',0]
     g['6']={'class_type':'QwenImage21Cache','inputs':{'model':model,'device':'auto','dtype':'default'}}
     latent=['5',0]
-    if p.get('source_sha') and not p.get('mask_sha'):
+    if p.get('source_sha') and not p.get('mask_sha') and p.get('reference_mode')!='edit':
         g['16']={'class_type':'VAEEncode','inputs':{'pixels':['11',0],'vae':['3',0]}};latent=['16',0]
+    if p.get('reference_mode')=='edit':
+        g['4']['inputs'].update({'vae':['3',0],'images.image_1':['11',0],'resolution':0})
+        latent=['4',2]
     cfg=p['guidance'] if (p['negative_prompt'].strip() or p.get('control_sha') or p.get('mask_sha')) else 1.0
     g['20']={'class_type':'CFGGuider','inputs':{'model':['6',0],'positive':['4',0],'negative':['4',1],'cfg':cfg}}
     g['21']={'class_type':'RandomNoise','inputs':{'noise_seed':p['seed']}}

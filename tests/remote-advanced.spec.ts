@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { RemoteQueue } from "../src/remote.js";
-import { requiredFeatures } from "../src/remote-protocol.js";
+import { requiredFeatures, advancedParameters } from "../src/remote-protocol.js";
 import { readJob } from "../src/storage.js";
 const png=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=","base64");
 test("extended remote transfers owned resources once, retains preset references, and persists actual progress",async()=>{
@@ -49,4 +49,14 @@ test("extended remote transfers owned resources once, retains preset references,
     await expect.poll(async()=>queue.size).toBe(0);
     expect((await readJob(dir,'e'.repeat(32)))?.status).toBe('failed');expect(bodies.length).toBe(2);
   } finally {server.closeAllConnections();server.close();await rm(dir,{recursive:true,force:true});}
+});
+
+
+test("native editing requires an explicit remote capability and does not drop its mode or accept partial-noise controls", () => {
+ const capabilities = { protocol: "dsh-qwen", version: 1, features: [...requiredFeatures], schedulers: ["linear"] } as const;
+ const args = { source_image_id: "b".repeat(32), reference_mode: "edit", width: 512, height: 512 };
+ expect(() => advancedParameters(args, capabilities as any)).toThrow("更新网关");
+ const supported = { ...capabilities, features: [...requiredFeatures, "reference_edit"] };
+ expect(advancedParameters(args, supported as any)).toMatchObject({ reference_mode: "edit" });
+ expect(() => advancedParameters({ ...args, change_strength: .45 }, supported as any)).toThrow("变化幅度");
 });

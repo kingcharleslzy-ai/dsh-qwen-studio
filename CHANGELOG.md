@@ -1,10 +1,17 @@
 # Changelog
 
+## 2.10.0 — 2026-10-17
+
+- Add explicit native reference editing to the updated Qwen remote gateway, creation settings, agent tools and shared presets. Use Qwen 2.1 image+text conditioning and a full sampling schedule for instruction/style edits; keep all legacy variation preset semantics unchanged.
+- Enforce native-edit capability checks and incompatible-setting errors. Current local MLX and older gateways fail clearly instead of silently degrading or switching backends.
+- Include the 2.9 image-import improvements below. Update skill routing to choose native editing for requested style/semantic changes and avoid repeated near-identical retries.
+
 ## 2.9.0 — 2026-10-17
 
 - Add `qwen_image_import` for public image URLs, host-local image files and verified conversation image attachments. Return managed IDs for img2img, ControlNet, masks and shared presets without manual gallery imports, model startup or SSH.
 - Reuse streamed size limits, image normalization and atomic resource storage. Bound downloads, check every redirect, pin validated DNS, reject private-network destinations and clean aborted partial imports. Handle Fake-IP DNS with per-request HTTPS resolution without changing proxy/DNS settings.
 - Document the search → direct image URL → import → plugin generation workflow in tool schemas and the bundled skill. Keep live progress, conversation image attachments and gallery synchronization on the existing durable queue.
+- Distinguish legacy partial-noise variations from native Qwen 2.1 reference editing. The updated remote gateway conditions on both image and text and samples the full schedule; expose explicit edit mode in advanced settings, agent tools and presets. Preserve old preset semantics, reject unsupported local/old-gateway requests instead of silently degrading.
 - Preserve connection configuration, presets, gallery works and panel drafts. Imported reference inputs remain separate from generated artwork.
 
 ## 2.8.0 — 2026-10-17
