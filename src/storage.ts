@@ -40,6 +40,8 @@ function jobRecord(
     height: raw.height,
     steps: raw.steps,
     sampling_steps: raw.sampling_steps,
+    progress_supported: raw.progress_supported,
+    phase: raw.phase,
     negative_prompt: raw.negative_prompt,
     guidance: raw.guidance,
     scheduler: raw.scheduler,

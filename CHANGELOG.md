@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.7.0 — 2026-10-17
+
+- Add a private ComfyUI Qwen 2.1 gateway with native Union control/inpainting and checked LoRA loading, content-addressed streaming assets and an idempotent task protocol.
+- Enable remote advanced creation and unchanged preset references in both panel and agent tools after capability negotiation; retain ordinary OpenAI Images compatibility.
+- Synchronize real sampling steps, transfer/loading phases, cancellation, saved PNGs and reference comparisons with chat and the gallery. Add remote memory release without touching other GPU services.
+- Preserve existing configuration, preset IDs/defaults and gallery data; extend skill instructions with remote capability discovery, automatic resource sync and supported schedulers.
+
 ## 2.6.0 — 2026-10-16
 
 - Show resolved connection values and their inheritance source; save edited settings atomically without pinning defaults. Keep secrets masked and report running worker paths separately.

@@ -17,3 +17,9 @@ Qwen, MLX, MFLUX and DeepSeek Harness belong to their respective owners.
 Their model weights, inference dependencies and licenses are separate.
 ComfyUI and InvokeAI informed queue/workspace design; no source from those
 projects is included in this distribution.
+
+Remote sigma schedules follow the published MFLUX scheduler formulas.
+MFLUX: Copyright (c) 2026 Filip Strand, MIT License.
+The license is included in LICENSES/MFLUX-MIT.txt.
+ComfyUI is a separately installed dependency; the checked LoRA node calls its
+native loader and does not vendor ComfyUI implementation code.

@@ -330,7 +330,7 @@ export function Settings({ scope }: { scope?: Scope }) {
             </label>
             <p className="q2-muted">
               使用自部署 OpenAI 兼容 Images
-              API。当前远程适配器仅支持基础文生图；本地高级效果、负向提示词和调度器不向远程发送。
+              API。使用配套 Qwen 网关可同步 LoRA、控制图、蒙版与采样进度；普通 Images API 仍仅支持基础文生图。
             </p>
           </>
         )}

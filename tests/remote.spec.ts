@@ -13,6 +13,7 @@ test("remote Images protocol persists response and deduplicates accepted receipt
   let count = 0,
     received: any;
   const server = createServer(async (req, res) => {
+    if (req.url === "/v1/qwen/capabilities") { res.writeHead(404); res.end(); return; }
     count++;
     let body = "";
     for await (const chunk of req) body += chunk;

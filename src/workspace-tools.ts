@@ -51,8 +51,8 @@ export async function workspacePreset(worker: Worker, args: Record<string, any>)
     let settings: ReturnType<typeof settingsFromDraft> | null = null;
     const issues = [...loaded.issues];
     if (!issues.length) try { settings = settingsFromDraft(loaded.draft); } catch(e) { issues.push((e as Error).message); }
-    return { id: selected.id, name: selected.name, revision: store.revision, mode: worker.mode(), settings, issues,
-      note: "这是供 qwen_generate_image 使用的参数，不会自动生图或覆盖面板草稿。保留用户当前 prompt，与 settings 合并调用。远程模式只支持基础文生图。" };
+    return { id: selected.id, name: selected.name, revision: store.revision, mode: worker.mode(), remote_capabilities: worker.mode() === "remote" ? await worker.remote.capabilities(worker.transportConfig()) : null, settings, issues,
+      note: "这是供 qwen_generate_image 使用的参数，不会自动生图或覆盖面板草稿。保留用户当前 prompt，与 settings 合并调用。远程高级能力以 remote_capabilities 为准；不支持的参数不要静默删除。" };
   }
   if (args.action === "export") {
     if (args.id && !selected) throw Error("预设不存在");
@@ -99,7 +99,7 @@ export function registerWorkspaceTools(ctx: Context, worker: Worker) {
       if (!["all", "lora", "image"].includes(kind) || !Number.isInteger(limit) || limit < 1 || limit > 100) throw Error("无效的资源筛选条件");
       const catalog = await listResources(resolveConfig(worker.transportConfig()));
       const items = catalog.items.filter(r => (kind === "all" || (kind === "lora" ? r.kind === "lora" : r.kind !== "lora")) && r.name.toLowerCase().includes(query.toLowerCase()));
-      return { result: JSON.stringify({ items: items.slice(0, limit), total: items.length, truncated: items.length > limit, warnings: catalog.warnings }) };
+      return { result: JSON.stringify({ items: items.slice(0, limit), total: items.length, truncated: items.length > limit, warnings: catalog.warnings, mode: worker.mode(), remote_capabilities: worker.mode() === "remote" ? await worker.remote.capabilities(worker.transportConfig()) : null }) };
     },
   }));
   const { prompt: _, ...settings } = generationParameters;

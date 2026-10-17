@@ -149,16 +149,16 @@ export function ConversationProgress({
           <progress
             max={total}
             value={
-              job.source === "remote" ||
+              (job.source === "remote" && !job.progress_supported) ||
               ["queued", "loading"].includes(job.status)
                 ? undefined
                 : (job.step ?? 0)
             }
           />
           <small>
-            {job.source === "remote"
+            {job.source === "remote" && !job.progress_supported
               ? "远程服务处理中，暂不提供逐步进度"
-              : `${job.step ?? 0} / ${total} 步`}
+              : `${job.phase ? job.phase + " · " : ""}${job.step ?? 0} / ${total} 步`}
           </small>
         </>
       )}

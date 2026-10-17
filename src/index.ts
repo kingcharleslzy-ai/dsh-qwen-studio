@@ -130,8 +130,8 @@ export function apply(ctx: Context, config: Config = {}) {
               }
 
               if (route === "assets-upload" && req.method === "POST") {
-                if (worker.mode() === "remote")
-                  throw Error("本机文件高级创作仅支持本地模式");
+                if (worker.mode() === "remote" && !await worker.remote.capabilities(worker.transportConfig()))
+                  throw Error("该远程服务不支持高级资源，请使用 Qwen 网关");
                 return json(
                   201,
                   await receiveAsset(
@@ -175,11 +175,12 @@ export function apply(ctx: Context, config: Config = {}) {
                     }
                   }
                 return json(200, {
-                  apiVersion: 7,
+                  apiVersion: 8,
+                  remoteAdvanced: worker.mode() === "remote" && Boolean(await worker.remote.capabilities(worker.transportConfig()).catch(() => null)),
                   jobs,
                   health:
                     worker.mode() === "remote"
-                      ? { status: "remote", busy: worker.remote.size > 0 }
+                      ? { ...health, busy: Boolean(health.busy || worker.remote.size > 0) }
                       : health,
                   directory: dir,
                   idleMinutes: current().localMfluxIdleMinutes ?? 10,

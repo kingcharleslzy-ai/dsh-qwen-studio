@@ -2,11 +2,11 @@
 
 # 图像 · Qwen Studio
 
-### 把本地 Qwen Image，变成 DSH 里随手可用的创作工作区。
+### 把本机与远程 Qwen Image，变成 DSH 里随手可用的创作工作区。
 
 **写下画面，直接生成。选好原图，继续修改。**
 
-A local Qwen Image workspace for **DeepSeek Harness** — powered by **MLX / MFLUX**.
+A local Qwen Image workspace for **DeepSeek Harness** — powered by **MLX / MFLUX** or a private **CUDA / ComfyUI** gateway.
 
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-qwen-studio?label=Download)](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest)
 [![CI](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/actions/workflows/ci.yml)
@@ -26,7 +26,7 @@ A local Qwen Image workspace for **DeepSeek Harness** — powered by **MLX / MFL
 - **直接创作**：打开左侧「图像」，输入描述即可生成。LoRA、控制图和蒙版都能在高级设置里直接选择本机文件。
 - **会话创作**：对模型说「帮我画一张」。插件提供技能和工具，会话发起的任务在对话与创作页同步显示阶段、步数和完成图片。
 
-应用里叫 **图像**，安装包叫 `dsh-qwen-studio`。项目独立维护、独立发版，**无需安装旧 `dsh-image-gen` 插件**。当前版本：**2.6.0**。
+应用里叫 **图像**，安装包叫 `dsh-qwen-studio`。项目独立维护、独立发版，**无需安装旧 `dsh-image-gen` 插件**。当前版本：**2.7.0**。
 
 ![在 DSH 创作页完成局部重绘并查看原位结果](docs/media/creation.png)
 
@@ -43,7 +43,7 @@ A local Qwen Image workspace for **DeepSeek Harness** — powered by **MLX / MFL
 | 取回已经生成的图 | 查询原任务，直接返回同一图片，不重新生成 |
 | 留下好作品，收起试稿 | 默认进入隐私图库；收藏后出现在普通图库 |
 | 避免模型一直占内存 | 调用时启动，空闲后按设置释放；也可手动释放 |
-| 使用自己的远程 GPU | 接入自部署的 OpenAI 兼容 Images 服务，沿用创作与图库流程 |
+| 使用自己的远程 GPU | 配套 CUDA 网关支持完整高级组合与真实进度；普通 Images 服务兼容基础生图 |
 
 ## 高级功能，也可以直接点选
 
@@ -64,7 +64,7 @@ A local Qwen Image workspace for **DeepSeek Harness** — powered by **MLX / MFL
 
 已选文件关联与参数自动保存在草稿里。返回创作后直接生成，结果原位显示。**图片输入独立保存在资源库，不会把蒙版和控制图塞进作品图库。**
 
-> 本机选中的文件仅复制到本机资源库，原文件不变。PNG / JPEG / WebP 单张不超过 64MB，最长边 8192 像素且不超过 3200 万像素；LoRA 单文件不超过 2GB。灰色蒙版按亮度中点划分黑白，透明区域按保留区处理。移除草稿关联不会删除文件原件。
+> 选文件时先复制到本机资源库，原文件不变；远程生成时，本次选中的资源会同步到你配置的服务器私有缓存。PNG / JPEG / WebP 单张不超过 64MB，最长边 8192 像素且不超过 3200 万像素；LoRA 单文件不超过 2GB。灰色蒙版按亮度中点划分黑白，透明区域按保留区处理。移除草稿关联不会删除文件原件。
 
 ## 从调好的一次，到随时复用的一套
 
@@ -82,14 +82,14 @@ A local Qwen Image workspace for **DeepSeek Harness** — powered by **MLX / MFL
 
 导出的 JSON 不携带权重、图像文件、设备绝对路径或连接密钥。导入后按资源内容哈希重新匹配，缺失或已变化的资源会明确提示，须重新选择、移除或停用后才能生成。它是参数分享格式，不是完整模型或图库备份。
 
-普通文生图中，CFG 需配合非空负向词使用；填写负向词且 CFG 为 1 时，界面会注明实际自动提升到 2.5。ControlNet/蒙版分支允许空负向词配合 CFG 大于 1，但仅支持 `linear` 调度器。远程模式不发送这些本地高级参数。
+普通文生图中，CFG 需配合非空负向词使用；填写负向词且 CFG 为 1 时，界面会注明实际自动提升到 2.5。ControlNet/蒙版分支允许空负向词配合 CFG 大于 1，但仅支持 `linear` 调度器。配套远程 Qwen 网关使用相同参数；普通 Images API 不接受高级参数。
 
 ## 为 DSH 的使用方式设计
 
 - **跟随宿主外观**：字体、字号、主题色和基础控件沿用 DSH，参数区可滚动，生成按钮保持可用。
 - **创作不被打断**：生成后留在原页；完成结果、最近版本、参考图对比与下载都在预览区。
 - **清空工作台，保留作品**：清除预览不会删除图库原件或取消后台任务。
-- **进度来自真实任务**：本地显示排队、加载、采样、保存及步数；远程显示处理状态。没有伪造百分比或半成品实时预览。
+- **进度来自真实任务**：本机与配套远程网关显示资源同步、排队、加载、真实采样步数和保存；普通 Images API 显示处理状态。没有伪造百分比或半成品实时预览。
 - **图库能整理**：搜索、收藏、全选、批量归档、回收站、恢复与确认后永久删除。
 - **模型能发现工具**：内置 `qwen-image` 技能，简介与执行说明使用同一来源。实际生图优先走插件队列；仅写提示词时不自动生图，失败时不静默改跑独立脚本。
 
@@ -136,7 +136,9 @@ sh scripts/setup-local.sh "$HOME/.local/share/qwen-studio/venv"
 
 填写 `/v1` 基地址、模型名和可选 API Key。服务需支持 `GET /models`、`POST /images/generations`，接收尺寸、种子与采样步数，返回 PNG 格式的 `data[0].b64_json`。
 
-当前远程适配器提供文生图与图库管理；**本机文件、参考变体、LoRA、ControlNet、蒙版及高级采样参数仅接入本地模式**。不支持的组合明确报错，避免参数被忽略后仍继续生成。ComfyUI 原生地址需要另行提供协议适配，不能直接当作 Images 接口使用。
+**配套 Qwen 网关已支持 LoRA、ControlNet、蒙版、参考变体、负向词与三个调度器。** 创作页和会话沿用同一套预设，选中的 Mac 资源会自动校验并同步到远程缓存，真实采样步数同步回 DSH。模型按需加载、空闲退出；图片保存回原图库，隐私分类不影响对话图片。
+
+普通 OpenAI Images 服务仍作为基础文生图接口兼容。不支持的组合明确报错，不静默丢弃参数；ComfyUI 原生地址不能直接填写为 Images 接口。见 [远程高级网关](docs/REMOTE.md)。
 
 ## 会话调用
 
@@ -164,11 +166,13 @@ sh scripts/setup-local.sh "$HOME/.local/share/qwen-studio/venv"
 
 完整证据范围见 [VERIFICATION](docs/VERIFICATION.md)：自动测试覆盖文件导入、任务持久化与去重、图片输入快照、参数组合、LoRA 隔离、蒙版保留、图库分流、会话进度和结果恢复。
 
-2.6.0 已通过 **43 项工具/界面测试 + 21 项 worker 测试**。原生 DSH 实测覆盖整套预设保存/加载、JSON 往返、失效资源阻止提交，以及 LoRA、控制图、原图和蒙版组合生图。模型也已在自然语言请求下自行加载技能、查资源、保存并读回预设；只配置时未启动模型、未新增图片任务。
+2.7.0 已通过 **44 项工具/界面测试 + 26 项后端测试**。在 RTX 4090 D 上完成 9 组真实推理：基础、LoRA、控制强度对照、蒙版、全部组合、参考变体及三种调度器，并验证错误 LoRA 报错与运行中取消。
+
+重启后的原生 DSH 中，创作页通过 macOS 文件选择器导入原图、控制图和蒙版，与现有 LoRA 组合生成；会话 Agent 加载同一预设再生成。两处均显示真实步数，切页继续，完成图片同时在对话、创作页与隐私图库可见。蒙版黑色区域逐像素不变，原有预设及默认项保持不变。
 
 已有本机推理验收包括普通生图、合成零增量 LoRA、ControlNet、蒙版及组合任务；原生 DSH 验收涵盖自然语言触发、切页进度、图片卡片与只读取回。第三方权重的兼容性与画质需按实际模型验证，不能由接口可用推断。
 
-远程协议使用模拟服务回归，尚未覆盖所有远程 GPU 部署。CI 不下载模型、不运行真实 GPU 推理。
+远程 GPU 实测范围为 Windows / RTX 4090 D / 官方 Qwen Image 2.1 INT8。Linux 启停分支尚未完成真实 GPU 验收。CI 不下载模型、不运行真实 GPU 推理。
 
 ## 开发与贡献
 
@@ -195,7 +199,7 @@ npm run check:package
 - **Persistent jobs:** keep working while pages change, with real sampling progress and recoverable results.
 - **On-demand MLX / MFLUX:** start local inference when needed and release it after a configurable idle period.
 - **Private drafts, curated favorites:** new images enter the private gallery; starred works appear in the main gallery. Conversation images remain visible. This is organization, not encryption.
-- **Self-hosted option:** use an OpenAI-compatible Images API for remote text-to-image generation. Advanced image inputs remain local-only in this adapter.
+- **Self-hosted option:** use an OpenAI-compatible Images API for remote text-to-image generation. The bundled private Qwen gateway supports LoRA, Union ControlNet, masked inpainting, img2img, content-addressed asset sync and real sampling progress in both chat and the creation panel. Ordinary Images servers remain text-to-image only.
 
 Download a compiled `.tgz` from [Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest), install with `dsh plugin --profile desktop add`, restart DSH and configure **图像**. Local inference requires Apple Silicon, Python 3.12, MFLUX 0.22.0 and separately prepared Qwen Image 2.1 weights. See [setup](docs/SETUP.md) and [verification](docs/VERIFICATION.md) for requirements and tested limits.
 

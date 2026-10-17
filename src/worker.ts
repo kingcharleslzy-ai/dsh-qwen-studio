@@ -43,6 +43,12 @@ export class Worker {
   }
   async health(): Promise<Health> {
     try {
+      if (this.mode() === "remote") {
+        if (!await this.remote.capabilities(this.transportConfig())) return { status: "remote", busy: this.remote.size > 0 };
+        const r = await fetch(remoteURL(this.transportConfig()) + "/qwen/health", { headers: headers(this.transportConfig()), signal: AbortSignal.timeout(2000), redirect: "error" });
+        if (!r.ok) throw Error("远程状态不可用");
+        return { ...await r.json() as Health, status: "remote" };
+      }
       const r = await fetch(BASE + "/health", {
         signal: AbortSignal.timeout(1500),
       });
@@ -127,9 +133,10 @@ export class Worker {
       );
       if (!response.ok) throw Error(`远程连接失败：HTTP ${response.status}`);
       const data = (await response.json()) as { data?: { id: string }[] };
+      const advanced = await this.remote.capabilities(this.transportConfig());
       return {
         ok: true,
-        message: "远程接口可达；使用OpenAI兼容Images API，需返回PNG base64。",
+        message: advanced ? "Qwen 远程网关可达；支持 LoRA、结构控制、蒙版、参考变体和真实步数进度。" : "远程接口可达；基础 Images API，仅支持文生图。",
         models: data.data?.map((m) => m.id) ?? [],
       };
     }
@@ -162,6 +169,12 @@ export class Worker {
         this.transportConfig(),
         data as Record<string, unknown>,
       );
+    if (path === "/v1/unload" && this.mode() === "remote") {
+      if (!await this.remote.capabilities(this.transportConfig())) throw Error("普通远程接口不支持释放模型");
+      const r = await fetch(remoteURL(this.transportConfig()) + "/qwen/unload", { method: "POST", headers: headers(this.transportConfig()), body: "{}", signal: AbortSignal.timeout(45000), redirect: "error" });
+      if (!r.ok) throw Error("远程仍有任务或释放失败，请查询当前任务状态");
+      return r.json();
+    }
     if (path === "/v1/cancel") {
       const id = (data as { id: string }).id;
       const job = (await readJobs(this.directory())).find((j) => j.id === id);

@@ -1,0 +1,52 @@
+import { test, expect } from "vitest";
+import { createServer } from "node:http";
+import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createHash } from "node:crypto";
+import { RemoteQueue } from "../src/remote.js";
+import { requiredFeatures } from "../src/remote-protocol.js";
+import { readJob } from "../src/storage.js";
+const png=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=","base64");
+test("extended remote transfers owned resources once, retains preset references, and persists actual progress",async()=>{
+  const uploads=new Map<string,Buffer>();const bodies:any[]=[];const reads=new Map<string,number>();
+  const server=createServer(async(req,res)=>{
+    expect(req.headers.authorization).toBe("Bearer test-key");res.setHeader("content-type","application/json");
+    const url=new URL(req.url!,"http://local");
+    if(url.pathname.endsWith("/capabilities"))return res.end(JSON.stringify({protocol:"dsh-qwen",version:1,features:requiredFeatures,schedulers:["linear"]}));
+    if(url.pathname.includes("/assets/")){
+      const sha=url.pathname.split("/").at(-1)!;
+      if(req.method==="HEAD"){res.statusCode=uploads.has(sha)?200:404;return res.end();}
+      const chunks:Buffer[]=[];for await(const c of req)chunks.push(c);const bytes=Buffer.concat(chunks);
+      expect(createHash("sha256").update(bytes).digest("hex")).toBe(sha);uploads.set(sha,bytes);return res.end('{}');
+    }
+    if(req.method==="POST"){
+      let text='';for await(const c of req)text+=c;const body=JSON.parse(text);bodies.push(body);res.statusCode=202;return res.end(JSON.stringify({id:body.id}));
+    }
+    if(url.pathname.endsWith('/image'))return res.end(png);
+    const id=url.pathname.split('/').at(-1)!;const n=(reads.get(id)||0)+1;reads.set(id,n);
+    res.end(JSON.stringify({id,status:n<2?'running':'complete',step:n<2?3:20,sampling_steps:20,phase:'采样'}));
+  });
+  await new Promise<void>(r=>server.listen(0,'127.0.0.1',r));
+  const dir=await mkdtemp(join(tmpdir(),'qwen-extended-')),source='a'.repeat(32),mask='b'.repeat(32);
+  for(const [id,kind] of [[source,'source'],[mask,'mask']]){
+    const folder=join(dir,'assets/images',id!);await mkdir(folder,{recursive:true});await writeFile(join(folder,'image.png'),png);await writeFile(join(folder,'asset.json'),JSON.stringify({id,kind}));
+  }
+  const queue=new RemoteQueue(), config={localMfluxDirectory:dir,remoteBaseURL:`http://127.0.0.1:${(server.address() as any).port}/v1`,remoteApiKey:'test-key'};
+  const params={prompt:'a blue cup',width:512,height:512,steps:20,seed:1,source_image_id:source,mask_image_id:mask,controlnet_image_id:source,controlnet_strength:.8,negative_prompt:'blur',guidance:1,scheduler:'linear'};
+  try{
+    const id='c'.repeat(32);await queue.submit(dir,config,{...params,id});
+    await expect.poll(async()=> (await readJob(dir,id))?.step).toBe(3);
+    await expect.poll(async()=> (await readJob(dir,id))?.status).toBe('complete');
+    expect(await readJob(dir,id)).toMatchObject({source_image_id:source,mask_image_id:mask,controlnet_image_id:source,progress_supported:true,guidance:2.5,guidance_auto_raised:true});
+    expect(bodies[0]).not.toHaveProperty('source_image_id');expect(bodies[0]).not.toHaveProperty('lora_paths');
+    expect(bodies[0].source_sha).toMatch(/^[a-f0-9]{64}$/);expect(uploads.size).toBe(1);
+    expect(await readFile(join(dir,'images',id,'image.png'))).toEqual(png);
+    expect(await readFile(join(dir,'images',id,'reference.png'))).toEqual(png);
+    await queue.submit(dir,config,{...params,id:'d'.repeat(32)});
+    await expect.poll(async()=>queue.size).toBe(0);expect(uploads.size).toBe(1);
+    await expect(queue.submit(dir,config,{...params,id:'e'.repeat(32),lora_paths:['/outside/style.safetensors']})).resolves.toBeDefined();
+    await expect.poll(async()=>queue.size).toBe(0);
+    expect((await readJob(dir,'e'.repeat(32)))?.status).toBe('failed');expect(bodies.length).toBe(2);
+  } finally {server.closeAllConnections();server.close();await rm(dir,{recursive:true,force:true});}
+});

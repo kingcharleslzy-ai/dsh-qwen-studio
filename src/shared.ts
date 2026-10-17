@@ -13,6 +13,8 @@ export interface Job {
   lora_names?: string[];
   change_strength?: number;
   sampling_steps?: number;
+  progress_supported?: boolean;
+  phase?: string;
   source?: "local" | "remote";
   deleted?: boolean;
   worker_pid?: number;
@@ -43,6 +45,7 @@ export interface Health {
 }
 export interface Snapshot {
   apiVersion?: number;
+  remoteAdvanced?: boolean;
   jobs: Job[];
   health: Health;
   directory: string;
@@ -51,10 +54,11 @@ export interface Snapshot {
   configured: boolean;
 }
 export const active = (job: Job) =>
-  ["queued", "loading", "running", "saving", "cancelling"].includes(job.status);
+  ["queued", "uploading", "loading", "running", "saving", "cancelling"].includes(job.status);
 export const statusLabel = (s: string) =>
   ({
     queued: "排队中",
+    uploading: "同步资源",
     loading: "加载模型",
     running: "生成中",
     saving: "保存图片",

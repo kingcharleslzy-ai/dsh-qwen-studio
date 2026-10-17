@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { atomicJSON, validId } from "./storage.js";
 import type { Config } from "./config.js";
 import type { Job } from "./shared.js";
+import { advancedParameters, runExtended, requiredFeatures, type RemoteCapabilities } from "./remote-protocol.js";
 export function remoteURL(config: Config) {
   const url = new URL(config.remoteBaseURL ?? "");
   if (
@@ -28,6 +29,23 @@ export class RemoteQueue {
   private tail: Promise<unknown> = Promise.resolve();
   private pending = new Map<string, AbortController>();
   private configs = new Map<string, { dir: string; config: Config }>();
+  private capabilityCache = new Map<string, { until: number; value: Promise<RemoteCapabilities | null> }>();
+  capabilities(config: Config): Promise<RemoteCapabilities | null> {
+    const key = JSON.stringify([remoteURL(config), config.remoteApiKey]);
+    const cached = this.capabilityCache.get(key);
+    if (cached && cached.until > Date.now()) return cached.value;
+    const value = (async () => {
+      const response = await fetch(remoteURL(config) + "/qwen/capabilities", { headers: headers(config), redirect: "error", signal: AbortSignal.timeout(5000) });
+      if ([404, 405].includes(response.status)) return null;
+      if (!response.ok) throw Error(`远程能力检查失败：HTTP ${response.status}`);
+      const data = await response.json() as RemoteCapabilities;
+      if (data.protocol !== "dsh-qwen" || data.version !== 1 || !Array.isArray(data.features) || !requiredFeatures.every(f => data.features.includes(f)) || !Array.isArray(data.schedulers)) return null;
+      return { protocol: data.protocol, version: 1, features: data.features, schedulers: data.schedulers } as RemoteCapabilities;
+    })();
+    this.capabilityCache.set(key, { until: Date.now() + 10000, value });
+    void value.catch(() => this.capabilityCache.delete(key));
+    return value;
+  }
   submit(dir: string, config: Config, data: Record<string, unknown>) {
     const result = this.admission.then(() => this.admit(dir, config, data));
     this.admission = result.catch(() => {});
@@ -38,19 +56,20 @@ export class RemoteQueue {
     config: Config,
     data: Record<string, unknown>,
   ) {
-    if (data.source_image_id != null || data.change_strength != null)
+    const capabilities = await this.capabilities(config);
+    if (!capabilities && (data.source_image_id != null || data.change_strength != null))
       throw Error(
         "当前远程接口仅支持文生图，不能忽略参考图继续生成；请切换本地模式或移除参考图",
       );
-    if (
+    if (!capabilities && (
       data.negative_prompt != null ||
       data.guidance != null ||
       data.scheduler != null
-    )
+    ))
       throw Error(
         "负向提示词、CFG 与调度器目前仅接入本地模式；远程接口不会忽略这些参数继续生成",
       );
-    if (["lora_paths", "lora_scales", "controlnet_image_id", "controlnet_strength", "mask_image_id"].some(key => data[key] !== undefined))
+    if (!capabilities && ["lora_paths", "lora_scales", "controlnet_image_id", "controlnet_strength", "mask_image_id"].some(key => data[key] !== undefined))
       throw Error("LoRA、ControlNet 与蒙版目前仅支持本地模式；远程不会忽略这些参数继续生成");
     remoteURL(config);
     const id = data.id as string;
@@ -88,7 +107,9 @@ export class RemoteQueue {
         seed >= 2 ** 32)
     )
       throw Error("种子无效");
+    const advanced = capabilities ? advancedParameters(data, capabilities) : {};
     const request = {
+        ...advanced,
         prompt,
         width: width as number,
         height: height as number,
@@ -112,6 +133,7 @@ export class RemoteQueue {
       seed: seed ?? Math.floor(Math.random() * 2 ** 32),
       status: "queued",
       source: "remote" as const,
+      progress_supported: Boolean(capabilities),
       started_at: Date.now() / 1000,
       worker_pid: process.pid,
       request,
@@ -137,9 +159,16 @@ export class RemoteQueue {
       const old = JSON.parse(await readFile(file, "utf8"));
       await atomicJSON(file, { ...old, ...value });
     };
+    let extendedAccepted = false;
+    let extended = false;
     try {
       controller.signal.throwIfAborted();
+      extended = Boolean(await this.capabilities(config));
       await patch({ status: "running" });
+      let bytes: Buffer;
+      if (extended) {
+        bytes = await runExtended({ base: remoteURL(config), headers: headers(config), dir, config, job, signal: controller.signal, patch, accepted: () => { extendedAccepted = true; } });
+      } else {
       const response = await fetch(remoteURL(config) + "/images/generations", {
         method: "POST",
         headers: headers(config),
@@ -167,7 +196,8 @@ export class RemoteQueue {
         throw Error(
           "远程接口需返回 data[0].b64_json（PNG），当前不支持图片URL返回",
         );
-      const bytes = Buffer.from(item.b64_json, "base64");
+      bytes = Buffer.from(item.b64_json, "base64");
+      }
       if (
         bytes.length > 64 * 1024 * 1024 ||
         bytes.length < 24 ||
@@ -187,14 +217,19 @@ export class RemoteQueue {
         status: "complete",
         width: bytes.readUInt32BE(16),
         height: bytes.readUInt32BE(20),
-        step: job.steps,
+        step: extended ? JSON.parse(await readFile(file, "utf8")).sampling_steps ?? job.steps : job.steps,
         elapsed_seconds: Math.round((Date.now() - start) / 10) / 100,
       });
     } catch (e) {
+      if (controller.signal.aborted && extended && extendedAccepted) {
+        try {
+          await fetch(remoteURL(config) + "/qwen/jobs/" + job.id + "/cancel", { method: "POST", headers: headers(config), redirect: "error", signal: AbortSignal.timeout(5000) });
+        } catch { /* The local cancellation still records that remote acknowledgement was lost. */ }
+      }
       await patch({
         status: controller.signal.aborted ? "cancelled" : "failed",
         error: controller.signal.aborted
-          ? "已停止等待；远程服务可能仍在计算"
+          ? extended ? "已停止等待并请求取消远程任务；连接中断时请检查远程状态" : "已停止等待；远程服务可能仍在计算"
           : e instanceof Error
             ? e.message
             : String(e),

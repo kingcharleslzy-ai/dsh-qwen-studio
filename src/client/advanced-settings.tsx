@@ -135,7 +135,7 @@ export function AdvancedSettings({
         )}
         {remote ? (
           <p role="status" className="q2-effect-note">
-            LoRA、结构控制和局部重绘仅支持本地模式。已选文件会保留，切回本地后可继续使用。
+            该远程接口没有公布高级能力。请连接配套 Qwen 网关，或切回本地；已选资源会保留。
           </p>
         ) : (
           !ready && (

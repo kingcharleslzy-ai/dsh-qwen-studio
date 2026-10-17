@@ -256,7 +256,7 @@ export function Studio() {
         ? JSON.parse(saved)
         : generationPayload(
             draft,
-            snapshot?.mode === "remote",
+            snapshot?.mode === "remote" && !snapshot?.remoteAdvanced,
             crypto.randomUUID().replaceAll("-", ""),
           );
       if (
@@ -330,7 +330,7 @@ export function Studio() {
   const status = !snapshot
     ? "连接中"
     : remote
-      ? "远程 Qwen"
+      ? health?.busy ? "远程正在创作" : health?.loaded ? "远程模型已就绪" : "远程按需启动"
       : health?.busy
         ? "正在创作"
         : health?.loaded
@@ -376,7 +376,7 @@ export function Studio() {
           >
             创作
           </button>
-          {health?.loaded && !health.busy && !remote && (
+          {health?.loaded && !health.busy && (!remote || snapshot?.remoteAdvanced) && (
             <button
               className="q2-unload"
               onClick={() => void action("unload", [])}
@@ -418,7 +418,7 @@ export function Studio() {
             history={historyIds
               .map((id) => jobs.find((j) => j.id === id && !j.deleted))
               .filter((j): j is Job => Boolean(j))}
-            remote={remote}
+            remote={remote && !snapshot?.remoteAdvanced}
             clear={clearPreview}
             favorite={(job) => void action("favorite", [job.id], !job.favorite)}
             select={chooseResult}
@@ -809,11 +809,11 @@ export function Studio() {
                         <strong>{statusLabel(job.status)}</strong>
                         {active(job) && (
                           <div
-                            className={`q2-progress ${job.source === "remote" ? "q2-indeterminate" : ""}`}
+                            className={`q2-progress ${job.source === "remote" && !job.progress_supported ? "q2-indeterminate" : ""}`}
                           >
                             <i
                               style={
-                                job.source === "remote"
+                                job.source === "remote" && !job.progress_supported
                                   ? undefined
                                   : {
                                       width: `${Math.min(100, Math.max(3, ((job.step ?? 0) / (job.sampling_steps ?? job.steps)) * 100))}%`,
@@ -823,7 +823,7 @@ export function Studio() {
                           </div>
                         )}
                         <span>
-                          {job.source === "remote" && active(job)
+                          {job.source === "remote" && !job.progress_supported && active(job)
                             ? "远程服务处理中"
                             : job.status === "running"
                               ? `${job.step ?? 0} / ${job.sampling_steps ?? job.steps} 步`
@@ -896,7 +896,7 @@ export function Studio() {
         <AdvancedSettings
           draft={draft}
           update={update}
-          remote={remote}
+          remote={remote && !snapshot?.remoteAdvanced}
           ready={(snapshot?.apiVersion ?? 0) >= 6}
           close={closeAdvanced}
         />
@@ -986,7 +986,7 @@ export function Studio() {
                     <RotateCcw size={14} />
                     复用参数
                   </button>
-                  {detail.status === "complete" && !remote && (
+                  {detail.status === "complete" && (!remote || snapshot?.remoteAdvanced) && (
                     <button onClick={() => reuse(detail, true)}>
                       用作参考
                     </button>

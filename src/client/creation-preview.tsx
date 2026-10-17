@@ -69,13 +69,13 @@ export function CreationPreview({
             <LoaderCircle className="q2-spin" />
             <p>{statusLabel(job.status)}</p>
             <span>
-              {job.source === "remote"
+              {job.source === "remote" && !job.progress_supported
                 ? "远程服务正在处理"
-                : `${job.step ?? 0} / ${total} 步`}
+                : `${job.phase ? job.phase + " · " : ""}${job.step ?? 0} / ${total} 步`}
             </span>
             <progress
               max={total}
-              value={job.source === "remote" ? undefined : (job.step ?? 0)}
+              value={job.source === "remote" && !job.progress_supported ? undefined : (job.step ?? 0)}
             />
             <button onClick={() => cancel(job.id)}>取消任务</button>
           </div>

@@ -28,11 +28,11 @@
 - POST /v1/images/generations：model、prompt、size、n=1、response_format=b64_json、seed、num_inference_steps。
 - 响应：data[0].b64_json，必须是PNG，不超过64MiB；不接受任意图片URL下载。
 - 不需要ComfyUI工作流JSON。已有ComfyUI需自行提供符合上述协议的适配服务，不能直接填8188地址。
-- 本地插件不启动/关闭远程服务器。远程请求最长等待30分钟；停止等待不能保证取消远程GPU任务。
+- 配套 Qwen 网关按需启动自己的 ComfyUI，并在空闲后退出；普通第三方服务的生命周期由服务管理。远程任务最多等待30分钟。配套网关支持取消；网络中断时不能保证收到取消确认。
 - 模型服务需支持传入的采样步数，例如常规Qwen Image；固定采样网格的Turbo部署不属于当前适配范围。
 
 vLLM-Omni协议参考：https://docs.vllm.ai/projects/vllm-omni/en/latest/user_guide/examples/online_serving/text_to_image/
-本版通过本地模拟服务做协议测试，尚未连接你的远程GPU服务器做真实推理验收。
+2.7.0 已在 Windows RTX 4090 D 上验收文生图、LoRA、Union 控制、蒙版、组合生成与真实步数。高级部署与缓存协议见 [远程网关](REMOTE.md)。
 
 ## 让其他文字模型调用
 
