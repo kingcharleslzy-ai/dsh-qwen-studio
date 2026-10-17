@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.9.0 — 2026-10-17
+
+- Add `qwen_image_import` for public image URLs, host-local image files and verified conversation image attachments. Return managed IDs for img2img, ControlNet, masks and shared presets without manual gallery imports, model startup or SSH.
+- Reuse streamed size limits, image normalization and atomic resource storage. Bound downloads, check every redirect, pin validated DNS, reject private-network destinations and clean aborted partial imports. Handle Fake-IP DNS with per-request HTTPS resolution without changing proxy/DNS settings.
+- Document the search → direct image URL → import → plugin generation workflow in tool schemas and the bundled skill. Keep live progress, conversation image attachments and gallery synchronization on the existing durable queue.
+- Preserve connection configuration, presets, gallery works and panel drafts. Imported reference inputs remain separate from generated artwork.
+
 ## 2.8.0 — 2026-10-17
 
 - Add plugin-owned on-demand SSH forwarding: passive gallery/resource/preset/config reads do not connect. Keep leases through upload, queueing, sampling and saving; confirm remote model shutdown before closing only the owned SSH process.

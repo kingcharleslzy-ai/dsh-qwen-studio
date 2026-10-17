@@ -25,7 +25,7 @@ export const generationParameters = {
         source_image_id: {
           type: "string",
           description:
-            "Optional 32-character image id from an earlier qwen_generate_image result. Img2img on local or the Qwen gateway; never invent an id or pass a filesystem path. Omit for a new composition.",
+            "Optional real 32-character image id from qwen_image_import, qwen_image_resources or an earlier qwen_generate_image result. Import new URLs/files/attachments with qwen_image_import first. Img2img on local or the Qwen gateway; never invent an id or pass a filesystem path. Omit for a new composition.",
         },
         change_strength: {
           type: "number",
@@ -62,7 +62,7 @@ export const generationParameters = {
         controlnet_image_id: {
           type: "string",
           description:
-            "Local or Qwen gateway: 32-character id of an imported or gallery control image (line art, Canny, depth, pose). Structure comes from the control image and content from the prompt, so it pins composition and pose. Select an existing id with qwen_image_resources; never invent an id or pass a filesystem path.",
+            "Local or Qwen gateway: 32-character id of an imported or gallery control image (line art, Canny, depth, pose). Structure comes from the control image and content from the prompt, so it pins composition and pose. Import new control images with qwen_image_import(kind=control) or select an existing id with qwen_image_resources; never invent an id or pass a filesystem path.",
         },
         controlnet_strength: {
           type: "number",
@@ -72,6 +72,6 @@ export const generationParameters = {
         mask_image_id: {
           type: "string",
           description:
-            "Inpaint on local or Qwen gateway. 32-character id of an imported or gallery mask where white is redrawn from the prompt and black is preserved. Requires source_image_id as the source image; black areas are copied from the source at output size. Do not pass change_strength with a mask. ControlNet and masks require a complete Union checkpoint on the executing server and the default scheduler; source_image_id with ControlNet requires a mask.",
+            "Inpaint on local or Qwen gateway. 32-character id of an imported or gallery mask where white is redrawn from the prompt and black is preserved. Import new masks with qwen_image_import(kind=mask). Requires source_image_id as the source image; black areas are copied from the source at output size. Do not pass change_strength with a mask. ControlNet and masks require a complete Union checkpoint on the executing server and the default scheduler; source_image_id with ControlNet requires a mask.",
         },
       } as const;

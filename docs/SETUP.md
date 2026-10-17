@@ -4,7 +4,7 @@
 
 ## 安装插件
 
-从 [本项目 Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载安装包，运行 `dsh plugin --profile desktop add /绝对路径/dsh-qwen-studio-2.6.0.tgz`。若没有全局 dsh 命令，使用 README 中的桌面版内置 CLI。然后手动退出并重新打开 DSH，在插件设置中启用并配置「图像」。
+从 [本项目 Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载安装包，运行 `dsh plugin --profile desktop add /绝对路径/dsh-qwen-studio-2.9.0.tgz`。若没有全局 dsh 命令，使用 README 中的桌面版内置 CLI。然后手动退出并重新打开 DSH，在插件设置中启用并配置「图像」。
 
 包内的脚本和说明位于安装后 dsh-qwen-studio 包目录；也可从源代码包解压使用。
 
@@ -109,3 +109,12 @@ vLLM-Omni协议参考：https://docs.vllm.ai/projects/vllm-omni/en/latest/user_g
 - 新本机输入文件仍由高级设置选择器导入；查询工具不接受任意路径读取。远程当前仅支持基础文生图，不会静默忽略高级参数。
 
 这两个新宿主工具需要 DSH 正常退出并重开后加载；只看到客户端新界面并不代表宿主工具已经更新。
+
+
+### Agent 导入外部参考图（2.9.0）
+
+`qwen_image_import` 接受 url、path、attachment 三选一，kind 为 source（默认）/control/mask。url 须为 PNG/JPEG/WebP 图片直链；path 是 DSH 宿主上的绝对路径或 ~/ 路径；attachment 使用会话里真实完整的图片引用。返回 settings 可以合并到生成参数或保存为预设。用户要求找参考并生成时，Agent 先使用会话的搜索/浏览器工具找图，再导入并调用 qwen_generate_image，不需要手动操作图库或运行下载脚本。
+
+导入不启动模型、不唤醒 SSH，也不改创作页草稿。图片只进入输入资源库；实际生成后才产生图库作品和会话结果。远程使用相同资源 ID，由插件按内容哈希自动同步。64MiB、8192边长、3200万像素与面板一致。导入不会自动生成线稿或蒙版。公网网址不接受登录认证或内网地址，HTML 页面会提示改用图片直链。
+
+Fake-IP DNS 下，插件只对待导入图片域名单独请求阿里公共 DNS（失败时 Cloudflare）的 HTTPS 解析，校验返回地址并固定下载连接；不修改系统 DNS、代理配置或其他软件出口。解析失败会明确报错，可改用其他链接或本机文件。

@@ -8,6 +8,8 @@ import { readPresets, loadPreset, mutatePresets, exportPresets } from "./presets
 import { readJob } from "./storage.js";
 import { draftDefaults, generationPayload, reuseDraft, type CreationDraft } from "./client/creation-draft.js";
 import { generationParameters } from "./generation-parameters.js";
+import { importImage } from "./image-import.js";
+import type { ImageAttachmentRef } from "@deepseek-ai/dsh-attachment";
 
 // The agent and panel share the same preset store, resource validation and revision lock.
 export function draftFromSettings(p: Record<string, any>): CreationDraft {
@@ -87,6 +89,43 @@ const output = {
   render: (_args: unknown, value: { result: string }) => [{ type: "text" as const, text: value.result }],
 } as const;
 export function registerWorkspaceTools(ctx: Context, worker: Worker) {
+  ctx.tools.register(defineTool({
+    name: "qwen_image_import",
+    description: "Import a reference image, control image or mask into the Qwen Image resource library without generating or starting the model/SSH. Accepts exactly one public HTTP(S) image URL, absolute local file path, or real conversation image attachment reference. For web-reference img2img, first use available search/browser tools to find a suitable image and its direct image URL, then import it here; do not ask the user to open the gallery or run a downloader script. Returns the real 32-character id, dimensions and parameter name for qwen_generate_image and presets. PNG/JPEG/WebP up to 64MiB; rejects HTML pages, private-network URLs and unsupported files. Original files are unchanged; imported inputs are resources, not generated gallery works. Remote Qwen automatically synchronizes selected resources on generation.",
+    timeoutMs: 90000,
+    parameters: {
+      kind: { type: "string", description: "source (default) for img2img/inpaint source; control for an actual structure/pose/edge image; mask for a white-redraw/black-keep mask. Import does not extract edges, pose or create a mask." },
+      url: { type: "string", description: "Public direct HTTP/HTTPS image URL, not a search-result page. Mutually exclusive with path and attachment. No login/cookies required; private/Tailscale URLs are rejected." },
+      path: { type: "string", description: "Existing absolute or ~/ image path on the DSH host (Mac), obtained from user context or actual file tools. Not a Windows server path; never guess. Mutually exclusive with url and attachment." },
+      name: { type: "string", description: "Optional recognizable resource name, e.g. mountain-reference.jpg." },
+      attachment: {
+        type: "object", additionalProperties: false,
+        description: "Exact image attachment reference from conversation context, not just its hash. Mutually exclusive with url and path; never invent fields.",
+        properties: {
+          attachmentId: { type: "string", required: true },
+          mediaType: { type: "string", required: true },
+          bytes: { type: "integer", required: true },
+          width: { type: "integer", required: true },
+          height: { type: "integer", required: true },
+          name: { type: "string" },
+          originalDimensions: { type: "object", additionalProperties: false, properties: {
+            width: { type: "integer", required: true }, height: { type: "integer", required: true },
+          } },
+        },
+      },
+    }, output,
+    async execute(args, exec) {
+      const config = resolveConfig(worker.transportConfig());
+      const { attachment, ...input } = args;
+      const asset = await importImage({ ...input, ...(attachment ? { attachment: attachment as ImageAttachmentRef } : {}) }, {
+        directory: config.localMfluxDirectory, python: config.pythonPath, signal: exec.signal,
+        readAttachment: (ref, signal) => ctx.attachments.readImage(ref, signal),
+      });
+      const parameter = asset.kind === "control" ? "controlnet_image_id" : asset.kind === "mask" ? "mask_image_id" : "source_image_id";
+      return { result: JSON.stringify({ ...asset, parameter, settings: { [parameter]: asset.id },
+        note: "已导入资源库，尚未生图，也不覆盖面板草稿。用户要求生成时，把此 ID 与完整目标 prompt 交给 qwen_generate_image；不要把 URL、文件路径或附件哈希当图库 ID。" }) };
+    },
+  }));
   ctx.tools.register(defineTool({
     name: "qwen_image_resources",
     description: "List existing Qwen Image LoRAs and image inputs for advanced settings or presets. Read-only, no model startup, no generated image. Returns real resource ids/LoRA paths, names and sources; never invent them or search with shell. Image inputs can be used as source/control/mask according to their actual contents. Query by name; private image pixels and prompts are not returned.",

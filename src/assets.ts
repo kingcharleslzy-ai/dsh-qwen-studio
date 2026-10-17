@@ -109,7 +109,9 @@ export async function importAsset(
   kind: string,
   name: string,
   input: AsyncIterable<Uint8Array>,
+  signal?: AbortSignal,
 ): Promise<InputAsset> {
+  signal?.throwIfAborted();
   if (!["source", "control", "mask", "lora"].includes(kind))
     throw Error("资源类型无效");
   if (kind === "lora" && !name.toLowerCase().endsWith(".safetensors"))
@@ -126,6 +128,7 @@ export async function importAsset(
     const file = await open(source, "wx", 0o600);
     try {
       for await (const chunk of input) {
+        signal?.throwIfAborted();
         bytes += chunk.byteLength;
         if (bytes > (kind === "lora" ? 2 * 1024 ** 3 : 64 * 1024 ** 2))
           throw Error(
@@ -135,6 +138,7 @@ export async function importAsset(
         await file.writeFile(chunk);
       }
       if (!bytes) throw Error("没有收到文件内容");
+      signal?.throwIfAborted();
       await file.sync();
     } finally {
       await file.close();
@@ -166,15 +170,18 @@ export async function importAsset(
       const result = await exec(python, [script, source, output, kind], {
         timeout: 30000,
         maxBuffer: 65536,
+        ...(signal ? { signal } : {}),
       });
       dimensions = JSON.parse(result.stdout);
     } catch (error) {
+      signal?.throwIfAborted();
       throw Error(
         (error as { stderr?: string }).stderr?.trim().split("\n")[0] ||
           "图片导入失败，请确认 Python 环境已安装 Pillow",
       );
     }
     await rm(source);
+    signal?.throwIfAborted();
     const id = randomUUID().replaceAll("-", ""),
       asset: InputAsset = {
         id,

@@ -26,7 +26,7 @@ A local Qwen Image workspace for **DeepSeek Harness** — powered by **MLX / MFL
 - **直接创作**：打开左侧「图像」，输入描述即可生成。LoRA、控制图和蒙版都能在高级设置里直接选择本机文件。
 - **会话创作**：对模型说「帮我画一张」。插件提供技能和工具，会话发起的任务在对话与创作页同步显示阶段、步数和完成图片。
 
-应用里叫 **图像**，安装包叫 `dsh-qwen-studio`。项目独立维护、独立发版，**无需安装旧 `dsh-image-gen` 插件**。当前版本：**2.8.0**。
+应用里叫 **图像**，安装包叫 `dsh-qwen-studio`。项目独立维护、独立发版，**无需安装旧 `dsh-image-gen` 插件**。当前版本：**2.9.0**。
 
 ![在 DSH 创作页完成局部重绘并查看原位结果](docs/media/creation.png)
 
@@ -35,6 +35,7 @@ A local Qwen Image workspace for **DeepSeek Harness** — powered by **MLX / MFL
 | 想做的事 | 在这里怎么做 |
 | --- | --- |
 | 画一张配图、海报或产品图 | 直接在创作页写描述；也可以从会话发起 |
+| 上网找参考，再画自己的版本 | Agent 搜索图片直链，通过导入工具入库后继续图生图，无需手动选文件 |
 | 保留一张图的感觉，继续尝试 | 用作参考、调整变化幅度、对比原图、复用参数 |
 | 给模型叠加风格与细节 | 本机选择 LoRA，逐个开关、调整权重，最多叠加 8 个 |
 | 让构图和姿态更可控 | 选择线稿、姿态、深度或边缘控制图，调整 ControlNet 强度 |
@@ -73,6 +74,8 @@ A local Qwen Image workspace for **DeepSeek Harness** — powered by **MLX / MFL
 
 ![整套创作预设与资源选择](docs/media/presets.png)
 
+会话里的 Agent 可用 `qwen_image_import` 导入公开图片直链、本机文件或会话图片附件，直接接入参考变体、控制图、蒙版与整套预设，不需要先去图库手动选文件。导入不生图、不启动 SSH、不覆盖正在编辑的草稿。
+
 会话里的 Agent 也能完成配置：`qwen_image_resources` 查询真实资源，`qwen_image_presets` 保存、加载和管理同一个预设库；只配置不会触发生图。预设加载后可合并用户描述交给 `qwen_generate_image`，进度与结果沿用插件流程。详见[内置技能说明](skills/qwen-image/SKILL.md)。
 
 高级设置顶部可选择预设；修改参数后会显示「已修改」，可一键重新加载。默认预设只用于首次空白草稿和主动「恢复默认参数」，不会在每次进页面时覆盖现有草稿。预设与运行配置分开保存在图库的 `state/` 下。
@@ -107,14 +110,14 @@ A local Qwen Image workspace for **DeepSeek Harness** — powered by **MLX / MFL
 从 [Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载编译好的安装包，再运行：
 
 ```sh
-dsh plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.6.0.tgz
+dsh plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.9.0.tgz
 ```
 
 macOS 没有全局 `dsh` 命令时，可使用桌面版内置 CLI：
 
 ```sh
 sh "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" \
-  plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.6.0.tgz
+  plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.9.0.tgz
 ```
 
 正常退出并重新打开 DSH，进入插件设置配置「图像」。发布包已包含编译好的前后端、技能、worker 与环境安装脚本；**模型权重需要自行准备**。
@@ -149,17 +152,22 @@ sh scripts/setup-local.sh "$HOME/.local/share/qwen-studio/venv"
 | --- | --- |
 | `qwen-image` 技能 | 何时生图、如何迭代、怎样恢复任务，以及工具能力边界 |
 | `qwen_generate_image` | 提交持久任务，管理本地启动，返回图片附件与任务 ID |
+| `qwen_image_import` | 导入网址、本机文件或会话图片，返回可用于生成和预设的真实资源 ID |
+| `qwen_image_resources` / `qwen_image_presets` | 查询资源、加载和保存整套高级组合 |
+| `qwen_image_connection` | 查询或切换运行位置，设置统一空闲时长 |
 | `qwen_image_status` | 只读查询已接受的任务；完成后取回同一图片，不重新生成 |
 
 直接说：
 
 > 画一张清晨山间小屋的横版插画，柔和光线，不要文字。
 >
+> 上网找一张山间小屋参考图，沿用构图画成水彩，用插件生成。
+>
 > 沿用刚才那张图的构图，再做一版水彩风格。
 >
 > 把刚才生成的图再显示一次，不要重新生成。
 
-工具支持基础采样、强度式图生图、负向 / CFG / 调度器、LoRA、ControlNet 和蒙版。会话工具使用已存在的图片资源 ID；本机新文件从创作页导入，不能把文件路径当作 ID。
+工具支持基础采样、强度式图生图、负向 / CFG / 调度器、LoRA、ControlNet 和蒙版。会话工具使用已存在的图片资源 ID；新参考图通过 qwen_image_import 导入，生成时只传返回的真实 ID。支持 PNG/JPEG/WebP 公开直链；网页需先用搜索/浏览器工具取出图片链接。插件不自带搜索引擎、不自动提取姿态或绘制蒙版。网址逐跳校验公网地址、限制大小和下载时长；兼容 Fake-IP 代理 DNS 时会单独通过 HTTPS DNS 核验，不改系统 DNS 或代理。
 
 已在 DSH / DeepSeek-V41-Flash 实测自动加载技能与工具调用。其他模型是否正确选用仍取决于其工具能力、会话上下文和 DSH 权限。独立 CLI 任务不经过插件队列，不自动获得本插件的会话进度卡片。
 
@@ -172,6 +180,8 @@ sh scripts/setup-local.sh "$HOME/.local/share/qwen-studio/venv"
 ## 验证过什么
 
 完整证据范围见 [VERIFICATION](docs/VERIFICATION.md)：自动测试覆盖文件导入、任务持久化与去重、图片输入快照、参数组合、LoRA 隔离、蒙版保留、图库分流、会话进度和结果恢复。
+
+2.9.0 新增导入与代理环境测试，并在真实 4090 上完成网络参考图导入和图生图联调。原生 DSH 新工具验收状态见验证记录。
 
 2.8.0 已通过 **55 项工具/界面测试 + 26 项后端测试**。按需 SSH 完成两轮真实连接、生图、模型卸载、断开与再次连接；状态查询不启动连接。原生 DSH 中，Agent 实时切换本机/远程并分别完成生图，修改与恢复空闲时间均无需重启，原有设置及预设保留。
 

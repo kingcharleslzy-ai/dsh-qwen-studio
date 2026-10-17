@@ -17,6 +17,9 @@ test("one skill source supplies DSH catalog, trigger and invocable content", () 
   expect(skill.description).toContain("qwen_generate_image");
   expect(skill.whenToUse).toContain("仅写提示词");
   expect(skill.content).toContain("qwen_image_status");
+  expect(skill.description).toContain("qwen_image_import");
+  expect(skill.content).toContain("搜索参考图 → 导入 → 图生图");
+  expect(skill.content).not.toContain("让用户在「图像 → 创作 → 高级设置」选文件");
   expect(skill.content).toContain("不要静默改跑脚本");
   expect(() => parseImageSkill("---\nname: other\n---\nx")).toThrow();
   expect(() => parseImageSkill("---\nname: qwen-image\nname: qwen-image\n---\nx")).toThrow();

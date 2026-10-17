@@ -1,4 +1,5 @@
 import { test, expect, vi } from "vitest";
+import { execFileSync } from "node:child_process";
 vi.mock("@deepseek-ai/dsh-tools", () => ({ defineTool: (options: unknown) => options }));
 import { mkdtemp, mkdir, writeFile, rm, unlink, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -9,11 +10,11 @@ import { resolveConfig } from "../src/resolved-config.js";
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
 async function setup() {
   const dir = await realpath(await mkdtemp(join(tmpdir(), "qwen-workspace-tools-")));
-  const config = { localMfluxDirectory: dir, remoteApiKey: "never-return-this-secret" };
+  const config = { localMfluxDirectory: dir, pythonPath: process.env.QWEN_TEST_PYTHON || execFileSync("python3", ["-c", "import sys; print(sys.executable)"], { encoding: "utf8" }).trim(), remoteApiKey: "never-return-this-secret" };
   const worker = { transportConfig: () => config, directory: () => dir, mode: () => "local", ensure: vi.fn(), post: vi.fn() };
   const tools = new Map<string, any>();
   registerWorkspaceTools({ tools: { register: (t: any) => tools.set(t.name, t) } } as any, worker as any);
-  const run = async (name: string, args: object) => JSON.parse((await tools.get(name).execute(args)).result);
+  const run = async (name: string, args: object) => JSON.parse((await tools.get(name).execute(args, { signal: new AbortController().signal })).result);
   return { dir, config, worker, tools, run, preset: (args: object) => run("qwen_image_presets", args) };
 }
 test("agent discovers real allowed resources without inference, image pixels or unrelated prompts", async () => {
@@ -65,5 +66,21 @@ test("save from completed job retains actual seed and parameters, never its prom
     await expect(f.preset({ action: "save", name: "bad", settings: {} })).rejects.toThrow("revision");
     await expect(f.preset({ action: "save", name: "bad", settings: {}, from_job_id: jobId, revision: s.revision })).rejects.toThrow("其中之一");
     expect(f.worker.post).not.toHaveBeenCalled();
+  } finally { await rm(f.dir, { recursive: true, force: true }); }
+});
+
+test("agent imports a local reference and saves its real id into a reusable preset without inference", async () => {
+  const f = await setup();
+  try {
+    const path = join(f.dir, "reference.png"); await writeFile(path, png);
+    const imported = await f.run("qwen_image_import", { path, name: "参考产品", kind: "source" });
+    expect(imported).toMatchObject({ width: 1, height: 1, parameter: "source_image_id" });
+    expect(imported.settings.source_image_id).toBe(imported.id);
+    const catalog = await f.run("qwen_image_resources", { kind: "image", query: "参考产品" });
+    expect(catalog.items[0].id).toBe(imported.id);
+    const store = await f.preset({ action: "save", name: "参考图组合", revision: 0, settings: { ...imported.settings, change_strength: .4, steps: 20 } });
+    const loaded = await f.preset({ action: "load", id: store.presets[0].id });
+    expect(loaded.issues).toEqual([]); expect(loaded.settings).toMatchObject({ source_image_id: imported.id, change_strength: .4 });
+    expect(f.worker.ensure).not.toHaveBeenCalled(); expect(f.worker.post).not.toHaveBeenCalled();
   } finally { await rm(f.dir, { recursive: true, force: true }); }
 });
