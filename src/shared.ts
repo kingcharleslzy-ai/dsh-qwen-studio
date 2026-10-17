@@ -33,6 +33,8 @@ export interface Job {
   archived?: boolean;
 }
 export interface Health {
+  ssh_status?: "connected" | "disconnected";
+  connection_error?: string;
   runtime?: { pythonPath: string; modelPath: string; hfHome: string };
   status: string;
   version?: number;

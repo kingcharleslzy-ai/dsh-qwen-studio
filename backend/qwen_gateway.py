@@ -235,9 +235,19 @@ class Service:
     async def capabilities(self,request):return web.json_response({'protocol':'dsh-qwen','version':1,'features':list(FEATURES),'schedulers':list(SCHEDULERS)})
     async def models(self,request):return web.json_response({'object':'list','data':[{'id':MODEL,'object':'model','owned_by':'local-4090d'}]})
     async def health(self,request):return web.json_response({'loaded':bool(self.process and self.process.poll() is None),'status':'ok','busy':any(not t.done() for t in self.tasks.values()),'idle_seconds':self.config.get('idle_seconds',300)})
+    async def runtime_config(self,request):
+        data=await request.json()
+        seconds=data.get('idle_seconds')
+        if set(data)!={'idle_seconds'} or type(seconds) is not int or not 6<=seconds<=86400:raise ValueError('idle_seconds must be an integer from 6 to 86400')
+        config={**self.config,'idle_seconds':seconds}
+        atomic(CONFIG,config);self.config=config
+        # Status/config reads do not reset idle time. Active jobs are always protected.
+        return web.json_response({'idle_seconds':seconds})
     async def unload(self,request):
         if any(not t.done() for t in self.tasks.values()):return web.json_response({'error':'Generation active'},status=409)
-        async with self.lock:await self.stop()
+        async with self.lock:
+            if any(not t.done() for t in self.tasks.values()):return web.json_response({'error':'Generation active'},status=409)
+            await self.stop()
         return web.json_response({'unloaded':True})
     async def lifecycle(self,app):
         self.session=ClientSession(timeout=ClientTimeout(total=60));idle=asyncio.create_task(self.idle())
@@ -259,7 +269,7 @@ def create_app():
             logging.exception('Gateway request failed');return web.json_response({'error':str(e)},status=503)
     app=web.Application(middlewares=[boundary],client_max_size=2*1024**3)
     app.cleanup_ctx.append(service.lifecycle)
-    app.add_routes([web.get('/v1/models',service.models),web.get('/v1/qwen/capabilities',service.capabilities),web.get('/v1/qwen/health',service.health),web.post('/v1/qwen/unload',service.unload),
+    app.add_routes([web.get('/v1/models',service.models),web.get('/v1/qwen/capabilities',service.capabilities),web.get('/v1/qwen/health',service.health),web.post('/v1/qwen/unload',service.unload),web.post('/v1/qwen/runtime-config',service.runtime_config),
         web.route('HEAD','/v1/qwen/assets/{sha}',service.asset),web.put('/v1/qwen/assets/{sha}',service.asset),
         web.post('/v1/qwen/jobs',service.submit),web.get('/v1/qwen/jobs/{id}',service.get_job),
         web.get('/v1/qwen/jobs/{id}/image',service.image),web.post('/v1/qwen/jobs/{id}/cancel',service.cancel),

@@ -330,7 +330,7 @@ export function Studio() {
   const status = !snapshot
     ? "连接中"
     : remote
-      ? health?.busy ? "远程正在创作" : health?.loaded ? "远程模型已就绪" : "远程按需启动"
+      ? health?.busy ? "远程正在创作" : health?.loaded ? "远程模型已就绪" : health?.ssh_status === "disconnected" ? "远程待调用 · SSH 未连接" : "远程按需启动"
       : health?.busy
         ? "正在创作"
         : health?.loaded
@@ -390,6 +390,7 @@ export function Studio() {
           {status}
         </div>
       </header>
+      {health?.connection_error && <div role="status" className="q2-alert">{health.connection_error}。模型卸载未确认，SSH 连接已保留并会重试。</div>}
       {connectionError && (
         <div role="status" className="q2-alert">
           {connectionError}

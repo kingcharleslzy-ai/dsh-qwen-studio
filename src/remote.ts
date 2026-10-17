@@ -25,10 +25,11 @@ export function headers(config: Config) {
   };
 }
 export class RemoteQueue {
+  private disposed = false;
   private admission: Promise<unknown> = Promise.resolve();
   private tail: Promise<unknown> = Promise.resolve();
   private pending = new Map<string, AbortController>();
-  private configs = new Map<string, { dir: string; config: Config }>();
+  private configs = new Map<string, { dir: string; config: Config; settled: (() => void) | undefined; reconnect: (() => Promise<void>) | undefined }>();
   private capabilityCache = new Map<string, { until: number; value: Promise<RemoteCapabilities | null> }>();
   capabilities(config: Config): Promise<RemoteCapabilities | null> {
     const key = JSON.stringify([remoteURL(config), config.remoteApiKey]);
@@ -46,8 +47,9 @@ export class RemoteQueue {
     void value.catch(() => this.capabilityCache.delete(key));
     return value;
   }
-  submit(dir: string, config: Config, data: Record<string, unknown>) {
-    const result = this.admission.then(() => this.admit(dir, config, data));
+  submit(dir: string, config: Config, data: Record<string, unknown>, settled?: () => void, reconnect?: () => Promise<void>) {
+    if (this.disposed) return Promise.reject(Error("插件正在退出，请重新提交任务"));
+    const result = this.admission.then(() => this.admit(dir, config, data, settled, reconnect));
     this.admission = result.catch(() => {});
     return result;
   }
@@ -55,6 +57,8 @@ export class RemoteQueue {
     dir: string,
     config: Config,
     data: Record<string, unknown>,
+    settled?: () => void,
+    reconnect?: () => Promise<void>,
   ) {
     const capabilities = await this.capabilities(config);
     if (!capabilities && (data.source_image_id != null || data.change_strength != null))
@@ -122,6 +126,7 @@ export class RemoteQueue {
       const old = JSON.parse(await readFile(file, "utf8"));
       if (JSON.stringify(old.request) !== JSON.stringify(request))
         throw Error("任务ID参数冲突");
+      settled?.();
       return old;
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
@@ -141,13 +146,13 @@ export class RemoteQueue {
     await mkdir(folder, { recursive: true });
     await atomicJSON(file, job);
     this.pending.set(id, new AbortController());
-    this.configs.set(id, { dir, config: { ...config } });
+    this.configs.set(id, { dir, config: { ...config }, settled, reconnect });
     this.tail = this.tail.then(() => this.run(job as Job)).catch(() => {});
     return job;
   }
   private async run(job: Job) {
     const controller = this.pending.get(job.id)!,
-      { dir, config } = this.configs.get(job.id)!,
+      { dir, config, settled, reconnect } = this.configs.get(job.id)!,
       folder = join(dir, "images", job.id),
       file = join(folder, "job.json"),
       start = Date.now();
@@ -167,7 +172,7 @@ export class RemoteQueue {
       await patch({ status: "running" });
       let bytes: Buffer;
       if (extended) {
-        bytes = await runExtended({ base: remoteURL(config), headers: headers(config), dir, config, job, signal: controller.signal, patch, accepted: () => { extendedAccepted = true; } });
+        bytes = await runExtended({ base: remoteURL(config), headers: headers(config), dir, config, job, signal: controller.signal, patch, reconnect, accepted: () => { extendedAccepted = true; } });
       } else {
       const response = await fetch(remoteURL(config) + "/images/generations", {
         method: "POST",
@@ -238,6 +243,7 @@ export class RemoteQueue {
       clearTimeout(timer);
       this.pending.delete(job.id);
       this.configs.delete(job.id);
+      settled?.();
     }
   }
   cancel(id: string) {
@@ -248,5 +254,11 @@ export class RemoteQueue {
   }
   get size() {
     return this.pending.size;
+  }
+  async dispose() {
+    this.disposed = true;
+    await this.admission;
+    for (const controller of this.pending.values()) controller.abort();
+    await this.tail;
   }
 }

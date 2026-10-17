@@ -6,6 +6,22 @@ import { resolveConfig } from "../src/resolved-config.js";
 import { PresetBar } from "../src/client/preset-bar.js";
 import { draftDefaults } from "../src/client/creation-draft.js";
 const flush = () => new Promise((r) => setTimeout(r, 190));
+test("remote mode keeps the shared idle control visible and saves it without replacing credentials or other settings", async () => {
+  environment();
+  const value = { connectionMode: "remote" as const, remoteSshHost: "test-gpu", remoteBaseURL: "http://127.0.0.1:19488/v1", localMfluxIdleMinutes: 10 };
+  const mutations: any[] = [];
+  vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ effective: resolveConfig(value), health: { status: "remote", loaded: false } }) })));
+  const scope: any = { getSnapshot: () => ({ value, user: value, revision: 9 }), subscribe: () => () => {}, mutate: async (ops: any[]) => { mutations.push(ops); return true; } };
+  let tree: any;
+  try {
+    await act(async () => { tree = create(<Settings scope={scope} />); await flush(); });
+    const input = tree.root.findAllByType("input").find((n: any) => n.props["aria-label"] === "空闲卸载时间");
+    expect(input.props.value).toBe(10);
+    await act(async () => { input.props.onChange({ target: { value: "7" } }); await flush(); });
+    await act(async () => { await tree.root.findAllByType("button").find((n: any) => n.children.join("") === "保存设置").props.onClick(); });
+    expect(mutations).toEqual([[{ op: "set", path: ["localMfluxIdleMinutes"], value: 7 }]]);
+  } finally { await act(async () => tree?.unmount()); vi.unstubAllGlobals(); }
+});
 function environment() {
   const data = new Map<string, string>();
   const storage = {

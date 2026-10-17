@@ -3,6 +3,7 @@ import type { Config } from "../config.js";
 import type { EffectiveConfig } from "../resolved-config.js";
 import type { Health } from "../shared.js";
 import { STYLE } from "./style.js";
+import { ParameterHelp } from "./parameter-help.js";
 import { PathField } from "./path-field.js";
 import { request } from "./api.js";
 import { usePrivacyGallery, setPrivacyEnabled } from "./gallery-preferences.js";
@@ -30,6 +31,8 @@ const rawDefaults: Config = {
   remoteBaseURL: "",
   remoteModel: "qwen-image",
   remoteApiKey: "",
+  remoteSshHost: "",
+  remoteSshPort: 19488,
 };
 export function Settings({ scope }: { scope?: Scope }) {
   const privacy = usePrivacyGallery(),
@@ -197,6 +200,14 @@ export function Settings({ scope }: { scope?: Scope }) {
           {hint("connectionMode")}
         </label>
         <div>
+          <div className="q2-field-title">
+            <label htmlFor="qwen-idle-minutes">空闲后释放模型（分钟）</label>
+            <ParameterHelp name="空闲卸载时间" text="本地与配套 Qwen 网关共用此时间，从最后一个任务结束开始计时。上传、排队和生成时不会断开；按需 SSH 在确认远程模型卸载后断开。普通 Images API 不支持卸载控制。" />
+          </div>
+          <input id="qwen-idle-minutes" aria-label="空闲卸载时间" type="number" min=".1" max="1440" step=".1" value={value.localMfluxIdleMinutes ?? effective?.localMfluxIdleMinutes ?? 10} onChange={(e) => change("localMfluxIdleMinutes", Number(e.target.value))} />
+          {hint("localMfluxIdleMinutes")}
+        </div>
+        <div>
           <PathField
             label="图库与任务目录"
             name="图库与任务目录"
@@ -243,25 +254,6 @@ export function Settings({ scope }: { scope?: Scope }) {
                 {hint(key)}
               </div>
             ))}
-            <label>
-              空闲后释放模型（分钟）
-              <input
-                aria-label="空闲卸载时间"
-                type="number"
-                min=".1"
-                max="1440"
-                step=".1"
-                value={
-                  value.localMfluxIdleMinutes ??
-                  effective?.localMfluxIdleMinutes ??
-                  10
-                }
-                onChange={(e) =>
-                  change("localMfluxIdleMinutes", Number(e.target.value))
-                }
-              />
-              {hint("localMfluxIdleMinutes")}
-            </label>
             {health?.runtime && (
               <details>
                 <summary>当前运行配置 · 已保存路径在下次启动生效</summary>
@@ -328,6 +320,17 @@ export function Settings({ scope }: { scope?: Scope }) {
               />
               {hint("remoteApiKey")}
             </label>
+            <label>
+              按需 SSH 主机
+              <input aria-label="按需 SSH 主机" value={value.remoteSshHost ?? ""} placeholder="留空直接连接；例如 4090d" onChange={(e) => change("remoteSshHost", e.target.value)} />
+              {hint("remoteSshHost")}
+            </label>
+            {value.remoteSshHost?.trim() && <label>
+              服务器网关端口
+              <input aria-label="服务器网关端口" type="number" min="1" max="65535" value={value.remoteSshPort ?? 19488} onChange={(e) => change("remoteSshPort", Number(e.target.value))} />
+              {hint("remoteSshPort")}
+            </label>}
+            <ParameterHelp name="按需 SSH" text="SSH 复用本机已配置的密钥和主机别名；首次信任主机请先在终端完成。留空时直接访问接口。填入后只有提交生图才连接，浏览图库、预设和检查配置都不建立隧道。接口地址须为 http://127.0.0.1:本机端口/v1。" />
             <p className="q2-muted">
               使用自部署 OpenAI 兼容 Images
               API。使用配套 Qwen 网关可同步 LoRA、控制图、蒙版与采样进度；普通 Images API 仍仅支持基础文生图。

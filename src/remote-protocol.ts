@@ -13,6 +13,7 @@ export interface RemoteCapabilities {
   version: 1;
   features: string[];
   schedulers: string[];
+  verification?: "on_generation";
 }
 export const requiredFeatures = ["lora", "controlnet", "mask", "img2img", "negative_prompt", "guidance", "progress", "cancel"];
 export async function responseJSON(response: Response) {
@@ -42,10 +43,11 @@ export function advancedParameters(data: Record<string, any>, capabilities: Remo
   if (negative.trim() && guidance <= 1) { result.guidance = 2.5; result.guidance_auto_raised = true; }
   return result;
 }
-export async function runExtended({ base, headers, dir, config, job, signal, patch, accepted }: {
+export async function runExtended({ base, headers, dir, config, job, signal, patch, accepted, reconnect }: {
   base: string; headers: Record<string, string>; dir: string; config: Config;
   job: Record<string, any>; signal: AbortSignal; patch(value: object): Promise<void>;
   accepted(): void;
+  reconnect?: (() => Promise<void>) | undefined;
 }) {
   const inputs: { path: string; kind: "image" | "lora"; field: string; scale?: number }[] = [];
   const body: Record<string, any> = { id: job.id, model: config.remoteModel || "qwen-image", prompt: job.prompt, width: job.width, height: job.height, steps: job.steps, seed: job.seed, loras: [] };
@@ -98,6 +100,7 @@ export async function runExtended({ base, headers, dir, config, job, signal, pat
     } catch (error) {
       signal.throwIfAborted();
       await patch({ phase: "连接中断，正在重连；不会重新提交" });
+      if (reconnect) await reconnect().catch(() => {});
       await wait(1500, undefined, { signal });
       continue;
     }

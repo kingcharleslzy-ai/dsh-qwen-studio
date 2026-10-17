@@ -25,6 +25,8 @@ import {
   exportPresets,
 } from "./presets.js";
 import { bundledImageSkill } from "./skill.js";
+import { sshOptions } from "./remote-lifecycle.js";
+import { registerConnectionTool, type ConnectionSettings } from "./connection-tools.js";
 export { Config };
 export const name = "qwen-studio";
 export const inject = ["webServer", "tools", "attachments"];
@@ -49,7 +51,11 @@ export function apply(ctx: Context, config: Config = {}) {
       ]),
     ) as Config;
   const worker = new Worker(current);
+  ctx.effect(() => () => { void worker.dispose().catch(() => {}); }, "qwen-studio SSH lifecycle");
   registerTools(ctx, worker);
+  (ctx.inject as unknown as (services: string[], callback: (owner: Context) => void) => void)(["settings"], (owner) => {
+    registerConnectionTool(owner, worker, owner.get("settings") as ConnectionSettings);
+  });
   (
     ctx.inject as unknown as (
       services: string[],
@@ -105,6 +111,7 @@ export function apply(ctx: Context, config: Config = {}) {
                   ...current(),
                   ...(data.config ?? {}),
                 });
+                if (effective.connectionMode === "remote") sshOptions(effective);
                 return json(200, { effective, health: await worker.health() });
               }
               if (route === "resources" && req.method === "GET")
@@ -130,7 +137,7 @@ export function apply(ctx: Context, config: Config = {}) {
               }
 
               if (route === "assets-upload" && req.method === "POST") {
-                if (worker.mode() === "remote" && !await worker.remote.capabilities(worker.transportConfig()))
+                if (worker.mode() === "remote" && !await worker.capabilities())
                   throw Error("该远程服务不支持高级资源，请使用 Qwen 网关");
                 return json(
                   201,
@@ -175,8 +182,8 @@ export function apply(ctx: Context, config: Config = {}) {
                     }
                   }
                 return json(200, {
-                  apiVersion: 8,
-                  remoteAdvanced: worker.mode() === "remote" && Boolean(await worker.remote.capabilities(worker.transportConfig()).catch(() => null)),
+                  apiVersion: 9,
+                  remoteAdvanced: worker.mode() === "remote" && Boolean(await worker.capabilities().catch(() => null)),
                   jobs,
                   health:
                     worker.mode() === "remote"

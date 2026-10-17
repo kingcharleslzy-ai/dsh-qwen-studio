@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.8.0 — 2026-10-17
+
+- Add plugin-owned on-demand SSH forwarding: passive gallery/resource/preset/config reads do not connect. Keep leases through upload, queueing, sampling and saving; confirm remote model shutdown before closing only the owned SSH process.
+- Show the shared idle timeout near the top of settings in both local and remote modes, persist it to the Qwen gateway for independent crash/sleep cleanup, and retain the original configuration field for compatibility.
+- Add `qwen_image_connection` for revision-checked live local/remote switching and idle-time edits through DSH's settings service; prevent switching during active jobs without touching credentials, presets or images.
+- Document content-addressed LoRA transfer and backend-specific seed reproducibility. No change to model weights, quantization, sampler or quality parameters.
+
 ## 2.7.0 — 2026-10-17
 
 - Add a private ComfyUI Qwen 2.1 gateway with native Union control/inpainting and checked LoRA loading, content-addressed streaming assets and an idempotent task protocol.

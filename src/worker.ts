@@ -11,6 +11,8 @@ import { atomicJSON } from "./storage.js";
 import { upgradeIdleWorker } from "./worker-upgrade.js";
 import type { Config } from "./config.js";
 import type { Health } from "./shared.js";
+import { RemoteLifecycle, SshTunnel, sshOptions } from "./remote-lifecycle.js";
+import { requiredFeatures, type RemoteCapabilities } from "./remote-protocol.js";
 const BASE = "http://127.0.0.1:19388";
 export class Worker {
   readonly remote = new RemoteQueue();
@@ -21,8 +23,66 @@ export class Worker {
     return resolveConfig(this.config()).connectionMode;
   }
   private starting: Promise<void> | undefined;
+  private modeGate: Promise<unknown> = Promise.resolve();
+  private serialized<T>(fn: () => Promise<T>) {
+    const result = this.modeGate.then(fn); this.modeGate = result.catch(() => {}); return result;
+  }
+  switchConnection(mode: "local" | "remote", persist: () => Promise<void>) {
+    return this.serialized(async () => {
+      if (mode === this.mode()) return;
+      if (this.remote.size) throw Error("有远程任务正在上传、排队或生成，结束后再切换");
+      // Also protect a local worker left running by a previous process.
+      try {
+        const r = await fetch(BASE + "/health", { signal: AbortSignal.timeout(1500) });
+        if (r.ok && (await r.json() as Health).busy) throw Error("有本机生图任务正在运行，结束后再切换");
+      } catch (e) { if (e instanceof Error && e.message.includes("本机生图任务")) throw e; }
+      if (mode === "local") {
+        const local = resolveConfig(this.config()); await access(local.pythonPath); await access(local.modelPath);
+      } else {
+        remoteURL(this.transportConfig()); sshOptions(this.transportConfig());
+      }
+      if (this.mode() === "remote" && this.managedSSH()) await this.lifecycle.unload();
+      if (this.mode() === "local") {
+        const health = await this.health();
+        if (health.status === "ok") await this.post("/v1/unload", {});
+      }
+      await persist();
+      if (this.mode() !== mode) throw Error("宿主尚未确认运行位置更新，请重新读取状态");
+    });
+  }
   private settingsKey = "";
-  constructor(private config: () => Config) {}
+  readonly lifecycle: RemoteLifecycle;
+  constructor(private config: () => Config) {
+    this.lifecycle = new RemoteLifecycle(() => this.transportConfig(), new SshTunnel(), {
+      configure: (c, seconds) => this.configureRemote(c, seconds),
+      unload: (c) => this.unloadRemote(c),
+    });
+  }
+  managedSSH() { return this.mode() === "remote" && Boolean(this.transportConfig().remoteSshHost?.trim()); }
+  async capabilities(): Promise<RemoteCapabilities | null> {
+    if (this.managedSSH() && !this.lifecycle.connected) {
+      sshOptions(this.transportConfig());
+      // Configured Qwen protocol contract; actual handshake is mandatory at submission.
+      // Passive reads must never create an SSH connection.
+      return { protocol: "dsh-qwen", version: 1, features: [...requiredFeatures], schedulers: ["linear", "flow_match_euler_discrete", "seedvr2_euler"], verification: "on_generation" } as RemoteCapabilities;
+    }
+    return this.remote.capabilities(this.transportConfig());
+  }
+  private async configureRemote(config: Config, seconds: number) {
+    const r = await fetch(remoteURL(config) + "/qwen/runtime-config", { method: "POST", headers: headers(config), body: JSON.stringify({ idle_seconds: seconds }), signal: AbortSignal.timeout(5000), redirect: "error" });
+    if (!r.ok) throw Error(`远程空闲设置失败：HTTP ${r.status}；请更新配套 Qwen 网关`);
+    const value = await r.json() as { idle_seconds?: number };
+    if (value.idle_seconds !== seconds) throw Error("远程空闲时间未确认，请检查网关版本");
+  }
+  private async unloadRemote(config: Config) {
+    const r = await fetch(remoteURL(config) + "/qwen/unload", { method: "POST", headers: headers(config), body: "{}", signal: AbortSignal.timeout(45000), redirect: "error" });
+    if (!r.ok || !(await r.json() as { unloaded?: boolean }).unloaded) throw Error("远程仍有任务或模型卸载未确认；保留连接稍后重试");
+    const h = await fetch(remoteURL(config) + "/qwen/health", { headers: headers(config), signal: AbortSignal.timeout(5000), redirect: "error" });
+    if (!h.ok) throw Error("未能核对远程模型已卸载，保留连接");
+    const health = await h.json() as Health;
+    if (health.loaded || health.busy) throw Error("远程仍有任务或模型尚未退出，保留连接");
+  }
+  async dispose() { await this.remote.dispose(); await this.lifecycle.dispose(); }
   directory() {
     return resolveConfig(this.config()).localMfluxDirectory;
   }
@@ -44,10 +104,11 @@ export class Worker {
   async health(): Promise<Health> {
     try {
       if (this.mode() === "remote") {
-        if (!await this.remote.capabilities(this.transportConfig())) return { status: "remote", busy: this.remote.size > 0 };
+        if (this.managedSSH() && !this.lifecycle.connected) return { status: "remote", loaded: false, busy: this.remote.size > 0, ssh_status: "disconnected" };
+        if (!await this.capabilities()) return { status: "remote", busy: this.remote.size > 0 };
         const r = await fetch(remoteURL(this.transportConfig()) + "/qwen/health", { headers: headers(this.transportConfig()), signal: AbortSignal.timeout(2000), redirect: "error" });
         if (!r.ok) throw Error("远程状态不可用");
-        return { ...await r.json() as Health, status: "remote" };
+        return { ...await r.json() as Health, status: "remote", ...(this.managedSSH() ? { ssh_status: "connected", ...(this.lifecycle.remaining !== undefined ? { idle_remaining_seconds: this.lifecycle.remaining } : {}), connection_error: this.lifecycle.error } : {}) };
       }
       const r = await fetch(BASE + "/health", {
         signal: AbortSignal.timeout(1500),
@@ -123,6 +184,10 @@ export class Worker {
 
   async check() {
     if (this.mode() === "remote") {
+      if (this.managedSSH() && !this.lifecycle.connected) {
+        sshOptions(this.transportConfig());
+        return { ok: true, message: "按需 SSH 配置格式有效。当前未连接；真正提交生图时才建立连接并验证服务器，不启动模型。" };
+      }
       const response = await fetch(
         remoteURL(this.transportConfig()) + "/models",
         {
@@ -163,13 +228,21 @@ export class Worker {
     };
   }
   async post(path: string, data: unknown, start = false) {
-    if (start && this.mode() === "remote")
-      return this.remote.submit(
-        this.directory(),
-        this.transportConfig(),
-        data as Record<string, unknown>,
-      );
+    if (start) return this.serialized(() => this.submit(path, data));
+    return this.submit(path, data, false);
+  }
+  private async submit(path: string, data: unknown, start = true) {
+    if (start && this.mode() === "remote") {
+      const config = this.transportConfig();
+      let release: (() => void) | undefined;
+      try {
+        if (this.managedSSH()) release = await this.lifecycle.acquire(config);
+        else if (await this.capabilities()) await this.configureRemote(config, Math.round((config.localMfluxIdleMinutes ?? 10) * 60));
+        return await this.remote.submit(this.directory(), config, data as Record<string, unknown>, release, this.managedSSH() ? () => this.lifecycle.reconnect(config) : undefined);
+      } catch (e) { release?.(); throw e; }
+    }
     if (path === "/v1/unload" && this.mode() === "remote") {
+      if (this.managedSSH()) { await this.lifecycle.unload(); return { unloaded: true, disconnected: true }; }
       if (!await this.remote.capabilities(this.transportConfig())) throw Error("普通远程接口不支持释放模型");
       const r = await fetch(remoteURL(this.transportConfig()) + "/qwen/unload", { method: "POST", headers: headers(this.transportConfig()), body: "{}", signal: AbortSignal.timeout(45000), redirect: "error" });
       if (!r.ok) throw Error("远程仍有任务或释放失败，请查询当前任务状态");

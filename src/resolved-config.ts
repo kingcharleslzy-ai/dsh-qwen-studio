@@ -30,6 +30,8 @@ export function resolveConfig(
     remoteBaseURL: raw.remoteBaseURL || "",
     remoteModel: raw.remoteModel || "qwen-image",
     remoteApiKeyConfigured: Boolean(raw.remoteApiKey),
+    remoteSshHost: raw.remoteSshHost || "",
+    remoteSshPort: raw.remoteSshPort ?? 19488,
     hfHomeSource: raw.hfHome
       ? "configured"
       : env.HF_HOME || env.XDG_CACHE_HOME

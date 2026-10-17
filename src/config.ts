@@ -10,6 +10,8 @@ export interface Config {
   remoteBaseURL?: string;
   remoteModel?: string;
   remoteApiKey?: string;
+  remoteSshHost?: string;
+  remoteSshPort?: number;
 }
 export const Config = z.object({
   localMfluxDirectory: z.string().default("").volatile(),
@@ -22,4 +24,6 @@ export const Config = z.object({
   remoteBaseURL: z.string().default("").volatile(),
   remoteModel: z.string().default("qwen-image").volatile(),
   remoteApiKey: z.string().default("").role("secret").volatile(),
+  remoteSshHost: z.string().default("").volatile(),
+  remoteSshPort: z.number().default(19488).volatile(),
 });

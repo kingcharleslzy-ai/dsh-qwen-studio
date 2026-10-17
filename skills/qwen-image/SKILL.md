@@ -1,7 +1,7 @@
 ---
 name: qwen-image
-description: DSH 图像工作区：实际生图优先 qwen_generate_image，同步对话进度与图库；用 qwen_image_resources 查 LoRA/控制图/蒙版，用 qwen_image_presets 配置和保存整套预设。不改跑独立脚本。
-whenToUse: 实际生图、参考变体、局部重绘、配置 LoRA/控制图/蒙版/采样、保存或加载图像预设、查询资源或已有结果时加载。仅写提示词、讨论方案、搜索已有图片时不自动生成。
+description: DSH 图像工作区：生图优先 qwen_generate_image，同步对话进度与图库；qwen_image_resources 查资源，qwen_image_presets 配置和保存整套预设，qwen_image_connection 实时切换本机/远程并设置空闲卸载，无需重启。不改跑独立脚本。
+whenToUse: 实际生图、参考变体、局部重绘、配置 LoRA/控制图/蒙版/采样、保存或加载图像预设、切换本机或4090/远程生图、调整空闲卸载时间、查询资源或已有结果时加载。仅写提示词、讨论方案、搜索已有图片时不自动生成。
 ---
 
 # 图像：生成与任务恢复
@@ -30,6 +30,11 @@ whenToUse: 实际生图、参考变体、局部重绘、配置 LoRA/控制图/�
 | 覆盖已有预设 | load 后合并完整 settings，save 时同时传真实 id、name、revision；用户未要求覆盖就新建 |
 | 重命名、默认或删除 | list 后用 rename / set_default / clear_default / delete 与 revision；仅执行用户要求的操作 |
 | 备份或导入 | export 返回可移植 JSON；import 用 document_json 和 revision，不写文件、不运行脚本 |
+| 查询运行位置/卸载时间 | `qwen_image_connection(action="status")`，获取 mode、idle_minutes 与 revision；不建立 SSH |
+| 用户要求切换本机/远程 | 先 status，再 `action="switch", mode="local"或"remote", revision`；复用已有连接配置，持久保存并立即生效，不需要重启 |
+| 用户要求改空闲时间 | 先 status，再 `action="set_idle", idle_minutes, revision`；本地与配套远程网关共用，不改变预设 |
+
+切换必须由用户要求，不能把失败任务自动转到别的后端。存在上传、排队或生成时工具会阻止切换，等待任务结束再操作。不要声称 connectionMode 只能手动修改或必须重启；用工具实际返回的状态确认。若宿主尚未注册该工具，才说明需要更新插件并重新加载一次，不能用 shell 修改配置代替。
 
 **保存 settings 是整套替换，不是补丁。** 被省略的字段回到内置默认值。修改已有预设时先 load，把返回的完整 settings 与改动合并，再保存。settings 与生成工具使用相同参数名，但不含 prompt；不要把连接密钥、Python/模型/缓存目录塞进预设。
 
@@ -51,10 +56,12 @@ whenToUse: 实际生图、参考变体、局部重绘、配置 LoRA/控制图/�
 ### 远程使用与进度
 
 - 资源和预设继续引用 Mac 上的真实 path / 32 位图片 id。插件按 SHA256 自动同步选中的文件到远程私有缓存，不需要修改现有预设或猜 Windows 路径；首次同步 LoRA 可能较慢。
+- `lora_paths` 是插件工具的本机输入，并不是发送给 Windows 的路径。网络请求仅包含 LoRA 的内容 SHA256 与 scale，服务器用校验后的 `<sha>.safetensors` 加载；不会按原文件名猜测。不同内容同名不混用。资源被移动或删除时需在资源库重新选择。
+- 按需 SSH 只在真正提交生图时连接，资源/预设/配置查询及检查不会唤醒连接。离线返回的 `remote_capabilities.verification="on_generation"` 是已配置协议的预期能力，提交时仍会实际握手，不能当成服务器在线证明。上传、排队、采样与保存都保持连接；最后一个任务结束后按设置计时，确认卸载才断开。Mac 休眠或进程异常退出时，服务器还有同一时长的独立空闲释放。
 - 用 `qwen_image_resources` 查看 mode 与 remote_capabilities，不启动模型。配套网关的 features 包含 lora / controlnet / mask / img2img / progress；能力不足时明确说明，不换脚本。
 - 上传、排队、加载、真实采样步数和保存结果会同步到会话卡片、创作页和图库；切换页面不会取消任务。不要把上传阶段或模型加载说成采样进度，也不要编造百分比。
 - 服务器返回的图先保存回原 Mac 图库，再显示对话附件。隐私分类只影响图库，绝不隐藏对话图片。
-- 本机与 CUDA 的量化、随机数和计算实现不同，相同种子不保证像素一致。预设字段沿用，优先用 linear；其他调度器按网关公布的 schedulers 使用。
+- 本机与 CUDA 的量化、随机数和计算实现不同，相同种子不保证像素一致。固定同一后端、模型精度、分辨率、步数、调度器、提示词和 LoRA/控制参数后，seed 才有可靠的复现意义。跨后端仍可对比质量/遵循度，但不能把同 seed 当成同一初始噪声或逐像素对照。预设字段沿用，优先用 linear；其他调度器按网关公布的 schedulers 使用。
 
 ### 简短操作例子
 
