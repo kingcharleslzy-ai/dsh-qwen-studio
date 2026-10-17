@@ -5,6 +5,7 @@
 - Add explicit native reference editing to the updated Qwen remote gateway, creation settings, agent tools and shared presets. Use Qwen 2.1 image+text conditioning and a full sampling schedule for instruction/style edits; keep all legacy variation preset semantics unchanged.
 - Enforce native-edit capability checks and incompatible-setting errors. Current local MLX and older gateways fail clearly instead of silently degrading or switching backends.
 - Include the 2.9 image-import improvements below. Update skill routing to choose native editing for requested style/semantic changes and avoid repeated near-identical retries.
+- Verify native DSH agent selection, real 40-step remote editing, synchronized chat/creation progress and completed images, and resource-mode controls while preserving existing configuration, presets and original gallery files.
 
 ## 2.9.0 — 2026-10-17
 
