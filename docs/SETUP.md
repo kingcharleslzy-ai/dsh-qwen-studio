@@ -4,7 +4,7 @@
 
 ## 安装插件
 
-从 [本项目 Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载安装包，运行 `dsh plugin --profile desktop add /绝对路径/dsh-qwen-studio-2.10.0.tgz`。若没有全局 dsh 命令，使用 README 中的桌面版内置 CLI。然后手动退出并重新打开 DSH，在插件设置中启用并配置「图像」。
+从 [本项目 Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载安装包，运行 `dsh plugin --profile desktop add /绝对路径/dsh-qwen-studio-2.11.0.tgz`。若没有全局 dsh 命令，使用 README 中的桌面版内置 CLI。然后手动退出并重新打开 DSH，在插件设置中启用并配置「图像」。
 
 包内的脚本和说明位于安装后 dsh-qwen-studio 包目录；也可从源代码包解压使用。
 
@@ -17,7 +17,9 @@
 5. 请先确认磁盘空间及统一内存能容纳选用的权重；插件不会自动下载几十GB模型，也不会自动删除缓存。
 
 官方参考：https://github.com/mflux-community/mflux/blob/main/src/mflux/models/qwen21/README.md
-本插件当前本地适配器支持Qwen Image2.1文生图及强度式图生图；会话工具另支持 LoRA、已有图库控制图和蒙版重绘。未接入外部附件导入、精准指令编辑或 Turbo 等不同管线。
+本地支持文生图、参考变体和原生参考编辑，面板与会话工具共用 LoRA、控制图、蒙版及整套预设。公开图片直链、本机文件和会话附件可由 Agent 用导入工具接入。原生编辑需要 MFLUX 0.22.0 中的 QwenImage21Edit 与完整模型目录（含视觉编码器和 processor），不能使用缺少视觉编码器的纯文本导出。它并不保证任意局部像素不变；精确保留请使用蒙版分支。未接入 Turbo 或跳步加速。
+
+在高级设置选择参考图，再选择「按指令编辑 · Qwen 原生」；Agent 先查询 qwen_image_resources 的 reference_edit.supported，再传 reference_mode=edit。原生编辑仅支持 linear、32倍数尺寸，不与控制图或蒙版混用。未保存 reference_mode 的旧预设继续按原来的参考变体运行。能力探测只检查 Python API 和组件，不启动推理、不下载模型；第一次生图才校验全部权重。
 
 ## 远程自部署Qwen
 

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+<title id="title">Qwen Studio — Create and edit inside DeepSeek Harness</title><desc id="desc">Qwen Image 2.1 on Apple Silicon MLX or self-hosted CUDA. One workspace, direct creation and agent tools.</desc>
+<rect width="1200" height="360" rx="20" fill="#171c20"/>
+<path d="M770 0V360M0 303H1200" stroke="#344149"/>
+<g font-family="Trebuchet MS, sans-serif"><text x="48" y="53" font-size="13" letter-spacing="3" fill="#a6b9c0">IMAGE WORKSPACE FOR DEEPSEEK HARNESS</text>
+<text x="44" y="129" font-size="64" font-weight="700" fill="#f3f0e7">Qwen Studio</text>
+<text x="48" y="179" font-size="23" fill="#c5d1d5">One reference. A new direction.</text>
+<text x="48" y="223" font-size="16" fill="#91b5c7">Qwen Image 2.1 · Apple Silicon MLX · Self-hosted CUDA</text>
+<rect x="48" y="252" width="150" height="28" rx="14" fill="#b7d7dd"/><text x="68" y="271" font-size="12" fill="#172b35">Native reference edits</text>
+<text x="48" y="337" font-size="13" fill="#a9b8bf">Direct creation + Agent tools</text><text x="800" y="337" font-size="13" fill="#a9b8bf">REAL PROGRESS · SHARED PRESETS</text></g>
+<g transform="translate(825 56)"><rect x="0" y="0" width="310" height="215" rx="12" fill="#222d34" stroke="#52656e"/><path d="M0 40H310" stroke="#52656e"/><circle cx="19" cy="20" r="4" fill="#b7d7dd"/><circle cx="34" cy="20" r="4" fill="#617b86"/><circle cx="49" cy="20" r="4" fill="#617b86"/>
+<path d="M85 76H192L182 172Q138 192 94 172Z" fill="#4b90bc" stroke="#b7d7dd" stroke-width="2"/><path d="M193 94C250 84 246 164 188 157" fill="none" stroke="#b7d7dd" stroke-width="7"/><ellipse cx="139" cy="77" rx="54" ry="10" fill="#213d54" stroke="#b7d7dd" stroke-width="2"/><path d="M103 95L111 159M121 96L128 167M148 100L151 170" stroke="#80b8d3" stroke-width="7" opacity=".65"/>
+<path d="M54 188H253" stroke="#7e9ba7" stroke-width="2"/><path d="M262 64L272 48M269 69L288 67" stroke="#e2ba85" stroke-width="3"/></g></svg>

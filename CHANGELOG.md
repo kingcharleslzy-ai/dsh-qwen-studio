@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.11.0 — 2026-10-17
+
+- Enable native Qwen 2.1 reference editing on Apple Silicon through MFLUX QwenImage21Edit. Reuse the configured complete vision-capable checkpoint, image resources and LoRA channel; preserve existing variation/preset semantics.
+- Inspect local API and vision tensors without loading the model or downloading weights; share backend-specific reference-edit availability between creation settings, agent resources and loaded presets. Explain missing components before startup without backend fallback.
+- Keep full denoising, prefix KV reuse and disabled step skipping/Turbo. Reload the model when switching native editing, standard generation or controlled inpainting. Upgrade only known idle workers to protocol v8.
+- Refresh the repository landing page with a concrete native-edit example, bilingual quick start, supported-backend matrix and discoverable feature terms.
+
 ## 2.10.0 — 2026-10-17
 
 - Add explicit native reference editing to the updated Qwen remote gateway, creation settings, agent tools and shared presets. Use Qwen 2.1 image+text conditioning and a full sampling schedule for instruction/style edits; keep all legacy variation preset semantics unchanged.
