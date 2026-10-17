@@ -184,7 +184,7 @@ export function apply(ctx: Context, config: Config = {}) {
                 return json(200, {
                   apiVersion: 9,
                   remoteAdvanced: worker.mode() === "remote" && Boolean(await worker.capabilities().catch(() => null)),
-                  referenceEditSupported: worker.mode() === "remote" && Boolean((await worker.capabilities().catch(() => null))?.features.includes("reference_edit")),
+                  referenceEditSupported: (await worker.referenceEditing()).supported,
                   jobs,
                   health:
                     worker.mode() === "remote"

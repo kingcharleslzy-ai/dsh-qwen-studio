@@ -1,4 +1,5 @@
-import { spawn } from "node:child_process";
+import { spawn, execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { openSync, closeSync } from "node:fs";
 import { access, readFile, mkdir } from "node:fs/promises";
 import { resolve, join, dirname } from "node:path";
@@ -14,6 +15,8 @@ import type { Health } from "./shared.js";
 import { RemoteLifecycle, SshTunnel, sshOptions } from "./remote-lifecycle.js";
 import { requiredFeatures, type RemoteCapabilities } from "./remote-protocol.js";
 const BASE = "http://127.0.0.1:19388";
+const exec = promisify(execFile);
+export interface ReferenceEditing { supported: boolean; reason?: string; mflux_version?: string; verification?: string }
 export class Worker {
   readonly remote = new RemoteQueue();
   transportConfig(): Config {
@@ -23,6 +26,21 @@ export class Worker {
     return resolveConfig(this.config()).connectionMode;
   }
   private starting: Promise<void> | undefined;
+  private editProbe?: { key: string; expires: number; value: Promise<ReferenceEditing> };
+  async referenceEditing(): Promise<ReferenceEditing> {
+    if (this.mode() === "remote") return { supported: Boolean((await this.capabilities().catch(() => null))?.features.includes("reference_edit")), verification: this.managedSSH() ? "on_generation" : "handshake" };
+    const { pythonPath, modelPath } = resolveConfig(this.config()), key = JSON.stringify([pythonPath, modelPath]);
+    if (this.editProbe?.key === key && this.editProbe.expires > Date.now()) return this.editProbe.value;
+    const bundled = resolve(dirname(fileURLToPath(import.meta.url)), "../backend/server.py");
+    const value = exec(pythonPath, [bundled, "--check-reference-edit", modelPath], {
+      timeout: 15000, maxBuffer: 65536, env: { ...process.env, HF_HUB_OFFLINE: "1" },
+    }).then(({ stdout }) => {
+      const result = JSON.parse(stdout.trim()) as ReferenceEditing;
+      if (typeof result.supported !== "boolean") throw Error("MFLUX 能力检测响应无效");
+      return result;
+    }).catch((e: Error) => ({ supported: false, reason: `本机原生编辑检查失败：${e.message}` }));
+    this.editProbe = { key, expires: Date.now() + 30000, value }; return value;
+  }
   private modeGate: Promise<unknown> = Promise.resolve();
   private serialized<T>(fn: () => Promise<T>) {
     const result = this.modeGate.then(fn); this.modeGate = result.catch(() => {}); return result;
@@ -134,7 +152,7 @@ export class Worker {
       () => this.health(),
     );
     if (h.status === "ok" && !h.closing) {
-      if (h.version !== 7)
+      if (h.version !== 8)
         throw Error("旧版生图服务尚未退出，请等待空闲卸载后重试");
       return;
     }
@@ -176,7 +194,7 @@ export class Worker {
       if (child.exitCode !== null)
         throw Error("本地服务启动失败，请查看service.log");
       h = await this.health();
-      if (h.status === "ok" && h.version === 7 && !h.closing) return;
+      if (h.status === "ok" && h.version === 8 && !h.closing) return;
       await new Promise((r) => setTimeout(r, 150));
     }
     throw Error("本地服务启动超时");
@@ -233,7 +251,10 @@ export class Worker {
   }
   private async submit(path: string, data: unknown, start = true) {
     const referenceMode = (data as Record<string, unknown>)?.reference_mode;
-    if (path === "/v1/jobs" && referenceMode === "edit" && this.mode() !== "remote") throw Error("原生参考编辑当前需要配套远程 Qwen 网关；本机仍可用参考变体，不会自动切换后端");
+    if (path === "/v1/jobs" && referenceMode === "edit" && this.mode() === "local") {
+      const support = await this.referenceEditing();
+      if (!support.supported) throw Error(support.reason || "当前本机 MFLUX 或模型不支持原生参考编辑；不会自动切换后端");
+    }
     if (start && this.mode() === "remote") {
       const config = this.transportConfig();
       let release: (() => void) | undefined;

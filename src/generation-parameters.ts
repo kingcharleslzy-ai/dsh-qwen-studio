@@ -34,7 +34,7 @@ export const generationParameters = {
         },
         reference_mode: {
           type: "string",
-          description: "variation (default, preserves old presets) uses partial denoising and change_strength; edit uses native Qwen 2.1 image+text reference conditioning and the full sampling schedule for instruction/style edits. edit currently requires the updated Qwen remote gateway, source_image_id, linear scheduler and dimensions divisible by32; do not supply change_strength, mask or ControlNet. Query remote_capabilities.features for reference_edit. Use edit for watercolor/style transfer or requested changes; variation may strongly reconstruct the photo despite a different prompt.",
+          description: "variation (default, preserves old presets) uses partial denoising and change_strength; edit uses native Qwen 2.1 image+text reference conditioning and the full sampling schedule for instruction/style edits. edit requires supported local MFLUX with a complete vision-capable checkpoint or the updated Qwen remote gateway, source_image_id, linear scheduler and dimensions divisible by32; do not supply change_strength, mask or ControlNet. Query qwen_image_resources reference_edit.supported for the current backend. Use edit for watercolor/style transfer or requested changes; variation may strongly reconstruct the photo despite a different prompt.",
         },
         negative_prompt: {
           type: "string",

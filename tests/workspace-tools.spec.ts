@@ -11,7 +11,7 @@ const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
 async function setup() {
   const dir = await realpath(await mkdtemp(join(tmpdir(), "qwen-workspace-tools-")));
   const config = { localMfluxDirectory: dir, pythonPath: process.env.QWEN_TEST_PYTHON || execFileSync("python3", ["-c", "import sys; print(sys.executable)"], { encoding: "utf8" }).trim(), remoteApiKey: "never-return-this-secret" };
-  const worker = { transportConfig: () => config, directory: () => dir, mode: () => "local", ensure: vi.fn(), post: vi.fn() };
+  const worker = { transportConfig: () => config, directory: () => dir, mode: () => "local", referenceEditing: async () => ({ supported: true, verification: "on_generation" }), ensure: vi.fn(), post: vi.fn() };
   const tools = new Map<string, any>();
   registerWorkspaceTools({ tools: { register: (t: any) => tools.set(t.name, t) } } as any, worker as any);
   const run = async (name: string, args: object) => JSON.parse((await tools.get(name).execute(args, { signal: new AbortController().signal })).result);
@@ -25,6 +25,7 @@ test("agent discovers real allowed resources without inference, image pixels or 
     const r = await f.run("qwen_image_resources", { kind: "lora", query: "ceramic", limit: 1 });
     expect(r.items[0]).toMatchObject({ name: "ceramic.safetensors", origin: "default", path: join(f.dir, "loras", "ceramic.safetensors") });
     expect(JSON.stringify(r)).not.toContain("never-return-this-secret");
+    expect(r.reference_edit).toMatchObject({ supported: true });
     expect(f.worker.ensure).not.toHaveBeenCalled(); expect(f.worker.post).not.toHaveBeenCalled();
     await expect(f.run("qwen_image_resources", { kind: "all", limit: 1000 })).rejects.toThrow();
   } finally { await rm(f.dir, { recursive: true, force: true }); }

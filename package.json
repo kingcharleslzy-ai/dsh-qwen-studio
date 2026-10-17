@@ -1,7 +1,7 @@
 {
   "name": "dsh-qwen-studio",
-  "version": "2.10.0",
-  "description": "Qwen Image workspace for DSH：本机文件、LoRA、ControlNet、蒙版重绘、会话进度与隐私图库",
+  "version": "2.11.0",
+  "description": "Qwen Image 2.1 for DeepSeek Harness: native reference editing on Apple Silicon MLX and self-hosted CUDA, LoRA, ControlNet, inpainting and live chat progress",
   "type": "module",
   "author": "kingcharleslzy-ai",
   "repository": {
@@ -42,7 +42,8 @@
     "backend/qwen_gateway.py",
     "backend/qwen_workflow.py",
     "backend/comfy_nodes/**/*.py",
-    "LICENSES/*.txt"
+    "LICENSES/*.txt",
+    "README.en.md"
   ],
   "dsh": {
     "bundle": {

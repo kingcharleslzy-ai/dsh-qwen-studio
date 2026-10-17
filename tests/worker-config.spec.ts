@@ -1,4 +1,4 @@
-import { test, expect } from "vitest";
+import { test, expect, vi } from "vitest";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -61,18 +61,25 @@ test("worker upgrade releases only a known idle worker and never interrupts busy
   expect(unloads).toBe(1);
   expect(
     await upgradeIdleWorker(
-      { status: "ok", version: 7, busy: true },
+      { status: "ok", version: 8, busy: true },
       unload,
       read,
       pause,
     ),
-  ).toMatchObject({ version: 7 });
+  ).toMatchObject({ version: 8 });
   expect(unloads).toBe(1);
 });
 
 
-test("local worker rejects unsupported native editing before model startup", async () => {
+test("local native editing checks capability before startup without backend fallback", async () => {
  const worker = new Worker(() => ({ connectionMode: "local" }));
- try { await expect(worker.post("/v1/jobs", { reference_mode: "edit" }, true)).rejects.toThrow("远程 Qwen 网关"); }
- finally { await worker.dispose(); }
+ const support = vi.spyOn(worker, "referenceEditing").mockResolvedValue({ supported: false, reason: "模型缺少视觉编码器" });
+ const ensure = vi.spyOn(worker, "ensure").mockRejectedValue(Error("validated and reached startup"));
+ try {
+   await expect(worker.post("/v1/jobs", { reference_mode: "edit" }, true)).rejects.toThrow("视觉编码器");
+   expect(ensure).not.toHaveBeenCalled();
+   support.mockResolvedValue({ supported: true });
+   await expect(worker.post("/v1/jobs", { reference_mode: "edit" }, true)).rejects.toThrow("reached startup");
+   expect(worker.mode()).toBe("local");
+ } finally { await worker.dispose(); }
 });

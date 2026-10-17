@@ -76,6 +76,51 @@ class Tests(unittest.TestCase):
         self.assertEqual((self.root/'images'/job['id']/'reference.png').read_bytes(),pixels)
         self.assertEqual(self.q.submit(request)['id'],job['id'])
         with self.assertRaises(ValueError): self.q.submit({**request,'change_strength':.5})
+
+    def test_native_edit_keeps_full_schedule_and_uses_image_text_api(self):
+        source=self.root/'assets/images'/('c'*32);source.mkdir(parents=True)
+        (source/'image.png').write_bytes(b'\x89PNG\r\n\x1a\nfixture')
+        w.atomic_json(source/'asset.json',dict(id='c'*32,kind='source'))
+        params={**self.payload(), 'source_image_id':'c'*32, 'reference_mode':'edit'}
+        job=self.q.submit(params)
+        self.assertEqual(job['sampling_steps'],12)
+        self.assertNotIn('change_strength',job)
+        args=w.generation_args(job,self.root)
+        self.assertEqual(args['image_paths'],[str(self.root/'reference.png')])
+        self.assertEqual(args['strength'],1.0)
+        self.assertTrue(args['use_kv_cache']);self.assertFalse(args['use_step_cache'])
+        self.assertNotIn('image_path',args);self.assertNotIn('image_strength',args)
+        self.assertNotEqual(w.engine_key(job),w.engine_key(self.payload()))
+        self.assertEqual(self.q.submit(params)['id'],job['id'])
+        for changes in [dict(reference_mode='unknown'),dict(source_image_id=None),dict(change_strength=.45),dict(mask_image_id='b'*32),dict(controlnet_image_id='b'*32),dict(scheduler='seedvr2_euler'),dict(width=528)]:
+            with self.assertRaises(ValueError):w.validate({**params,**changes})
+
+    def test_native_edit_cfg_and_engine_are_separate_from_variations(self):
+        params=w.validate({**self.payload(), 'source_image_id':'c'*32,'reference_mode':'edit','guidance':2})
+        self.assertEqual(w.generation_args(params,self.root)['negative_prompt'],'')
+        fake=types.ModuleType('mflux.models.qwen21.variants.edit.qwen_image_21_edit')
+        calls=[]
+        fake.QwenImage21Edit=lambda **kwargs: calls.append(kwargs) or 'edit-engine'
+        config=types.ModuleType('mflux.models.common.resolution.config_resolution');config.ConfigResolution=object()
+        with patch.dict(sys.modules,{fake.__name__:fake,config.__name__:config}):
+            self.assertEqual(w.load_engine(params),'edit-engine')
+        self.assertEqual(len(calls),1)
+        self.assertIn('model_path',calls[0])
+
+    def test_native_edit_probe_checks_vision_weights_without_constructing_model(self):
+        import struct
+        fake=types.ModuleType('mflux.models.qwen21.variants.edit.qwen_image_21_edit')
+        class Edit:
+            def __init__(self,*a,**kw):raise AssertionError('probe constructed a model')
+            def generate_image(self,image_paths=None,strength=1,use_kv_cache=True,use_step_cache=False):pass
+        fake.QwenImage21Edit=Edit
+        for component in ('text_encoder','transformer','vae','processor'):
+            (self.root/component).mkdir();(self.root/component/'config.json').write_text('{}')
+        with patch.dict(sys.modules,{fake.__name__:fake}),patch('importlib.metadata.version',return_value='0.22.0'):
+            self.assertFalse(w.reference_edit_support(self.root)['supported'])
+            header=json.dumps({'model.visual.patch_embed.proj.weight':{}}).encode()
+            (self.root/'text_encoder/model.safetensors').write_bytes(struct.pack('<Q',len(header))+header)
+            self.assertTrue(w.reference_edit_support(self.root)['supported'])
     def test_reference_cannot_escape_gallery(self):
         source=self.root/'images'/('c'*32);source.mkdir(parents=True)
         outside=self.root/'private.png';outside.write_bytes(b'\x89PNG\r\n\x1a\nsecret')

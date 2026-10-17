@@ -55,8 +55,8 @@ export async function workspacePreset(worker: Worker, args: Record<string, any>)
     let settings: ReturnType<typeof settingsFromDraft> | null = null;
     const issues = [...loaded.issues];
     if (!issues.length) try { settings = settingsFromDraft(loaded.draft); } catch(e) { issues.push((e as Error).message); }
-    return { id: selected.id, name: selected.name, revision: store.revision, mode: worker.mode(), remote_capabilities: worker.mode() === "remote" ? await worker.capabilities() : null, settings, issues,
-      note: "这是供 qwen_generate_image 使用的参数，不会自动生图或覆盖面板草稿。保留用户当前 prompt，与 settings 合并调用。远程高级能力以 remote_capabilities 为准；不支持的参数不要静默删除。" };
+    return { id: selected.id, name: selected.name, revision: store.revision, mode: worker.mode(), reference_edit: await worker.referenceEditing(), remote_capabilities: worker.mode() === "remote" ? await worker.capabilities() : null, settings, issues,
+      note: "这是供 qwen_generate_image 使用的参数，不会自动生图或覆盖面板草稿。保留用户当前 prompt，与 settings 合并调用。当前原生编辑能力以 reference_edit.supported 为准，远程高级能力以 remote_capabilities 为准；不支持的参数不要静默删除。" };
   }
   if (args.action === "export") {
     if (args.id && !selected) throw Error("预设不存在");
@@ -130,7 +130,7 @@ export function registerWorkspaceTools(ctx: Context, worker: Worker) {
   }));
   ctx.tools.register(defineTool({
     name: "qwen_image_resources",
-    description: "List existing Qwen Image LoRAs and image inputs for advanced settings or presets. Read-only, no model startup, no generated image. Returns real resource ids/LoRA paths, names and sources; never invent them or search with shell. Image inputs can be used as source/control/mask according to their actual contents. Query by name; private image pixels and prompts are not returned.",
+    description: "List existing Qwen Image LoRAs and image inputs for advanced settings or presets. Read-only, no model startup, no generated image. Returns reference_edit.supported for the current local/remote backend; local probing checks MFLUX and vision checkpoint files without loading weights. Returns real resource ids/LoRA paths, names and sources; never invent them or search with shell. Image inputs can be used as source/control/mask according to their actual contents. Query by name; private image pixels and prompts are not returned.",
     parameters: {
       kind: { type: "string", description: "all (default), lora, or image. image includes imported source/control/mask and gallery images." },
       query: { type: "string", description: "Optional filename substring; use it to narrow a long list." },
@@ -140,7 +140,7 @@ export function registerWorkspaceTools(ctx: Context, worker: Worker) {
       if (!["all", "lora", "image"].includes(kind) || !Number.isInteger(limit) || limit < 1 || limit > 100) throw Error("无效的资源筛选条件");
       const catalog = await listResources(resolveConfig(worker.transportConfig()));
       const items = catalog.items.filter(r => (kind === "all" || (kind === "lora" ? r.kind === "lora" : r.kind !== "lora")) && r.name.toLowerCase().includes(query.toLowerCase()));
-      return { result: JSON.stringify({ items: items.slice(0, limit), total: items.length, truncated: items.length > limit, warnings: catalog.warnings, mode: worker.mode(), remote_capabilities: worker.mode() === "remote" ? await worker.capabilities() : null }) };
+      return { result: JSON.stringify({ items: items.slice(0, limit), total: items.length, truncated: items.length > limit, warnings: catalog.warnings, mode: worker.mode(), reference_edit: await worker.referenceEditing(), remote_capabilities: worker.mode() === "remote" ? await worker.capabilities() : null }) };
     },
   }));
   const { prompt: _, ...settings } = generationParameters;

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Qwen Image worker v7. Durable generation and reference-image variations."""
+"""Qwen Image worker v8. Durable generation, variations and native reference edits."""
 import base64
 import concurrent.futures
 import json
@@ -13,11 +13,38 @@ import secrets
 import threading
 import time
 import uuid
+import struct
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = Path(os.environ.get('QWEN_DATA_DIR', Path(__file__).resolve().parent)).resolve()
 MODEL_ID = 'qwen-image-2.1-mlx'
 ACTIVE = {'queued', 'loading', 'running', 'saving', 'cancelling'}
+
+
+def reference_edit_support(model):
+    """Inspect the API and checkpoint without constructing a model or downloading weights."""
+    try:
+        import inspect
+        from importlib.metadata import version
+        from mflux.models.qwen21.variants.edit.qwen_image_21_edit import QwenImage21Edit
+        if not {'image_paths', 'strength', 'use_kv_cache', 'use_step_cache'} <= set(inspect.signature(QwenImage21Edit.generate_image).parameters):
+            raise ValueError('请升级 MFLUX，当前原生编辑 API 不完整')
+        root = Path(model)
+        for component in ('text_encoder', 'transformer', 'vae'):
+            if not (root/component/'config.json').is_file():
+                raise ValueError('原生编辑需要完整组件配置；请选择完整 Qwen Image 2.1 模型')
+        if not (root/'processor').is_dir(): raise ValueError('原生编辑缺少 processor 目录')
+        visual = False
+        for path in (root/'text_encoder').glob('*.safetensors'):
+            with path.open('rb') as f:
+                length = struct.unpack('<Q', f.read(8))[0]
+                if not 0 < length <= 64*1024*1024: raise ValueError('编码器权重头无效')
+                header = json.loads(f.read(length))
+            visual = visual or any(key.startswith(('model.visual.', 'visual.')) for key in header)
+        if not visual: raise ValueError('模型缺少视觉编码器；纯文本导出不能用于原生编辑，请使用完整原始模型或 QwenImage21Edit 导出')
+        return dict(supported=True, mflux_version=version('mflux'), verification='on_generation')
+    except Exception as exc:
+        return dict(supported=False, reason=str(exc))
 
 
 def atomic_json(path, value):
@@ -66,15 +93,25 @@ def validate(data):
     params = dict(prompt=prompt.strip(), width=width, height=height, steps=steps, seed=seed,
                   negative_prompt=negative, guidance=guidance, scheduler=scheduler)
     if guidance_auto_raised: params['guidance_auto_raised'] = True
+    mode = data.get('reference_mode', 'variation')
+    if mode not in ('variation', 'edit'): raise ValueError('参考图模式无效')
     source = data.get('source_image_id')
     if source is not None:
         if not isinstance(source, str) or not re.fullmatch('[a-f0-9]{32}', source): raise ValueError('参考图片ID无效')
         strength = data.get('change_strength', .45)
         if type(strength) not in (int, float) or not .05 <= strength <= .95: raise ValueError('变化幅度应为0.05–0.95')
         if steps < 2: raise ValueError('图生图至少需要2步')
-        params.update(source_image_id=source, change_strength=strength)
+        params.update(source_image_id=source)
+        if mode == 'edit':
+            if 'change_strength' in data or data.get('mask_image_id') or data.get('controlnet_image_id'):
+                raise ValueError('原生参考编辑不能叠加变化幅度、蒙版或结构控制')
+            if scheduler != 'linear' or width % 32 or height % 32:
+                raise ValueError('原生参考编辑需要 linear 与32倍数尺寸')
+            params['reference_mode'] = 'edit'
+        else: params['change_strength'] = strength
     elif 'change_strength' in data:
         raise ValueError('变化幅度需要配合参考图片')
+    elif mode == 'edit': raise ValueError('原生参考编辑需要参考图片')
     paths, scales = data.get('lora_paths'), data.get('lora_scales')
     if paths is not None:
         if not isinstance(paths, list) or not 1 <= len(paths) <= 8 or any(not isinstance(p, str) or not Path(p).is_absolute() or Path(p).suffix != '.safetensors' for p in paths):
@@ -181,7 +218,7 @@ class JobQueue:
                     f.write(pixels); f.flush(); os.fsync(f.fileno())
                 os.replace(reference, folder/(name+'.png'))
             job = dict(id=job_id, status='queued', model=MODEL_ID, started_at=time.time(), **params)
-            job['sampling_steps'] = params['steps'] - max(1, int(params['steps'] * (1-params['change_strength']))) if params.get('source_image_id') and not params.get('mask_image_id') else params['steps']
+            job['sampling_steps'] = params['steps'] - max(1, int(params['steps'] * (1-params['change_strength']))) if 'change_strength' in params else params['steps']
             job['request'] = dict(params)
             job['seed'] = params['seed'] if params['seed'] is not None else secrets.randbelow(2**32)
             job.update(step=0, phase='queued', worker_pid=os.getpid())
@@ -245,7 +282,7 @@ class JobQueue:
     def health(self):
         with self.lock:
             current = self.jobs.get(self.current, {})
-            return dict(status='ok', version=7, runtime=dict(pythonPath=sys.executable, modelPath=os.environ.get('QWEN_MODEL_PATH', str(self.root/'models/qwen-image-2.1')), hfHome=os.environ.get('HF_HOME', '')),  pid=os.getpid(), loaded=self.loaded, busy=self.pending > 0,
+            return dict(status='ok', version=8, runtime=dict(pythonPath=sys.executable, modelPath=os.environ.get('QWEN_MODEL_PATH', str(self.root/'models/qwen-image-2.1')), hfHome=os.environ.get('HF_HOME', '')),  pid=os.getpid(), loaded=self.loaded, busy=self.pending > 0,
                 pending=self.pending, closing=self.closing, current_id=self.current, phase=current.get('phase','idle'),
                 step=current.get('step',0), steps=current.get('steps',40), idle_seconds=self.idle_seconds(),
                 idle_remaining_seconds=None if self.pending else max(0, round(self.idle_seconds()-(time.monotonic()-self.last_finished))))
@@ -264,7 +301,8 @@ QUEUE = None
 def engine_key(job):
     paths = job.get('lora_paths', [])
     stamps = [(p, Path(p).stat().st_size, Path(p).stat().st_mtime_ns) for p in paths]
-    return (bool(job.get('controlnet_image_id') or job.get('mask_image_id')), tuple(stamps), tuple(job.get('lora_scales', [])))
+    variant = 'control' if job.get('controlnet_image_id') or job.get('mask_image_id') else job.get('reference_mode', 'variation')
+    return (variant, tuple(stamps), tuple(job.get('lora_scales', [])))
 
 def load_engine(job):
     from mflux.models.common.resolution.config_resolution import ConfigResolution
@@ -272,6 +310,9 @@ def load_engine(job):
     kwargs = dict(model_path=str(model))
     if job.get('lora_paths'):
         kwargs.update(lora_paths=job['lora_paths'], lora_scales=job['lora_scales'])
+    if job.get('reference_mode') == 'edit':
+        from mflux.models.qwen21.variants.edit.qwen_image_21_edit import QwenImage21Edit
+        return QwenImage21Edit(**kwargs)
     if job.get('controlnet_image_id') or job.get('mask_image_id'):
         from mflux.models.qwen21.variants.controlnet.qwen_image_21_controlnet import QwenImage21Controlnet
         config = ConfigResolution.resolve_restricted(None, 'qwen-image-2.1-controlnet-union', model_path=str(model))
@@ -285,7 +326,12 @@ def generation_args(job, folder):
     args = dict(prompt=job['prompt'], seed=job['seed'], width=job['width'], height=job['height'],
                 num_inference_steps=job['steps'], guidance=job.get('guidance', 1.0), negative_prompt=job.get('negative_prompt'))
     controlled = job.get('controlnet_image_id') or job.get('mask_image_id')
-    if controlled:
+    if job.get('reference_mode') == 'edit':
+        # Exact prefix reuse only. No step skipping, prompt rewriting or hidden retries.
+        if args['guidance'] > 1 and args['negative_prompt'] is None: args['negative_prompt'] = ''
+        args.update(image_paths=[str(folder/'reference.png')], scheduler='linear', strength=1.0,
+                    output_resolution=1024, use_kv_cache=True, use_step_cache=False)
+    elif controlled:
         # This MFLUX variant has no scheduler or image_strength argument.
         if args['guidance'] > 1 and args['negative_prompt'] is None: args['negative_prompt'] = ''
         if job.get('controlnet_image_id'):
@@ -382,8 +428,11 @@ def main():
                     print('Idle timeout: unloading model and stopping backend',flush=True)
                     threading.Thread(target=server.shutdown,daemon=True).start()
     threading.Thread(target=watch,daemon=True).start()
-    print('Qwen worker v7 listening on 127.0.0.1:19388',flush=True)
+    print('Qwen worker v8 listening on 127.0.0.1:19388',flush=True)
     try: server.serve_forever()
     finally: server.server_close(); QUEUE.pool.shutdown(wait=True)
 
-if __name__ == '__main__': main()
+if __name__ == '__main__':
+    if len(sys.argv) == 3 and sys.argv[1] == '--check-reference-edit':
+        print(json.dumps(reference_edit_support(sys.argv[2]), ensure_ascii=False))
+    else: main()
