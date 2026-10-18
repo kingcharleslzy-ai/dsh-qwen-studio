@@ -147,7 +147,7 @@ sh "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" \
 
 ## 已验证，也有边界
 
-[实测记录](docs/VERIFICATION.md) 区分自动检查、插件执行体联调和原生 DSH 验收，保留具体版本与限制。2.11.0 通过 **65 项工具/界面测试 + 31 项后端测试**。原生 DSH 本机实测40/40步完成蓝杯转水彩，对话与创作页同步，355个既有设置/预设/图库文件校验未变。当前测试覆盖 Apple Silicon / MFLUX 与 Windows / RTX 4090 D；Linux 远程尚未完成真实 GPU 验收，CI 不运行模型推理。
+[实测记录](docs/VERIFICATION.md) 区分自动检查、插件执行体联调和原生 DSH 验收，保留具体版本与限制。2.12.0 通过 **77 项工具/界面测试 + 31 项后端测试**，并完成原生 DSH 的更新开关、会话生图、创作页同步、切页保留任务、收藏分流与共享市场验收；真实安装和回滚在隔离 profile 中通过。先前 2.11.0 还完成本机 MLX 蓝杯转水彩实测。当前测试覆盖 Apple Silicon / MFLUX 与 Windows / RTX 4090 D；Linux 远程尚未完成真实 GPU 验收，CI 不运行模型推理。
 
 自然语言触发已在 DSH / DeepSeek-V41-Flash 验证；其他模型取决于工具能力、上下文与 DSH 权限。原生编辑不保证每条指令成功，通路可用也不等于任意第三方 LoRA 都有好效果。
 

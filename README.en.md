@@ -111,3 +111,5 @@ npm run check:package
 Node.js `^22.19.0 || >=24`; worker tests require Python 3.12 and Pillow 11–12. [Report an issue](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/issues) with versions, reproduction steps and errors after removing private data.
 
 Originated from [shanliuling/dsh-image-gen](https://github.com/shanliuling/dsh-image-gen)'s DSH integration and now maintained independently. Code: [Apache-2.0](LICENSE), original attribution in [NOTICE](NOTICE). Documentation images have [separate credits/licenses](docs/media/CREDITS.md). Model weights and inference dependencies retain their own licenses. Not an official Qwen, MFLUX or DeepSeek plugin.
+
+2.12.0 acceptance: 77 TypeScript/UI tests and 31 worker tests, native DSH update controls, a real 40-step chat generation synchronized to the creation panel, page switching, favorite/private-gallery routing and the shared market card. Native package installation and rollback were exercised in isolated profiles. See [verification](docs/VERIFICATION.md) for scope and limits.
