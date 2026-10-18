@@ -15,7 +15,7 @@
 - 市场启用方法：插件 → 实验性插件 → 自定义插件市场 → 发现 → 添加索引源。市场安装前仍由 DSH 显示确认。索引使用固定提交的预编译快照，不在用户电脑上构建前端。
 - 手动下载：从 Releases 取 `dsh-qwen-studio-<版本>.tgz` 和 `SHA256SUMS.txt`，核对该文件对应的一行 SHA256。校验文件还列出了固定下载名的同内容安装包，不能因没有下载另一个别名文件就忽略真正的校验失败。
 - 安装命令：`dsh plugin --profile <实际profile> add <安装包绝对路径>`。macOS 没有全局 dsh 时，使用 `/bin/sh "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" plugin --profile <实际profile> add <安装包绝对路径>`。
-- 普通安装不需要 npm、tsc、Git 或模型权重。源码开发才需要 Node.js 和 `npm ci --ignore-scripts && npm run check`。
+- 预编译 tgz 安装不需要全局 npm、tsc 或 Git；市场使用 Git 来源，因此需有可用的 Git（没有时用 tgz）。模型权重另行准备。源码开发才需要 Node.js 和 `npm ci --ignore-scripts && npm run check`。
 - 安装后由用户在合适时手动退出并重新打开 DSH。不要自动重启或强行刷新其正在运行的会话。
 
 ## 本机 Mac：完整模型与 Python 环境

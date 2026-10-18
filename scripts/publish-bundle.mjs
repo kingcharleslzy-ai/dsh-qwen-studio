@@ -8,6 +8,12 @@ const env={...process.env,GIT_INDEX_FILE:join(temp,'index'),GIT_AUTHOR_NAME:'Qwe
 const git=args=>execFileSync('git',args,{encoding:'utf8',env}).trim();
 try{
  execFileSync('tar',['-xzf',tarball,'-C',temp]);
+ // Git package managers may install devDependencies before any prepare hook.
+ // The market tree is runtime-only so installation never builds/downloads tooling.
+ const manifestPath=join(temp,'package/package.json');
+ const runtimeManifest=JSON.parse(readFileSync(manifestPath,'utf8'));
+ delete runtimeManifest.devDependencies;delete runtimeManifest.scripts;delete runtimeManifest.packageManager;
+ writeFileSync(manifestPath,JSON.stringify(runtimeManifest,null,2)+'\n');
  git(['read-tree','--empty']);git([`--work-tree=${join(temp,'package')}`,'add','-f','--all']);
  const tree=git(['write-tree']),commit=git(['commit-tree',tree,'-m',`Precompiled ${pkg.name} ${pkg.version}`]);
  if(process.env.QWEN_BUNDLE_DRY_RUN !== '1') {
