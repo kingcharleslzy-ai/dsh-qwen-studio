@@ -29,12 +29,12 @@ test('bad checksums, missing assets and prereleases never install',async()=>{
 });
 test('verified installer snapshots, uses profile CLI, preserves user state and can roll back',async()=>{
  const dir=await fixture(),profile=join(dir,'profiles/test'),root=join(profile,'node_modules/dsh-qwen-studio'),stage=join(dir,'staging');
- const pkg=(version:string)=>({name:'dsh-qwen-studio',version,repository:{url:'git+https://github.com/kingcharleslzy-ai/dsh-qwen-studio.git'}});
+ const pkg=(version:string)=>({name:'dsh-qwen-studio',version,repository:{url:'git+https://github.com/kingcharleslzy-ai/dsh-qwen-studio.git'},engines:{dsh:'>=0.2.1-rc.1 <0.2.2-0'}});
  await mkdir(root,{recursive:true});await writeFile(join(profile,'package.json'),'{}');await writeFile(join(profile,'cordis.patch.yml'),'user settings');await writeFile(join(root,'package.json'),JSON.stringify(pkg('2.12.0')));
  for(const path of ['lib/index.js','lib/client.js','lib/maintenance.js','backend/server.py','skills/qwen-image/SKILL.md','cordis.patch.yml']){await mkdir(join(stage,'package',path,'..'),{recursive:true});await writeFile(join(stage,'package',path),'fixture');}
  await writeFile(join(stage,'package/package.json'),JSON.stringify(pkg('2.13.0')));await exec('tar',['--format=ustar','-czf',join(dir,'new.tgz'),'-C',stage,'package']);const archive=await readFile(join(dir,'new.tgz'));
  const commands:string[][]=[];
- const run=async(command:string,args:string[])=>{if(command==='tar'){await exec(command,args);return;}commands.push(args);const target=args.at(-1)!;const version=target.endsWith('previous.tgz')?'2.12.0':'2.13.0';await writeFile(join(root,'package.json'),JSON.stringify(pkg(version)));};
+ const run=async(command:string,args:string[])=>{if(args.at(-1)==='--version')return '0.2.1-rc.2';if(command==='tar'){await exec(command,args);return;}commands.push(args);const target=args.at(-1)!;const version=target.endsWith('previous.tgz')?'2.12.0':'2.13.0';await writeFile(join(root,'package.json'),JSON.stringify(pkg(version)));};
  const installer=new PackageInstaller(await realpath(root),run);
  try{expect(inspectPackage(archive,'2.13.0').size).toBe(7);const result=await installer.install({...release,sha256:createHash('sha256').update(archive).digest('hex')},async()=>new Response(archive) as any);expect(result.restartRequired).toBe(true);expect((await installer.backups())[0]?.id).toBe(result.backupId);await installer.rollback(result.backupId);expect(JSON.parse(await readFile(join(root,'package.json'),'utf8')).version).toBe('2.12.0');expect(await readFile(join(profile,'cordis.patch.yml'),'utf8')).toBe('user settings');expect(commands.every(a=>a.includes('--profile')&&a.includes('test')&&!a.includes('restart')&&!a.includes('--home'))).toBe(true);await expect(installer.rollback('../bad')).rejects.toThrow('ID');}finally{await rm(dir,{recursive:true,force:true});}
 });

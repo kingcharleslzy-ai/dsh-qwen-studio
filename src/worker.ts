@@ -259,6 +259,7 @@ export class Worker {
       this.maintenance = true;
       try {
         // Check both backends, including a local worker left by another process.
+        if ((await readJobs(this.directory())).some(j => ["queued","uploading","loading","running","saving","cancelling"].includes(j.status))) throw Error("图库仍有未结束任务，更新已延后");
         const current = await this.health();
         if (current.busy) throw Error("生图服务正在工作，更新已延后");
         let localBusy = false;

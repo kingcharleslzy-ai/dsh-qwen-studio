@@ -7,6 +7,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { satisfies } from "semver";
 import { atomicJSON } from "./storage.js";
 const exec = promisify(execFile);
 export const REPO = "kingcharleslzy-ai/dsh-qwen-studio";
@@ -80,7 +81,7 @@ export function cliCommand() {
 }
 export class PackageInstaller {
   readonly paths: ReturnType<typeof installedPaths>;
-  constructor(packageRoot?: string, private run=(command:string,args:string[],env?:Record<string,string>)=>exec(command,args,{timeout:180000,maxBuffer:2*1024*1024,windowsHide:true,env:{...process.env,...env}}).then(()=>{})) { this.paths=installedPaths(packageRoot); }
+  constructor(packageRoot?: string, private run:(command:string,args:string[],env?:Record<string,string>)=>Promise<string|void>=(command,args,env)=>exec(command,args,{timeout:180000,maxBuffer:2*1024*1024,windowsHide:true,env:{...process.env,...env}}).then(({stdout})=>stdout)) { this.paths=installedPaths(packageRoot); }
   private async invoke(tarball:string) {
     const profileName=basename(this.paths.profile),home=resolve(this.paths.profile,'../../');
     if(resolve(home,'profiles',profileName)!==this.paths.profile)throw Error("仅支持 DSH_HOME/profiles/<名称> 的标准安装");
@@ -104,7 +105,12 @@ export class PackageInstaller {
   private async installUnlocked(release: Release, fetcher=fetch) {
     const archive=await download(release.url,5*1024*1024,fetcher);
     if(createHash('sha256').update(archive).digest('hex')!==release.sha256)throw Error("安装包校验失败，未修改安装");
-    inspectPackage(archive,release.version);
+    const payload = inspectPackage(archive,release.version);
+    const manifest = JSON.parse(payload.get('package/package.json')!.toString());
+    const cli = cliCommand();
+    const hostVersion = (await this.run(cli.command,[...cli.args,'--version']))?.trim();
+    if(!hostVersion || !manifest.engines?.dsh || !satisfies(hostVersion,manifest.engines.dsh,{includePrerelease:true}))
+      throw Error("当前 DSH 版本与新版插件不兼容或版本未确认，未修改安装");
     if((await lstat(this.paths.packageRoot)).isSymbolicLink()||await realpath(this.paths.packageRoot)!==this.paths.packageRoot)throw Error("开发链接安装不自动覆盖，请先改用正式安装包");
     const id=`${Date.now()}-${randomUUID()}`,folder=join(this.paths.state,'backups',id);
     await mkdir(folder,{recursive:true,mode:0o700});
