@@ -1,6 +1,6 @@
 /** Verified package updates. Model/gallery/configuration files are never package payloads. */
 import { readFile, writeFile, mkdir, readdir, lstat, rm, realpath, cp, open } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { dirname, join, basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash, randomUUID } from "node:crypto";
@@ -49,6 +49,7 @@ export async function latestRelease(fetcher=fetch): Promise<Release> {
 }
 /** Validate archive entries before extraction, rejecting links and runtime data. */
 export function inspectPackage(archive: Buffer, expectedVersion: string) {
+  if(!/^\d+\.\d+\.\d+$/.test(expectedVersion))throw Error("发行版本号无效");
   const raw=gunzipSync(archive,{maxOutputLength:10*1024*1024}),files=new Map<string,Buffer>();
   for(let at=0;at+512<=raw.length;) {
     const h=raw.subarray(at,at+512);if(h.every(v=>v===0))break;
@@ -69,7 +70,11 @@ export function installedPaths(packageRoot = resolve(dirname(fileURLToPath(impor
   let profile=resolve(packageRoot,'../..');
   while(basename(dirname(profile)) !== 'profiles' && dirname(profile)!==profile) profile=dirname(profile);
   if(basename(packageRoot)!==PACKAGE || basename(dirname(packageRoot))!=='node_modules' || basename(dirname(profile))!=='profiles' || !existsSync(join(profile,'package.json')))throw Error("更新只能用于 DSH profile 中的正式安装；开发源码请使用 Git 更新");
-  return {packageRoot,profile,state:join(profile,'qwen-studio-updates')};
+  profile=realpathSync(profile);
+  const canonical=realpathSync(packageRoot);
+  if(!canonical.startsWith(join(profile,'node_modules')+'/') && !canonical.startsWith(join(profile,'node_modules')+'\\'))
+    throw Error("开发源码链接不自动覆盖，请使用正式安装包");
+  return {packageRoot:canonical,profile,state:join(profile,'qwen-studio-updates')};
 }
 export function cliCommand() {
   if(process.env.DSH_QWEN_CLI) return {command:process.env.DSH_QWEN_CLI,args:[] as string[]};
@@ -124,7 +129,7 @@ export class PackageInstaller {
     await this.run('tar',['-czf',join(folder,'previous.tgz'),'-C',folder,'package']);
     await rm(join(folder,'package'),{recursive:true});
     await atomicJSON(join(folder,'manifest.json'),{version:old.version,createdAt:new Date().toISOString()});
-    const archivePath=join(this.paths.state,`${PACKAGE}-${release.version}.tgz`);
+    const archivePath=join(this.paths.state,`${PACKAGE}-${release.version}-${release.sha256.slice(0,12)}.tgz`);
     await writeFile(archivePath,archive,{mode:0o600});
     try {
       await this.invoke(archivePath);

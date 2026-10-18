@@ -1,11 +1,11 @@
 import {test,expect,vi} from 'vitest';
-import {mkdtemp,mkdir,writeFile,readFile,rm,realpath} from 'node:fs/promises';
+import {mkdtemp,mkdir,writeFile,readFile,rm,realpath,symlink} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {createHash} from 'node:crypto';
-import {UpdateController,PackageInstaller,inspectPackage,defaults,validatePreferences,latestRelease} from '../src/updates.js';
+import {UpdateController,PackageInstaller,installedPaths,inspectPackage,defaults,validatePreferences,latestRelease} from '../src/updates.js';
 const exec=promisify(execFile);
 const release={version:'2.13.0',url:'https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/download/v2.13.0/dsh-qwen-studio-2.13.0.tgz',sha256:'0'.repeat(64)};
 async function fixture(){return mkdtemp(join(tmpdir(),'qwen-updater-'));}
@@ -48,4 +48,9 @@ test('worker maintenance blocks upload races and new generation after package re
  const worker=new Worker(()=>({connectionMode:'local'}));
  let release!:()=>void;const task=worker.withActivity(()=>new Promise<void>(r=>{release=r;}));
  try{await expect(worker.withMaintenance(async()=>{})).rejects.toThrow('延后');release();await task;await worker.withMaintenance(async()=>{});await expect(worker.withActivity(async()=>{})).rejects.toThrow('手动重启');await expect(worker.post('/v1/jobs',{},true)).rejects.toThrow('手动重启');}finally{await worker.dispose();vi.unstubAllGlobals();}
+});
+
+test('native pnpm links stay updateable while external development links are left untouched',async()=>{
+ const dir=await fixture(),profile=join(dir,'profiles/test'),link=join(profile,'node_modules/dsh-qwen-studio'),target=join(profile,'node_modules/.pnpm/release/node_modules/dsh-qwen-studio'),external=join(dir,'external/dsh-qwen-studio');
+ try{await mkdir(target,{recursive:true});await writeFile(join(profile,'package.json'),'{}');await symlink(target,link);expect(installedPaths(link).packageRoot).toBe(await realpath(target));await rm(link);await mkdir(external,{recursive:true});await symlink(external,link);expect(()=>installedPaths(link)).toThrow('开发源码链接');}finally{await rm(dir,{recursive:true,force:true});}
 });
