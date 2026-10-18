@@ -1,0 +1,122 @@
+{
+  "name": "dsh-qwen-studio",
+  "version": "2.12.0",
+  "description": "Qwen Image 2.1 for DeepSeek Harness: native reference editing on Apple Silicon MLX and self-hosted CUDA, LoRA, ControlNet, inpainting and live chat progress",
+  "type": "module",
+  "author": "kingcharleslzy-ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kingcharleslzy-ai/dsh-qwen-studio.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kingcharleslzy-ai/dsh-qwen-studio/issues"
+  },
+  "homepage": "https://github.com/kingcharleslzy-ai/dsh-qwen-studio#readme",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "lib/types/**/*.d.ts",
+    "cordis.patch.yml",
+    "LICENSE",
+    "README.md",
+    "backend/server.py",
+    "backend/normalize_image.py",
+    "scripts/setup-local.sh",
+    "skills/**/*.md",
+    "docs/*.md",
+    "NOTICE",
+    "CHANGELOG.md",
+    "backend/qwen_gateway.py",
+    "backend/qwen_workflow.py",
+    "backend/comfy_nodes/**/*.py",
+    "LICENSES/*.txt",
+    "README.en.md",
+    "lib/maintenance.js",
+    "bin/*.mjs",
+    "scripts/prepare.mjs",
+    "AGENTS.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-settings-plugins",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ],
+      "platform": "web"
+    }
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0",
+    "dsh": ">=0.2.1-rc.1 <0.2.2-0"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "qwen-image",
+    "qwen-image-2.1",
+    "mlx",
+    "mflux",
+    "apple-silicon",
+    "local-ai",
+    "image-generation",
+    "text-to-image",
+    "image-to-image",
+    "lora",
+    "controlnet",
+    "inpainting",
+    "private-gallery",
+    "self-hosted"
+  ],
+  "peerDependencies": {
+    "@deepseek-ai/cordis": ">=4.0.0 <5",
+    "@deepseek-ai/dsh-tools": ">=0.1.7-rc.2",
+    "@deepseek-ai/schemastery": ">=3.18.4 <4",
+    "react": ">=18.2.0 <19",
+    "react-dom": ">=18.2.0 <19"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "contributors": [
+    "shanliuling (original DSH image-generation integration)"
+  ],
+  "bin": {
+    "qwen-studio-maintain": "bin/qwen-studio-maintain.mjs"
+  }
+}
