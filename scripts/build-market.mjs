@@ -1,11 +1,17 @@
 import {execFileSync} from 'node:child_process';
-import {mkdirSync,writeFileSync} from 'node:fs';
+import {mkdirSync,writeFileSync,readFileSync} from 'node:fs';
 const repo='kingcharleslzy-ai/dsh-qwen-studio';
 const headers={'user-agent':'qwen-studio-market',accept:'application/vnd.github+json'};
 if(process.env.GH_TOKEN)headers.authorization=`Bearer ${process.env.GH_TOKEN}`;
-const response=await fetch(`https://api.github.com/repos/${repo}/releases?per_page=100`,{headers,signal:AbortSignal.timeout(30000)});
-if(!response.ok)throw Error(`Release list HTTP ${response.status}`);
-const releases=await response.json(),git=args=>execFileSync('git',args,{encoding:'utf8'}).trim();
+let releases;
+const local = process.argv.indexOf('--releases');
+if(local >= 0) releases=JSON.parse(readFileSync(process.argv[local+1],'utf8'));
+else {
+ const response=await fetch(`https://api.github.com/repos/${repo}/releases?per_page=100`,{headers,signal:AbortSignal.timeout(30000)});
+ if(!response.ok)throw Error(`Release list HTTP ${response.status}`);
+ releases=await response.json();
+}
+const git=args=>execFileSync('git',args,{encoding:'utf8'}).trim();
 const versions=releases.filter(r=>!r.draft&&!r.prerelease&&/^v\d+\.\d+\.\d+$/.test(r.tag_name)).flatMap(r=>{
  const version=r.tag_name.slice(1);if(!r.assets.some(a=>a.name===`dsh-qwen-studio-${version}.tgz`))return [];
  let commit;try{commit=git(['rev-parse','--verify',`refs/tags/bundle-v${version}^{commit}`]);}catch{return [];}
