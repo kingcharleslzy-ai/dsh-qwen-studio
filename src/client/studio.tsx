@@ -16,7 +16,7 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import { active, statusLabel, type Job, type Snapshot } from "../shared.js";
-import { request, imageURL, download, lastSnapshot, cache } from "./api.js";
+import { request, imageURL, download, lastSnapshot, cache, pollSnapshot, APIError } from "./api.js";
 import { CreationPreview } from "./creation-preview.js";
 import { defaultDraft } from "./preset-bar.js";
 import { AdvancedSettings } from "./advanced-settings.js";
@@ -210,7 +210,7 @@ export function Studio() {
       if (pending) return;
       pending = true;
       try {
-        const s = await request<Snapshot>("state");
+        const s = await pollSnapshot(lastSnapshot);
         cache(s);
         if (alive) {
           setSnapshot(s);
@@ -218,7 +218,7 @@ export function Studio() {
           setConnectionError("");
         }
       } catch (e) {
-        if (alive) setConnectionError("连接中断，后台任务仍保留。正在重试…");
+        if (alive) setConnectionError(e instanceof APIError ? e.message : "连接中断，后台任务仍保留。正在重试…");
       } finally {
         pending = false;
       }
@@ -243,7 +243,7 @@ export function Studio() {
     return () => window.removeEventListener("keydown", key);
   }, [detailId, confirm]);
   async function refresh() {
-    const s = await request<Snapshot>("state");
+    const s = await pollSnapshot(lastSnapshot);
     cache(s);
     setSnapshot(s);
   }

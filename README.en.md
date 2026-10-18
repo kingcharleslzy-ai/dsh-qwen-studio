@@ -15,6 +15,14 @@ Apple Silicon **MLX / MFLUX**, or a **self-hosted NVIDIA CUDA / ComfyUI** gatewa
 
 </div>
 
+## Installation and agent onboarding
+
+Start with [AGENTS.md](AGENTS.md), the detailed agent runbook for installation, existing-data preservation, local MLX setup, your own NVIDIA gateway, resources, presets, recovery and updates. The generation workflow is in [SKILL.md](skills/qwen-image/SKILL.md).
+
+**Bring your own model and server.** No personal deployment addresses, private IPs, model paths or API keys are included. Add the [native DSH market index](https://kingcharleslzy-ai.github.io/dsh-qwen-studio/index.json) or use the [shared market](https://kingcharleslzy-ai.github.io/dsh-purge/index.json). Market snapshots are precompiled and pinned to immutable commits.
+
+From 2.12.0, automatic checks default to every 6 hours; automatic installation defaults off. Installation defers while tasks are active, verifies SHA256 and creates a rollback package. DSH never restarts automatically. Models, gallery contents, presets and remote services are outside the plugin update payload.
+
 ## A reference in. A new direction out.
 
 | Reference photograph | Native MLX reference edit |
@@ -44,14 +52,14 @@ This is a **DeepSeek Harness plugin**, not a standalone app. Package: `dsh-qwen-
 2. Install, then quit and reopen DSH:
 
 ```sh
-dsh plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.11.0.tgz
+dsh plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.12.0.tgz
 ```
 
 On macOS without a global CLI:
 
 ```sh
 sh "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" \
-  plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.11.0.tgz
+  plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.12.0.tgz
 ```
 
 3. Configure **图像** in plugin settings. Choose local Apple Silicon or your own remote gateway, then open the creation page or ask the agent to generate.

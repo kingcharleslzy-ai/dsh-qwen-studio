@@ -245,8 +245,32 @@ export class Worker {
       model,
     };
   }
+  private transfers = 0;
+  private maintenance = false;
+  private retired = false;
+  async withActivity<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.maintenance || this.retired) throw Error("插件正在维护或等待手动重启，请稍后再试");
+    this.transfers++;
+    try { return await fn(); } finally { this.transfers--; }
+  }
+  withMaintenance<T>(fn: () => Promise<T>): Promise<T> {
+    return this.serialized(async () => {
+      if (this.transfers || this.remote.size) throw Error("正在上传、排队或生成，更新已延后；任务结束后重试");
+      this.maintenance = true;
+      try {
+        // Check both backends, including a local worker left by another process.
+        if ((await readJobs(this.directory())).some(j => ["queued","uploading","loading","running","saving","cancelling"].includes(j.status))) throw Error("图库仍有未结束任务，更新已延后");
+        const current = await this.health();
+        if (current.busy) throw Error("生图服务正在工作，更新已延后");
+        let localBusy = false;
+        try { const r = await fetch(BASE + "/health", { signal: AbortSignal.timeout(1500) }); if(r.ok) localBusy = Boolean((await r.json() as Health).busy); } catch {}
+        if(localBusy) throw Error("本机仍有生图任务，更新已延后");
+        const result = await fn(); this.retired = true; return result;
+      } finally { this.maintenance = false; }
+    });
+  }
   async post(path: string, data: unknown, start = false) {
-    if (start) return this.serialized(() => this.submit(path, data));
+    if (start) return this.serialized(() => this.withActivity(() => this.submit(path, data)));
     return this.submit(path, data, false);
   }
   private async submit(path: string, data: unknown, start = true) {

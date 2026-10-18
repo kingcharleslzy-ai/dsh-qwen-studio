@@ -63,11 +63,11 @@ async function fixture() {
 }
 test("effective configuration is shared, environment-aware, secret-free and does not mutate inherited defaults", () => {
   const raw = { remoteApiKey: "private-key" };
-  const config = resolveConfig(raw, { HF_HOME: "/cache/env" }, "/home/example");
+  const config = resolveConfig(raw, { HF_HOME: "/cache/env" }, "/tmp/qwen-example");
   expect(config).toMatchObject({
-    localMfluxDirectory: "/home/example/.dsh/qwen-studio",
-    pythonPath: "/home/example/.dsh/qwen-studio/venv/bin/python",
-    loraDirectory: "/home/example/.dsh/qwen-studio/loras",
+    localMfluxDirectory: "/tmp/qwen-example/.dsh/qwen-studio",
+    pythonPath: "/tmp/qwen-example/.dsh/qwen-studio/venv/bin/python",
+    loraDirectory: "/tmp/qwen-example/.dsh/qwen-studio/loras",
     hfHome: "/cache/env",
     hfHomeSource: "environment",
     localMfluxIdleMinutes: 10,
@@ -76,7 +76,7 @@ test("effective configuration is shared, environment-aware, secret-free and does
   expect(JSON.stringify(config)).not.toContain("private-key");
   expect(raw).toEqual({ remoteApiKey: "private-key" });
   expect(
-    resolveConfig({ localMfluxDirectory: "/new" }, {}, "/home/example")
+    resolveConfig({ localMfluxDirectory: "/new" }, {}, "/tmp/qwen-example")
       .loraDirectory,
   ).toBe("/new/loras");
   expect(() => resolveConfig({ localMfluxIdleMinutes: 0 })).toThrow();

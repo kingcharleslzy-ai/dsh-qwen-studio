@@ -6,8 +6,10 @@ import {
   mkdir,
   rm,
   realpath,
+  stat,
 } from "node:fs/promises";
 import { join } from "node:path";
+import { watch, type FSWatcher } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { inputImagePath } from "./assets.js";
 import { active, type Job } from "./shared.js";
@@ -18,12 +20,39 @@ export async function atomicJSON(path: string, value: unknown) {
   await rename(temp, path);
 }
 type Flags = Record<string, { favorite?: boolean; archived?: boolean }>;
-async function flags(dir: string): Promise<Flags> {
-  try {
-    return JSON.parse(await readFile(join(dir, "state/gallery.json"), "utf8"));
-  } catch {
-    return {};
+function parseFlags(text: string): Flags {
+  const value: unknown = JSON.parse(text);
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw Error("收藏记录格式错误");
+  for (const [id, mark] of Object.entries(value)) {
+    if (!validId(id) || !mark || typeof mark !== "object" || Array.isArray(mark) ||
+      Object.entries(mark).some(([k,v]) => !["favorite", "archived"].includes(k) || typeof v !== "boolean"))
+      throw Error("收藏记录格式错误");
   }
+  return value as Flags;
+}
+async function flags(dir: string): Promise<Flags> {
+  try { return parseFlags(await readFile(join(dir, "state/gallery.json"), "utf8")); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      // A missing primary with a backup is data loss, not a new empty library.
+      try { await accessBackup(dir); } catch (e) { if ((e as NodeJS.ErrnoException).code === "ENOENT") return {}; throw e; }
+    }
+    throw Error("收藏记录无法读取，已停止写入以保护收藏。请在插件设置中恢复收藏备份；原文件保留。", { cause: error });
+  }
+}
+async function accessBackup(dir: string) { await stat(join(dir, "state/gallery.json.bak")); }
+export function restoreGalleryFlags(dir: string) {
+  const result = mutation.then(async () => {
+    const backup = parseFlags(await readFile(join(dir, "state/gallery.json.bak"), "utf8"));
+    try {
+      const original = await readFile(join(dir, "state/gallery.json"));
+      await writeFile(join(dir, `state/gallery.damaged-${Date.now()}-${randomUUID()}.json`), original, { mode: 0o600 });
+    } catch (e) { if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e; }
+    await atomicJSON(join(dir, "state/gallery.json"), backup);
+    invalidateGallery(dir);
+    return { ok: true };
+  });
+  mutation = result.catch(() => {}); return result;
 }
 function jobRecord(
   raw: Record<string, any>,
@@ -98,25 +127,79 @@ export async function readJob(
     (await recordAt(dir, "trash", id, marks))
   );
 }
-export async function readJobs(dir: string): Promise<Job[]> {
-  try {
-    dir = await realpath(dir);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
-    throw error;
-  }
-  const marks = await flags(dir),
-    jobs: Job[] = [];
-  for (const folder of ["images", "trash"]) {
-    const entries = await readdir(join(dir, folder)).catch(() => []);
-    for (const id of entries.filter(validId)) {
+/** Incremental gallery index. Terminal records are read once, then only on change.
+ * Recursive watches catch external worker writes; periodic reconciliation covers
+ * dropped/unsupported watch events. Active tasks are always read afresh. */
+export class GalleryIndex {
+  private jobs = new Map<string, Job>();
+  private dirty = new Set<string>();
+  private watchers: FSWatcher[] = [];
+  private rescan = true;
+  private refreshed = 0;
+  private foldersKey = "";
+  private serial: Promise<unknown> = Promise.resolve();
+  readonly metrics = { recordReads: 0, scans: 0 };
+  constructor(readonly dir: string) {
+    for (const folder of ["images", "trash"]) {
       try {
-        const job = await recordAt(dir, folder, id, marks);
-        if (job) jobs.push(job);
-      } catch {}
+        const watcher = watch(join(dir, folder), { recursive: true, persistent: false }, (_event, filename) => {
+          const id = String(filename ?? "").split(/[\\/]/)[0] ?? "";
+          if (validId(id)) this.dirty.add(id); else this.rescan = true;
+        });
+        watcher.on("error", () => { this.rescan = true; });
+        this.watchers.push(watcher);
+      } catch { /* The reconciliation path also works without recursive watches. */ }
     }
   }
-  return jobs.sort((a, b) => b.started_at - a.started_at);
+  invalidate() { this.rescan = true; }
+  close() { this.watchers.forEach(w => w.close()); this.watchers = []; }
+  read(): Promise<Job[]> {
+    const next = this.serial.then(async () => {
+      const marks = await flags(this.dir);
+      // Directory mtimes catch membership changes even before a watch event.
+      const stamps = await Promise.all(["images", "trash"].map(async folder => {
+        try { const s = await stat(join(this.dir, folder)); return `${s.mtimeMs}:${s.ctimeMs}`; }
+        catch(e) { if ((e as NodeJS.ErrnoException).code === "ENOENT") return "missing"; throw e; }
+      }));
+      const key = stamps.join("|");
+      if (key !== this.foldersKey) this.rescan = true;
+      if (this.rescan || Date.now() - this.refreshed > 30000) {
+        const present = new Set<string>(); this.metrics.scans++;
+        for (const folder of ["images", "trash"]) {
+          let entries: string[];
+          try { entries = await readdir(join(this.dir, folder)); }
+          catch (e) { if ((e as NodeJS.ErrnoException).code === "ENOENT") entries = []; else throw e; }
+          for (const id of entries.filter(validId)) { present.add(id); this.dirty.add(id); }
+        }
+        for (const id of this.jobs.keys()) if (!present.has(id)) this.jobs.delete(id);
+        this.rescan = false; this.refreshed = Date.now(); this.foldersKey = key;
+      }
+      for (const job of this.jobs.values()) if (active(job)) this.dirty.add(job.id);
+      const pending = [...this.dirty]; this.dirty.clear();
+      for (const id of pending) {
+        this.metrics.recordReads++;
+        try {
+          const job = await recordAt(this.dir, "images", id, {}) ?? await recordAt(this.dir, "trash", id, {});
+          if (job) this.jobs.set(id, job); else this.jobs.delete(id);
+        } catch { this.jobs.delete(id); /* One damaged job never hides other jobs. */ }
+      }
+      return [...this.jobs.values()].map(j => ({ ...j, ...marks[j.id] })).sort((a,b) => b.started_at-a.started_at);
+    });
+    this.serial = next.catch(() => {}); return next;
+  }
+}
+const indexes = new Map<string, GalleryIndex>();
+export function invalidateGallery(dir: string) { indexes.get(dir)?.invalidate(); }
+export function closeGalleryIndexes() { for (const index of indexes.values()) index.close(); indexes.clear(); }
+export async function readJobs(dir: string): Promise<Job[]> {
+  try { dir = await realpath(dir); }
+  catch (e) { if ((e as NodeJS.ErrnoException).code === "ENOENT") return []; throw e; }
+  let index = indexes.get(dir);
+  if (!index) {
+    if (indexes.size >= 8) { const oldest = indexes.keys().next().value!; indexes.get(oldest)?.close(); indexes.delete(oldest); }
+    indexes.set(dir, index = new GalleryIndex(dir));
+  }
+  return index.read();
 }
 let mutation: Promise<unknown> = Promise.resolve();
 export type GalleryAction =
@@ -140,12 +223,12 @@ export function batchAction(
     )
       throw Error("请选择1–1000张图片");
     dir = await realpath(dir);
-    const jobs = await readJobs(dir),
-      selected = [...new Set(ids)].map((id) => {
-        const job = jobs.find((j) => j.id === id);
-        if (!job) throw Error("图片不存在");
-        return job;
-      });
+    const marks = await flags(dir);
+    const selected = await Promise.all([...new Set(ids)].map(async id => {
+      const job = await recordAt(dir,"images",id,{}) ?? await recordAt(dir,"trash",id,{});
+      if(!job) throw Error("图片不存在");
+      return job;
+    }));
     if (selected.some(active) && action !== "favorite")
       throw Error("请先取消生成中的任务");
     if (["favorite", "archived"].includes(action) && typeof value !== "boolean")
@@ -156,7 +239,7 @@ export function batchAction(
       !["favorite", "archived", "delete", "restore", "purge"].includes(action)
     )
       throw Error("操作无效");
-    const marks = await flags(dir);
+    const before = structuredClone(marks);
     await mkdir(join(dir, "state"), { recursive: true });
     const completed: string[] = [];
     for (const job of selected) {
@@ -179,7 +262,9 @@ export function batchAction(
       }
       completed.push(job.id);
     }
+    await atomicJSON(join(dir, "state/gallery.json.bak"), before);
     await atomicJSON(join(dir, "state/gallery.json"), marks);
+    invalidateGallery(dir);
     return { ok: true, ids: completed };
   });
   mutation = result.catch(() => {});

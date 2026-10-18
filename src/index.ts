@@ -2,12 +2,16 @@ import type { Context } from "@deepseek-ai/cordis";
 import type {} from "@deepseek-ai/dsh-host-webserver";
 import type { IncomingMessage } from "node:http";
 import { readFile, realpath, access } from "node:fs/promises";
+import { GallerySnapshots } from "./gallery-snapshot.js";
+import { PackageInstaller, UpdateController } from "./updates.js";
 import { join, dirname } from "node:path";
 import { Config } from "./config.js";
 import { invocationProgress } from "./invocations.js";
 import { Worker } from "./worker.js";
 import {
   readJobs,
+  closeGalleryIndexes,
+  restoreGalleryFlags,
   batchAction,
   imagePath,
   validId,
@@ -51,7 +55,19 @@ export function apply(ctx: Context, config: Config = {}) {
       ]),
     ) as Config;
   const worker = new Worker(current);
+  const gallerySnapshots = new GallerySnapshots();
   ctx.effect(() => () => { void worker.dispose().catch(() => {}); }, "qwen-studio SSH lifecycle");
+  let updater: UpdateController | undefined;
+  let updateError = "";
+  const updateReady = (async () => {
+    try {
+      const installer = new PackageInstaller();
+      const version = JSON.parse(await readFile(join(installer.paths.packageRoot, "package.json"), "utf8")).version as string;
+      updater = new UpdateController(installer.paths.state, version, fn => worker.withMaintenance(fn), installer);
+      await updater.init();
+    } catch(e) { updateError = e instanceof Error ? e.message : String(e); }
+  })();
+  ctx.effect(() => () => { updater?.stop(); closeGalleryIndexes(); }, "qwen-studio updates and gallery index");
   registerTools(ctx, worker);
   (ctx.inject as unknown as (services: string[], callback: (owner: Context) => void) => void)(["settings"], (owner) => {
     registerConnectionTool(owner, worker, owner.get("settings") as ConnectionSettings);
@@ -68,6 +84,8 @@ export function apply(ctx: Context, config: Config = {}) {
     owner.effect(() => skills.register(bundledImageSkill()), "图像 skill");
   });
   for (const route of [
+    "updates",
+    "gallery-restore",
     "state",
     "progress",
     "jobs",
@@ -105,6 +123,25 @@ export function apply(ctx: Context, config: Config = {}) {
                 return;
               }
               const dir = worker.directory();
+              if (route === "updates") {
+                await updateReady;
+                if(!updater) throw Error(updateError || "更新服务不可用");
+                if(req.method === "GET") return json(200, { ...updater.snapshot(), backups: await updater.backups() });
+                if(req.method === "POST") {
+                  const data = await body(req);
+                  if(data.action === "preferences") return json(200, await updater.preferences(data.preferences));
+                  if(data.action === "check") return json(200, await updater.check());
+                  if(data.action === "install") return json(200, await updater.install());
+                  if(data.action === "rollback" && data.confirm === true) return json(200, await updater.rollback(data.id));
+                  throw Error("更新操作无效；回滚需要明确确认");
+                }
+              }
+              if(route === "gallery-restore" && req.method === "POST") {
+                const data = await body(req);
+                if(data.confirm !== true) throw Error("恢复收藏备份需要明确确认");
+                return json(200, await restoreGalleryFlags(dir));
+              }
+
               if (route === "settings") {
                 const data = req.method === "POST" ? await body(req) : {};
                 const effective = resolveConfig({
@@ -141,11 +178,11 @@ export function apply(ctx: Context, config: Config = {}) {
                   throw Error("该远程服务不支持高级资源，请使用 Qwen 网关");
                 return json(
                   201,
-                  await receiveAsset(
+                  await worker.withActivity(() => receiveAsset(
                     req,
                     dir,
                     resolveConfig(current()).pythonPath,
-                  ),
+                  )),
                 );
               }
               if (route === "progress" && req.method === "POST") {
@@ -181,11 +218,12 @@ export function apply(ctx: Context, config: Config = {}) {
                       job.error = "服务已停止，任务未完成，请重试";
                     }
                   }
+                const prior = new URL(req.url ?? "", "http://localhost").searchParams.get("revision");
                 return json(200, {
-                  apiVersion: 9,
+                  ...gallerySnapshots.project(jobs, prior),
+                  apiVersion: 10,
                   remoteAdvanced: worker.mode() === "remote" && Boolean(await worker.capabilities().catch(() => null)),
                   referenceEditSupported: (await worker.referenceEditing()).supported,
-                  jobs,
                   health:
                     worker.mode() === "remote"
                       ? { ...health, busy: Boolean(health.busy || worker.remote.size > 0) }

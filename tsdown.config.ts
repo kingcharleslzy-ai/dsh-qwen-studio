@@ -41,7 +41,7 @@ const client: UserConfig = {
   define: {
     "process.env.NODE_ENV": JSON.stringify("production"),
     // Baked at build time; the canvas logs it so stale host caches are provable.
-    __CANVAS_BUILD_TS__: JSON.stringify(new Date().toISOString()),
+    __CANVAS_BUILD_TS__: JSON.stringify(process.env.SOURCE_DATE_EPOCH ? new Date(Number(process.env.SOURCE_DATE_EPOCH) * 1000).toISOString() : "development"),
   },
   alias: {
     "lucide-react": "lucide-react/dist/esm/lucide-react.mjs",
@@ -55,4 +55,5 @@ const client: UserConfig = {
   },
 };
 
-export default [host, client];
+const maintenance: UserConfig = { ...host, name: "dsh-qwen-studio/maintenance", entry: ["lib/types/maintenance.js"] };
+export default [host, maintenance, client];

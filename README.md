@@ -18,6 +18,16 @@ Native Qwen Image 2.1 generation & reference editing for **DeepSeek Harness**.
 
 </div>
 
+## 安装与 Agent 上手
+
+**让你的 Agent 先读 [AGENTS.md](AGENTS.md)**：包括新装/升级、现有数据保护、MLX 完整模型准备、自己的 NVIDIA 网关、SSH、资源导入、整套预设、任务恢复和回滚。使用中的生图技能另见 [SKILL.md](skills/qwen-image/SKILL.md)。
+
+本项目没有内置作者的服务器、私有 IP、模型目录或密钥。**用户需要填写自己的环境信息**；插件包不包含模型权重或远程算力。
+
+- **市场安装**：DSH → 插件 → 自定义插件市场 → 发现，添加 [本项目索引](https://kingcharleslzy-ai.github.io/dsh-qwen-studio/index.json)，或已使用的 [共享市场源](https://kingcharleslzy-ai.github.io/dsh-purge/index.json)。市场版本是固定提交的预编译包，无需在用户机器上构建（Git 来源需要 Git；没有时用 tgz）；共享源约每小时同步一次新版本。
+- **手动安装**：[固定名安装包](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest/download/dsh-qwen-studio.tgz) · [SHA256 校验](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest/download/SHA256SUMS.txt)。具体命令见下文。
+- **更新由你决定**：2.12.0 起，默认每 6 小时自动检查；自动安装默认关闭，可单独开启。生图时延后安装，安装前备份，可回滚，**不自动重启 DSH**。模型、图库、预设与远程服务不随插件安装包覆盖。
+
 ## 给一张参考，换一种画法
 
 <table>
@@ -44,21 +54,21 @@ Native Qwen Image 2.1 generation & reference editing for **DeepSeek Harness**.
 - **用时启动，空闲释放** — 本机模型按需加载；远程按需 SSH、资源自动同步，模型卸载后断开。统一空闲时间可由界面或 Agent 调整。
 - **试稿收好，作品精选** — 默认存入隐私图库，收藏后进入普通图库；支持搜索、批量归档与回收站。隐私分类不隐藏对话图片，也不是加密或密码锁。
 
-这是 **DeepSeek Harness 插件**，不是独立生图 App。应用里叫「图像」，安装包为 `dsh-qwen-studio`，当前 **2.11.0**。独立维护、独立发布，无需安装旧 `dsh-image-gen`。
+这是 **DeepSeek Harness 插件**，不是独立生图 App。应用里叫「图像」，安装包为 `dsh-qwen-studio`，当前 **2.12.0**。独立维护、独立发布，无需安装旧 `dsh-image-gen`。
 
 ## 三步开始
 
 **1. 安装插件。** 从 [Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载 `.tgz`，运行：
 
 ```sh
-dsh plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.11.0.tgz
+dsh plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.12.0.tgz
 ```
 
 macOS 未安装全局 `dsh` 时，可使用桌面版内置 CLI：
 
 ```sh
 sh "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" \
-  plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.11.0.tgz
+  plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.12.0.tgz
 ```
 
 **2. 选择推理位置。** 正常退出并重新打开 DSH，在插件设置中配置「图像」：

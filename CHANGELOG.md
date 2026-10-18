@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.12.0 — 2026-10-18
+
+- Add independent automatic update checks (on by default, every 6 hours) and automatic installation (off by default), manual checks/install, SHA256 verification, package backups and rollback. Active uploads/queues/generation defer installation; never restart DSH automatically.
+- Protect favorite/archive metadata: validate records, stop on corruption or unexpected loss, preserve a pre-write backup, and expose explicit recovery while retaining damaged evidence and image originals.
+- Replace repeated full gallery reads with an incremental index, active-job refresh and periodic reconciliation. Revision/delta snapshots send only changed records during progress polling.
+- Publish precompiled immutable market snapshots, a native format-1 index, stable-name tarball and checksums. Expand agent onboarding, deployment, presets, update and recovery instructions; replace personal deployment naming with generic examples and enforce privacy scans.
+- Existing settings, presets, model paths, images and remote deployments are retained; remote server scripts and model dependencies are not silently upgraded.
+
 ## 2.11.0 — 2026-10-17
 
 - Enable native Qwen 2.1 reference editing on Apple Silicon through MFLUX QwenImage21Edit. Reuse the configured complete vision-capable checkpoint, image resources and LoRA channel; preserve existing variation/preset semantics.
