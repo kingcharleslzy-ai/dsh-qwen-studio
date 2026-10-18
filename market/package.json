@@ -1,5 +1,5 @@
 {
-  "name": "purge-market-validation",
+  "name": "qwen-studio-market-validation",
   "private": true,
   "type": "module",
   "dependencies": {
