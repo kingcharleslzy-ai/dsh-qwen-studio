@@ -223,13 +223,12 @@ export function batchAction(
     )
       throw Error("请选择1–1000张图片");
     dir = await realpath(dir);
-    invalidateGallery(dir);
-    const jobs = await readJobs(dir),
-      selected = [...new Set(ids)].map((id) => {
-        const job = jobs.find((j) => j.id === id);
-        if (!job) throw Error("图片不存在");
-        return job;
-      });
+    const marks = await flags(dir);
+    const selected = await Promise.all([...new Set(ids)].map(async id => {
+      const job = await recordAt(dir,"images",id,{}) ?? await recordAt(dir,"trash",id,{});
+      if(!job) throw Error("图片不存在");
+      return job;
+    }));
     if (selected.some(active) && action !== "favorite")
       throw Error("请先取消生成中的任务");
     if (["favorite", "archived"].includes(action) && typeof value !== "boolean")
@@ -240,7 +239,6 @@ export function batchAction(
       !["favorite", "archived", "delete", "restore", "purge"].includes(action)
     )
       throw Error("操作无效");
-    const marks = await flags(dir);
     const before = structuredClone(marks);
     await mkdir(join(dir, "state"), { recursive: true });
     const completed: string[] = [];

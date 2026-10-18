@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import {homedir} from "node:os";
 import { join } from "node:path";
 import { PackageInstaller, UpdateController } from "./updates.js";
 import {readJobs,closeGalleryIndexes} from "./storage.js";
@@ -10,8 +11,13 @@ export async function main(args=process.argv.slice(2)) {
     // CLI maintenance is deliberately conservative. UI also has the worker gate.
     const config=await readFile(join(p.profile,'cordis.patch.yml'),'utf8').catch(()=>"");
     const match=config.match(/^\s+localMfluxDirectory:\s*(.+)\s*$/m);
-    if(match) {
-      if((await readJobs(match[1]!.trim().replace(/^['"]|['"]$/g,''))).some(active)) throw Error('仍有未结束任务，请在 DSH 插件设置中维护或等任务结束');
+    const raw = match?.[1]?.trim() ?? join(homedir(),'.dsh/qwen-studio');
+    let directory = raw;
+    if(raw.startsWith('"')) directory=JSON.parse(raw);
+    else if(raw.startsWith("'")) directory=raw.slice(1,-1).replaceAll("''", "'");
+    if(directory.startsWith('~/')) directory=join(homedir(),directory.slice(2));
+    {
+      if((await readJobs(directory)).some(active)) throw Error('仍有未结束任务，请在 DSH 插件设置中维护或等任务结束');
     }
     const r=await fetch('http://127.0.0.1:19388/health',{signal:AbortSignal.timeout(1500)}).catch(()=>null);
     if(r?.ok&&(await r.json() as {busy?:boolean}).busy)throw Error('本机仍在生图');

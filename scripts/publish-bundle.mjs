@@ -11,8 +11,15 @@ try{
  git(['read-tree','--empty']);git([`--work-tree=${join(temp,'package')}`,'add','-f','--all']);
  const tree=git(['write-tree']),commit=git(['commit-tree',tree,'-m',`Precompiled ${pkg.name} ${pkg.version}`]);
  if(process.env.QWEN_BUNDLE_DRY_RUN !== '1') {
-   git(['update-ref',ref,commit,'0000000000000000000000000000000000000000']);
-   git(['push','origin',ref]);
+   const existing=git(['ls-remote','origin',ref]).split(/\s+/)[0];
+   if(existing) {
+     git(['fetch','origin',ref]);
+     if(git(['rev-parse',`${existing}^{tree}`])!==tree) throw Error('Immutable bundle tag already exists with different contents');
+     console.log('Existing identical bundle snapshot retained');
+   } else {
+     git(['update-ref',ref,commit,'0000000000000000000000000000000000000000']);
+     git(['push','origin',ref]);
+   }
  }
  writeFileSync('.bundle-commit.txt',commit+'\n');
  console.log(`Published immutable precompiled bundle ${ref} at ${commit}`);
