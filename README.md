@@ -24,7 +24,7 @@ Native Qwen Image 2.1 generation & reference editing for **DeepSeek Harness**.
 
 本项目没有内置作者的服务器、私有 IP、模型目录或密钥。**用户需要填写自己的环境信息**；插件包不包含模型权重或远程算力。
 
-- **市场安装**：DSH → 插件 → 自定义插件市场 → 发现，添加 [本项目索引](https://kingcharleslzy-ai.github.io/dsh-qwen-studio/index.json)，或已使用的 [共享市场源](https://kingcharleslzy-ai.github.io/dsh-purge/index.json)。市场版本是固定提交的预编译包，无需在用户机器上构建。
+- **市场安装**：DSH → 插件 → 自定义插件市场 → 发现，添加 [本项目索引](https://kingcharleslzy-ai.github.io/dsh-qwen-studio/index.json)，或已使用的 [共享市场源](https://kingcharleslzy-ai.github.io/dsh-purge/index.json)。市场版本是固定提交的预编译包，无需在用户机器上构建；共享源约每小时同步一次新版本。
 - **手动安装**：[固定名安装包](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest/download/dsh-qwen-studio.tgz) · [SHA256 校验](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest/download/SHA256SUMS.txt)。具体命令见下文。
 - **更新由你决定**：2.12.0 起，默认每 6 小时自动检查；自动安装默认关闭，可单独开启。生图时延后安装，安装前备份，可回滚，**不自动重启 DSH**。模型、图库、预设与远程服务不随插件安装包覆盖。
 

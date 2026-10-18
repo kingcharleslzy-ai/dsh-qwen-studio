@@ -23,3 +23,6 @@ MFLUX: Copyright (c) 2026 Filip Strand, MIT License.
 The license is included in LICENSES/MFLUX-MIT.txt.
 ComfyUI is a separately installed dependency; the checked LoRA node calls its
 native loader and does not vendor ComfyUI implementation code.
+
+The update compatibility checker bundles node-semver 7.7.2 (ISC), copyright
+Isaac Z. Schlueter and Contributors. Its license is in LICENSES/SEMVER-ISC.txt.
