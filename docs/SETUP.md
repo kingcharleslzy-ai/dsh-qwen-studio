@@ -4,7 +4,7 @@
 
 ## 安装插件
 
-从 [本项目 Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载安装包，运行 `dsh plugin --profile desktop add /绝对路径/dsh-qwen-studio-2.11.0.tgz`。若没有全局 dsh 命令，使用 README 中的桌面版内置 CLI。然后手动退出并重新打开 DSH，在插件设置中启用并配置「图像」。
+从 [本项目 Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载安装包，运行 `dsh plugin --profile desktop add /绝对路径/dsh-qwen-studio-2.12.0.tgz`。若没有全局 dsh 命令，使用 README 中的桌面版内置 CLI。然后手动退出并重新打开 DSH，在插件设置中启用并配置「图像」。
 
 包内的脚本和说明位于安装后 dsh-qwen-studio 包目录；也可从源代码包解压使用。
 

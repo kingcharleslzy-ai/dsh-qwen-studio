@@ -233,7 +233,7 @@ class Service:
         png=(ROOT/'jobs'/job['id']/'image.png').read_bytes()
         return web.json_response({'created':int(time.time()),'data':[{'b64_json':base64.b64encode(png).decode()}]})
     async def capabilities(self,request):return web.json_response({'protocol':'dsh-qwen','version':1,'features':list(FEATURES),'schedulers':list(SCHEDULERS)})
-    async def models(self,request):return web.json_response({'object':'list','data':[{'id':MODEL,'object':'model','owned_by':'local-4090d'}]})
+    async def models(self,request):return web.json_response({'object':'list','data':[{'id':MODEL,'object':'model','owned_by':'self-hosted'}]})
     async def health(self,request):return web.json_response({'loaded':bool(self.process and self.process.poll() is None),'status':'ok','busy':any(not t.done() for t in self.tasks.values()),'idle_seconds':self.config.get('idle_seconds',300)})
     async def runtime_config(self,request):
         data=await request.json()

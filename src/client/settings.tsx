@@ -4,6 +4,7 @@ import type { EffectiveConfig } from "../resolved-config.js";
 import type { Health } from "../shared.js";
 import { STYLE } from "./style.js";
 import { ParameterHelp } from "./parameter-help.js";
+import { UpdateSettings } from "./update-settings.js";
 import { PathField } from "./path-field.js";
 import { request } from "./api.js";
 import { usePrivacyGallery, setPrivacyEnabled } from "./gallery-preferences.js";
@@ -322,7 +323,7 @@ export function Settings({ scope }: { scope?: Scope }) {
             </label>
             <label>
               按需 SSH 主机
-              <input aria-label="按需 SSH 主机" value={value.remoteSshHost ?? ""} placeholder="留空直接连接；例如 4090d" onChange={(e) => change("remoteSshHost", e.target.value)} />
+              <input aria-label="按需 SSH 主机" value={value.remoteSshHost ?? ""} placeholder="留空直接连接；例如 my-qwen-server" onChange={(e) => change("remoteSshHost", e.target.value)} />
               {hint("remoteSshHost")}
             </label>
             {value.remoteSshHost?.trim() && <label>
@@ -365,6 +366,7 @@ export function Settings({ scope }: { scope?: Scope }) {
           {message}
         </p>
       </fieldset>
+      <UpdateSettings />
     </section>
   );
 }

@@ -78,7 +78,7 @@ test("configuration form displays resolved inherited paths, saves only edited fi
           effective: resolveConfig(
             { ...value, ...raw.config },
             {},
-            "/home/test",
+            "/tmp/qwen-test",
           ),
           health: { status: "offline" },
         }),
@@ -98,7 +98,7 @@ test("configuration form displays resolved inherited paths, saves only edited fi
           .findAllByType("input")
           .find((x: any) => x.props["aria-label"] === name);
     expect(field("LoRA 文件夹").props.value).toBe(
-      "/home/test/.dsh/qwen-studio/loras",
+      "/tmp/qwen-test/.dsh/qwen-studio/loras",
     );
     await act(async () => {
       field("空闲卸载时间").props.onChange({ target: { value: "12" } });

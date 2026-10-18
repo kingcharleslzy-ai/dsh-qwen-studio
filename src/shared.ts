@@ -48,6 +48,7 @@ export interface Health {
 }
 export interface Snapshot {
   apiVersion?: number;
+  jobsRevision?: string;
   remoteAdvanced?: boolean;
   referenceEditSupported?: boolean;
   jobs: Job[];

@@ -15,6 +15,10 @@ const paths = pack.files.map((f) => f.path);
 for (const file of [
   "lib/index.js",
   "lib/client.js",
+  "lib/maintenance.js",
+  "bin/qwen-studio-maintain.mjs",
+  "scripts/prepare.mjs",
+  "AGENTS.md",
   "backend/server.py",
   "backend/normalize_image.py",
   "backend/qwen_gateway.py",
@@ -43,6 +47,11 @@ for (const path of paths) {
   );
   if (/\.(?:js|ts|py|md|json|sh|yml)$/.test(path)) {
     const text = readFileSync(path, "utf8");
+    if (path.startsWith("lib/") && path.endsWith(".js")) {
+      for(const match of text.matchAll(/(?:from\s*|import\s*\()\s*["'](\.\/[^"']+\.js)["']/g)) {
+        assert(paths.includes("lib/"+match[1].slice(2)), `Missing bundle dependency ${path} -> ${match[1]}`);
+      }
+    }
     assert(
       !/\/Users\/|\/home\/charles|hf_[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{20,}/.test(
         text,

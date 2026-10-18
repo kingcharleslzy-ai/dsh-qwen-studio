@@ -14,7 +14,7 @@ export async function request<T>(path: string, data?: unknown): Promise<T> {
       ? { cache: "no-store", signal: AbortSignal.timeout(5000) }
       : {
           method: "POST",
-          signal: AbortSignal.timeout(path === "presets" ? 120000 : 15000),
+          signal: AbortSignal.timeout(["presets", "updates"].includes(path) ? 240000 : 15000),
           headers: { "content-type": "application/json" },
           body: JSON.stringify(data),
         },
@@ -46,4 +46,16 @@ export async function download(id: string) {
 export let lastSnapshot: Snapshot | undefined;
 export function cache(snapshot: Snapshot) {
   lastSnapshot = snapshot;
+}
+
+/** Unchanged gallery responses contain only health/capabilities and a revision. */
+export async function pollSnapshot(previous?: Snapshot): Promise<Snapshot> {
+  const data = await request<Omit<Snapshot, "jobs"> & { jobs?: Snapshot["jobs"]; jobChanges?: Snapshot["jobs"]; removedJobIds?: string[] }>(`state${previous?.jobsRevision ? "?revision=" + encodeURIComponent(previous.jobsRevision) : ""}`);
+  if (!data.jobs && !previous) throw Error("图库快照缺少初始记录");
+  if (data.jobs) return { ...data, jobs: data.jobs };
+  if(!data.jobChanges) return { ...data, jobs: previous!.jobs };
+  const jobs = new Map(previous!.jobs.map(j => [j.id,j]));
+  for(const id of data.removedJobIds ?? []) jobs.delete(id);
+  for(const job of data.jobChanges) jobs.set(job.id,job);
+  return { ...data, jobs: [...jobs.values()].sort((a,b)=>b.started_at-a.started_at) };
 }

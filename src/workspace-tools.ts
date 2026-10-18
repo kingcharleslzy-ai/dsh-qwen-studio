@@ -119,10 +119,10 @@ export function registerWorkspaceTools(ctx: Context, worker: Worker) {
     async execute(args, exec) {
       const config = resolveConfig(worker.transportConfig());
       const { attachment, ...input } = args;
-      const asset = await importImage({ ...input, ...(attachment ? { attachment: attachment as ImageAttachmentRef } : {}) }, {
+      const asset = await (worker.withActivity ? worker.withActivity.bind(worker) : async (fn: () => Promise<any>) => fn())(() => importImage({ ...input, ...(attachment ? { attachment: attachment as ImageAttachmentRef } : {}) }, {
         directory: config.localMfluxDirectory, python: config.pythonPath, signal: exec.signal,
         readAttachment: (ref, signal) => ctx.attachments.readImage(ref, signal),
-      });
+      }));
       const parameter = asset.kind === "control" ? "controlnet_image_id" : asset.kind === "mask" ? "mask_image_id" : "source_image_id";
       return { result: JSON.stringify({ ...asset, parameter, settings: { [parameter]: asset.id },
         note: "已导入资源库，尚未生图，也不覆盖面板草稿。用户要求生成时，把此 ID 与完整目标 prompt 交给 qwen_generate_image；不要把 URL、文件路径或附件哈希当图库 ID。" }) };

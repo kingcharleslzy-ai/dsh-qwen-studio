@@ -14,3 +14,7 @@ state/
 images/
 trash/
 models/
+
+market-dist/
+.bundle-commit.txt
+release-notes.md
