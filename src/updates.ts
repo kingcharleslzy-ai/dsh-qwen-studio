@@ -128,7 +128,7 @@ export class PackageInstaller {
     await writeFile(archivePath,archive,{mode:0o600});
     try {
       await this.invoke(archivePath);
-      const installed=await json<{version:string}>(join(this.paths.packageRoot,'package.json'),{version:''});
+      const installed=await json<{version:string}>(join(this.paths.profile,'node_modules',PACKAGE,'package.json'),{version:''});
       if(installed.version!==release.version)throw Error("安装后的版本未确认");
     } catch(e) {
       try { await this.invoke(join(folder,'previous.tgz')); }
@@ -143,6 +143,8 @@ export class PackageInstaller {
     const folder=join(this.paths.state,'backups',id),m=await json<{version:string}>(join(folder,'manifest.json'),{version:''});
     if(!/^\d+\.\d+\.\d+$/.test(m.version))throw Error("备份不存在或版本无效");
     await this.invoke(join(folder,'previous.tgz'));
+    const installed=await json<{version:string}>(join(this.paths.profile,'node_modules',PACKAGE,'package.json'),{version:''});
+    if(installed.version!==m.version)throw Error('回滚后的版本未确认，请检查原生安装器');
     return {pendingVersion:m.version,restartRequired:true,backupId:id};
   }
 }
