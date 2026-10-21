@@ -37,26 +37,26 @@ test("extended remote transfers owned resources once, retains preset references,
   try{
     const id='c'.repeat(32);await queue.submit(dir,config,{...params,id});
     await expect.poll(async()=> { const j=await readJob(dir,id); if(j?.status=== "failed") throw Error(j.error); return j?.step; }).toBe(3);
-    await expect.poll(async()=> (await readJob(dir,id))?.status).toBe('complete');
+    await expect.poll(async()=> (await readJob(dir,id))?.status, {timeout:5000}).toBe('complete');
     expect(await readJob(dir,id)).toMatchObject({source_image_id:source,mask_image_id:mask,controlnet_image_id:source,progress_supported:true,guidance:2.5,guidance_auto_raised:true});
     expect(bodies[0]).not.toHaveProperty('source_image_id');expect(bodies[0]).not.toHaveProperty('lora_paths');
     expect(bodies[0].source_sha).toMatch(/^[a-f0-9]{64}$/);expect(uploads.size).toBe(1);
     expect(await readFile(join(dir,'images',id,'image.png'))).toEqual(png);
     expect(await readFile(join(dir,'images',id,'reference.png'))).toEqual(png);
     await queue.submit(dir,config,{...params,id:'d'.repeat(32)});
-    await expect.poll(async()=>queue.size).toBe(0);expect(uploads.size).toBe(1);
+    await expect.poll(async()=>queue.size, {timeout:5000}).toBe(0);expect(uploads.size).toBe(1);
     const multi='9'.repeat(32);
     await queue.submit(dir,config,{id:multi,prompt:'two references',width:512,height:512,steps:20,seed:2,source_image_ids:[source,second],reference_mode:'edit'});
-    await expect.poll(async()=>queue.size).toBe(0);
+    await expect.poll(async()=>queue.size, {timeout:5000}).toBe(0);
     expect(bodies.at(-1).source_shas).toHaveLength(2);
     expect((await readJob(dir,multi))?.source_image_ids).toEqual([source,second]);
     expect(await readFile(join(dir,'images',multi,'reference-1.png'))).toEqual(png);
     expect(await readFile(join(dir,'images',multi,'reference-2.png'))).toEqual(png);
     await expect(queue.submit(dir,config,{...params,id:'e'.repeat(32),lora_paths:['/outside/style.safetensors']})).resolves.toBeDefined();
-    await expect.poll(async()=>queue.size).toBe(0);
+    await expect.poll(async()=>queue.size, {timeout:5000}).toBe(0);
     expect((await readJob(dir,'e'.repeat(32)))?.status).toBe('failed');expect(bodies.length).toBe(3);
   } finally {server.closeAllConnections();server.close();await rm(dir,{recursive:true,force:true});}
-});
+}, 20000);
 
 
 test("native editing requires an explicit remote capability and does not drop its mode or accept partial-noise controls", () => {

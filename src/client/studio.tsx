@@ -668,7 +668,7 @@ export function Studio() {
                 ) : (
                   <ArrowUp size={17} />
                 )}
-                {draft.sourceId ? "生成变体" : "生成图片"} <small>⌘ ↵</small>
+                {draft.sourceId ? "生成变体" : "生成图片"} <small>{typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ ↵" : "Ctrl ↵"}</small>
               </button>
             </div>
           </div>

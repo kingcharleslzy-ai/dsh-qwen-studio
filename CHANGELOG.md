@@ -2,6 +2,8 @@
 
 ## 2.19.0 — 2026-10-21
 
+- Windows 创作按钮快捷键显示 Ctrl+Enter，macOS 保留 Command+Enter。
+
 - Use one Windows-aware argv launcher for DSH version checks, install and rollback, including quoted paths and shell metacharacters. Reject command control characters.
 - Normalize Windows 8.3 profile paths with the native realpath API so the updater does not mistake valid installs for development links.
 - Fix Windows LoRA containment, UTF-8/BOM gateway configuration, readable Python errors, native venv paths, npm prepare/package checks and transient atomic state replacement failures.

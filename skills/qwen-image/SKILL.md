@@ -1,6 +1,6 @@
 ---
 name: qwen-image
-description: DSH 图像工作区：生图优先 qwen_generate_image，同步对话进度与图库；远程原生参考编辑用 reference_mode=edit；qwen_image_import 导入网址/本机文件/对话参考图，qwen_image_resources 查资源，qwen_image_presets 配置和保存整套预设，qwen_image_connection 实时切换本机/远程并设置空闲卸载；qwen_image_jobs 批量查队列、qwen_image_cancel 取消任务、qwen_image_gallery 只读检索图库、qwen_image_batch 批量提交、qwen_image_import_many 批量导入、qwen_image_export 复制导出、qwen_image_score 本地客观评分、qwen_image_reroll 按标记重投、`source_image_ids` 多图编辑。不改跑独立脚本。
+description: DSH 图像工作区：生图优先 qwen_generate_image，同步对话进度与图库；原生参考编辑用 reference_mode=edit；qwen_image_import 导入网址/本机文件/对话参考图，qwen_image_resources 查资源，qwen_image_presets 配置和保存整套预设，qwen_image_connection 实时切换本机/远程并设置空闲卸载；qwen_image_jobs 批量查队列、qwen_image_cancel 取消任务、qwen_image_gallery 只读检索图库、qwen_image_batch 批量提交、qwen_image_import_many 批量导入、qwen_image_export 复制导出、qwen_image_score 本地客观评分、qwen_image_reroll 按标记重投、`source_image_ids` 多图编辑。不改跑独立脚本。
 whenToUse: 实际生图、搜索参考图后图生图、按指令改图或换画风、导入图片、参考变体、局部重绘、配置 LoRA/控制图/蒙版/采样、保存或加载图像预设、切换本机或远程生图、调整空闲卸载时间、批量提交或导入、批量查任务/取消任务、按提示词或种子检索图库、导出任务文件、查询资源或已有结果时加载。仅写提示词、讨论方案、搜索已有图片时不自动生成。
 ---
 
@@ -160,7 +160,7 @@ Qwen 2.1 原生支持多图编辑（远程网关 2.17+）。`qwen_generate_image
 
 本机原生编辑保留当前模型目录和同一 LoRA 通道，但编辑与文生图使用不同模型实例，切换时卸载前一个实例。完整采样、不启用 step cache、Turbo 或自动重试；前缀 KV 复用不跳过采样步。参考输入按 1024 像素面积预算预处理；不要声称相同种子跨后端像素相同。
 
-## 插件安装与维护边界（2.12.0）
+## 插件安装与维护边界（2.19.0）
 
 新装、连接配置、更新或故障诊断时，先阅读包根目录的 AGENTS.md。所有服务器地址、SSH 别名、目录和密钥由用户自行提供/选择；不要复制作者部署或猜测路径。自动检查默认开、自动安装默认关；维护不等于生成，不启动模型或 SSH。升级、回滚前检查任务，安装完成后提示用户择时手动重启，不能终止现有会话。图库收藏记录损坏时停止写入，从设置中的收藏备份恢复；不要删 gallery.json 以“修复”。
 
