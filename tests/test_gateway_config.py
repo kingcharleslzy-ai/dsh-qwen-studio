@@ -21,6 +21,18 @@ class GatewayConfigTest(unittest.TestCase):
                 service=module.Service()
                 self.assertEqual(service.config['note'],'中文')
                 self.assertIsNone(service.process)
+                running='a'*32; complete='b'*32; damaged='c'*32
+                for ident,status in [(running,'running'),(complete,'complete')]:
+                    path=root/'jobs'/ident/'job.json';path.parent.mkdir(parents=True)
+                    path.write_text(json.dumps({'id':ident,'status':status}),encoding='utf-8-sig')
+                path=root/'jobs'/damaged/'job.json';path.parent.mkdir(parents=True);path.write_text('{broken',encoding='utf-8')
+                with self.assertLogs(level='WARNING'):
+                    recovered=module.Service()
+                self.assertEqual(recovered.jobs[running]['status'],'failed')
+                self.assertIn('restarted',recovered.jobs[running]['error'])
+                self.assertEqual(recovered.jobs[complete]['status'],'complete')
+                self.assertNotIn(damaged,recovered.jobs)
+                self.assertEqual(path.read_text(encoding='utf-8'),'{broken')
             finally:
                 sys.path.remove(str(backend))
                 if old is None:os.environ.pop('QWEN_REMOTE_ROOT',None)

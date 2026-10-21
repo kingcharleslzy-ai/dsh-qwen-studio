@@ -68,7 +68,13 @@ class Service:
         self.process=None;self.log=None;self.lock=asyncio.Lock();self.last=time.monotonic()
         self.jobs={};self.tasks={};self.cancelled=set();self.current=None;self.uploads={}
         for p in (ROOT/'jobs').glob('*/job.json'):
-            job=json.loads(p.read_text(encoding="utf-8-sig"))
+            try:
+                job=json.loads(p.read_text(encoding="utf-8-sig"))
+                if not isinstance(job,dict) or job.get('id')!=p.parent.name or not re.fullmatch('[a-f0-9]{32}',job.get('id','')) or not isinstance(job.get('status'),str):
+                    raise ValueError('Invalid job record')
+            except (OSError,ValueError,TypeError):
+                logging.warning('Unreadable job record retained at %s; skipping recovery',p)
+                continue
             if job['status'] not in ('complete','cancelled','failed'):
                 job.update(status='failed',error='Gateway restarted before completion');atomic(p,job)
             self.jobs[job['id']]=job

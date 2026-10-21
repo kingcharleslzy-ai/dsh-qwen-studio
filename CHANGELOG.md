@@ -2,6 +2,7 @@
 
 ## 2.19.0 — 2026-10-21
 
+- 网关重启保留并跳过损坏的任务记录，避免一份损坏 JSON 阻断全部服务；未完成任务明确标记失败。
 - Windows 创作按钮快捷键显示 Ctrl+Enter，macOS 保留 Command+Enter。
 
 - Use one Windows-aware argv launcher for DSH version checks, install and rollback, including quoted paths and shell metacharacters. Reject command control characters.
