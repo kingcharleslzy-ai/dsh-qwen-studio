@@ -10,12 +10,12 @@ Qwen Image 2.1 有量化版本，最低门槛比 bf16 低很多。按这张表�
 
 | 环境 | 最低（量化） | 舒适 | 说明 |
 | --- | --- | --- | --- |
-| Apple Silicon Mac | 统一内存 16 GB + 4-bit MLX，512–768 px | 24–32 GB | 16 GB 能出图但慢；24 GB 起可 1024 px 与原生编辑 |
+| Apple Silicon Mac | MFLUX + 对应 MLX 权重 | 本次实机为 128 GB Apple Silicon | 16/24/32 GB 设备未做本版实测，不承诺低内存原生编辑；按模型实际峰值预留系统内存 |
 | Windows + NVIDIA | 本包仅验证 24 GB RTX 4090 D 的指定 int8 safetensors | 24 GB | GGUF 不适用于当前工作流；10–12 GB 和 Linux GPU 未验收 |
-| 任意 + bf16 全量 | 显存/内存 40 GB+ | 48 GB+ | 最高画质，下载与加载都最重 |
+| bf16 全量 | 另行核算权重、编码器和推理峰值 | 本版未验收 | 不能仅凭权重精度承诺最高画质或固定内存门槛 |
 | Intel Mac / 无独显 | — | — | 只装插件看界面，推理交给局域网 GPU 机器 |
 
-磁盘预留：量化 40 GB 起，bf16 80 GB 起。系统要留 2–4 GB 余量，卡满会 OOM 或走 swap。
+磁盘空间应覆盖全部权重、依赖、缓存和输出；下载前按实际文件大小核算。系统及推理中间张量都需要额外内存，不能只用权重文件大小推算能否运行。
 
 自查命令：
 
@@ -125,7 +125,7 @@ C:\qwen\venv\Scripts\pip.exe install -r C:\qwen\ComfyUI\requirements.txt
 C:\qwen\venv\Scripts\python.exe C:\qwen\qwen_gateway.py
 ```
 
-模型文件按 REMOTE.md 的四行清单放进 `C:\qwen\ComfyUI\models\` 对应子目录。网关首次任务启动 ComfyUI 前会检查常用视频端口和显存占用（不是轻量网关启动时），显存占用超过 6 GiB 会拒绝启动；占用就先释放，不要硬启。
+模型文件按 REMOTE.md 的四行清单放进 `C:\qwen\ComfyUI\models\` 对应子目录。网关首次任务启动 ComfyUI 前会检查常用视频端口和显存占用（不是轻量网关启动时），显存占用超过 6000 MiB 会拒绝启动；占用就先释放，不要硬启。
 
 然后在插件设置选「远程服务器」：
 
