@@ -25,7 +25,7 @@ test("batch archive, delete and restore preserve original files and flags", asyn
       true,
     );
     await expect(access(join(dir, "images", ids[0]!))).rejects.toThrow();
-    expect(await imagePath(dir, ids[0]!)).toContain("/trash/");
+    expect(await imagePath(dir, ids[0]!)).toContain(join("", "trash") + (process.platform === "win32" ? "\\" : "/"));
     await batchAction(dir, ids, "restore");
     expect((await readJobs(dir)).every((j) => !j.deleted && j.archived)).toBe(
       true,

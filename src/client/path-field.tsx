@@ -4,6 +4,10 @@ interface DesktopPaths {
   __DSH_DIRECTORY_PICKER__?: { pick(): Promise<string | null> };
   __DSH_HOST_PATHS__?: { pathFor(file: globalThis.File): string };
 }
+export function pythonInDirectory(path: string) {
+ const windows = /^[A-Za-z]:[\\/]/.test(path) || path.startsWith('\\\\');
+ return path.replace(/[\\/]+$/, '') + (windows ? '\\Scripts\\python.exe' : '/bin/python');
+}
 export function PathField({label, name, value, placeholder, kind='directory', onChange, onError}:{
  label:string; name:string; value:string; placeholder:string; kind?:'file'|'directory'|'python';
  onChange(value:string):void; onError(message:string):void;
@@ -18,7 +22,7 @@ export function PathField({label, name, value, placeholder, kind='directory', on
   }
   if(!desktop.__DSH_DIRECTORY_PICKER__){onError('当前环境不支持本机文件夹选择，请手动输入。');return;}
   setPicking(true);
-  try {const path=await desktop.__DSH_DIRECTORY_PICKER__.pick();if(path)onChange(kind==='python'?path.replace(/\/$/,'')+'/bin/python':path);}
+  try {const path=await desktop.__DSH_DIRECTORY_PICKER__.pick();if(path)onChange(kind==='python'?pythonInDirectory(path):path);}
   catch(e){onError(e instanceof Error?e.message:String(e));}
   finally{setPicking(false);}
  }

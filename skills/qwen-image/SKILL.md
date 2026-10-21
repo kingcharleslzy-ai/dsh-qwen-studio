@@ -1,7 +1,7 @@
 ---
 name: qwen-image
-description: DSH 图像工作区：生图优先 qwen_generate_image，同步对话进度与图库；远程原生参考编辑用 reference_mode=edit；qwen_image_import 导入网址/本机文件/对话参考图，qwen_image_resources 查资源，qwen_image_presets 配置和保存整套预设，qwen_image_connection 实时切换本机/远程并设置空闲卸载，无需重启。不改跑独立脚本。
-whenToUse: 实际生图、搜索参考图后图生图、按指令改图或换画风、导入图片、参考变体、局部重绘、配置 LoRA/控制图/蒙版/采样、保存或加载图像预设、切换本机或4090/远程生图、调整空闲卸载时间、查询资源或已有结果时加载。仅写提示词、讨论方案、搜索已有图片时不自动生成。
+description: DSH 图像工作区：生图优先 qwen_generate_image，同步对话进度与图库；远程原生参考编辑用 reference_mode=edit；qwen_image_import 导入网址/本机文件/对话参考图，qwen_image_resources 查资源，qwen_image_presets 配置和保存整套预设，qwen_image_connection 实时切换本机/远程并设置空闲卸载；qwen_image_jobs 批量查队列、qwen_image_cancel 取消任务、qwen_image_gallery 只读检索图库、qwen_image_batch 批量提交、qwen_image_import_many 批量导入、qwen_image_export 复制导出、qwen_image_score 本地客观评分、qwen_image_reroll 按标记重投、`source_image_ids` 多图编辑。不改跑独立脚本。
+whenToUse: 实际生图、搜索参考图后图生图、按指令改图或换画风、导入图片、参考变体、局部重绘、配置 LoRA/控制图/蒙版/采样、保存或加载图像预设、切换本机或远程生图、调整空闲卸载时间、批量提交或导入、批量查任务/取消任务、按提示词或种子检索图库、导出任务文件、查询资源或已有结果时加载。仅写提示词、讨论方案、搜索已有图片时不自动生成。
 ---
 
 # 图像：生成与任务恢复
@@ -59,7 +59,7 @@ whenToUse: 实际生图、搜索参考图后图生图、按指令改图或换画
 - 先查资源，按名称、来源和用途选择。LoRA 用返回的 path，图片用返回的 32 位 id；不猜路径、图片 ID、ControlNet 权重或 LoRA 兼容性。图片名称不清楚其内容时，请用户指明用途。工具清单不展示图片内容，文件名不能证明它是有效蒙版。
 - 新图片使用 `qwen_image_import` 导入，不要求用户手动去图库选文件。网址用 `url`，本机绝对路径或 `~/` 用 `path`，会话图片用真实完整 `attachment` 引用；三者只能选一个。`kind` 为 source / control / mask，默认 source。工具返回 `settings` 可合并到生成参数或预设；导入不覆盖面板草稿，也不会生成图库作品。不要猜附件字段或传裸附件哈希。
 - `lora_paths` 与 `lora_scales` 顺序一一对应；UI 默认权重 0.8，工具省略权重默认 1.0，保存时请显式带上需要的权重。LoRA 与底模应兼容，最多 8 个。
-- 结构控制用 `controlnet_image_id` / `controlnet_strength`（0–1，默认 1）。执行端必须已准备好 Qwen Image 2.1 Union 权重。只需要结构控制时不传 source_image_id；与原图组合时需要蒙版。
+- 结构控制用 `controlnet_image_id` / `controlnet_strength`（0–1，默认 1）。执行端必须已准备好 Qwen Image 2.1 Union 权重。只需要结构控制时不传 source_image_id；本机 MLX 与原图组合时需要蒙版；配套远程网关也支持无蒙版的原图 + 控制变体。
 - 局部重绘：`source_image_id` 为原图，`mask_image_id` 为蒙版，白色重画、黑色保留。不要同时传 change_strength；保持原图尺寸才能保留原始像素。
 - 参考变体：source_image_id + change_strength，不保证换画风或精准局部编辑；测试中即使换 prompt，也可能强烈重建照片。
 - 原生参考编辑：source_image_id + reference_mode="edit" + linear。当前后端 reference_edit.supported 必须为 true；把图片同时送入视觉/文本条件与参考潜变量，完整步数从噪声生成。用于“转水彩、换颜色、按指令改图”，不使用 change_strength，不与 ControlNet/蒙版混用，支持同一 LoRA 通道。32倍数尺寸。本机使用 QwenImage21Edit，需要完整视觉编码器；纯文本导出不可用。不支持时说明返回的 reason，而非自动切换后端。旧预设未保存该字段时仍为 variation。保存和复用 edit 预设时保留 reference_mode，不补入 change_strength。
@@ -70,12 +70,12 @@ whenToUse: 实际生图、搜索参考图后图生图、按指令改图或换画
 
 ### 远程使用与进度
 
-- 资源和预设继续引用 Mac 上的真实 path / 32 位图片 id。插件按 SHA256 自动同步选中的文件到远程私有缓存，不需要修改现有预设或猜 Windows 路径；首次同步 LoRA 可能较慢。
+- 资源和预设继续引用 客户端电脑上的真实 path / 32 位图片 id。插件按 SHA256 自动同步选中的文件到远程私有缓存，不需要修改现有预设或猜 Windows 路径；首次同步 LoRA 可能较慢。
 - `lora_paths` 是插件工具的本机输入，并不是发送给 Windows 的路径。网络请求仅包含 LoRA 的内容 SHA256 与 scale，服务器用校验后的 `<sha>.safetensors` 加载；不会按原文件名猜测。不同内容同名不混用。资源被移动或删除时需在资源库重新选择。
 - 按需 SSH 只在真正提交生图时连接，资源/预设/配置查询及检查不会唤醒连接。离线返回的 `remote_capabilities.verification="on_generation"` 是已配置协议的预期能力，提交时仍会实际握手，不能当成服务器在线证明。上传、排队、采样与保存都保持连接；最后一个任务结束后按设置计时，确认卸载才断开。Mac 休眠或进程异常退出时，服务器还有同一时长的独立空闲释放。
 - 用 `qwen_image_resources` 查看 mode 与 remote_capabilities，不启动模型。配套网关的 features 包含 lora / controlnet / mask / img2img / progress；能力不足时明确说明，不换脚本。
 - 上传、排队、加载、真实采样步数和保存结果会同步到会话卡片、创作页和图库；切换页面不会取消任务。不要把上传阶段或模型加载说成采样进度，也不要编造百分比。
-- 服务器返回的图先保存回原 Mac 图库，再显示对话附件。隐私分类只影响图库，绝不隐藏对话图片。
+- 服务器返回的图先保存回客户端图库，再显示对话附件。隐私分类只影响图库，绝不隐藏对话图片。
 - 本机与 CUDA 的量化、随机数和计算实现不同，相同种子不保证像素一致。固定同一后端、模型精度、分辨率、步数、调度器、提示词和 LoRA/控制参数后，seed 才有可靠的复现意义。跨后端仍可对比质量/遵循度，但不能把同 seed 当成同一初始噪声或逐像素对照。预设字段沿用，优先用 linear；其他调度器按网关公布的 schedulers 使用。
 
 ### 简短操作例子
@@ -110,6 +110,52 @@ whenToUse: 实际生图、搜索参考图后图生图、按指令改图或换画
 
 若一次变体没有达到画风要求，不用几乎相同参数连续抽卡、臆断“提示词未传”或自行升级调参。最多做一次有依据的调整；需要改模式或超出用户明确参数时先说明。只有核对任务请求、工作流条件连接与对照结果后才能判定接口缺陷。
 
+## 默认路线：先文生图，再参考图
+
+不要把所有需求都做成参考编辑。默认先用 `qwen_generate_image` 文生图探索姿势、构图、服装；只有以下情况才用参考图：
+
+- 要指定某个人物的脸/身份
+- 要把一件指定服装穿到人物身上（人物 + 服装两图）
+- 要保留指定场景/机位做局部修改
+
+生成耗时与模型、硬件、尺寸、步数和冷启动有关，不承诺固定秒数或质量保证。参考编辑可能继承原图构图与不需要的细节；应检查真实结果。
+
+## 编辑模式的负向提示词
+
+负向提示词按用户目标选择。非空负向且 guidance=1 时本插件会提高到 2.5，可能增加计算量；不要把其他模型的建议说成此工作流的保证，也不要凭空引用基准。
+
+## 多图参考：source_image_ids
+
+Qwen 2.1 原生支持多图编辑（远程网关 2.17+）。`qwen_generate_image` 传：
+- `reference_mode: "edit"`
+- `source_image_ids: [id1, id2, …]`（2–8 张已导入图片）
+- prompt 里用 `<image1>`、`<image2>` 明确指代，例如：
+  「保持 <image1> 的人物身份和脸，换成 <image2> 的服装；姿势与机位沿用 <image1>。」
+
+不要同时传 `source_image_id`、`change_strength`、`mask_image_id` 或 `controlnet_image_id`。
+本机 MFLUX 不支持多图，会直接报错，不会偷偷退化成单图。创作页与预设已支持多图：第一张是主图，其余作为附加参考；导出预设会清空本机 ID，导入时按资源指纹重挂。
+
+通用多图操作示例见 [多图编辑](../../docs/recipes/garment-swap-v1.md)。不同参考图可能互相影响；先明确每张图负责的主体、物品或风格，并检查输出，不承诺固定成功率。参考图宽高比不同时可能中心裁切，注意边缘内容。
+
+## 客观评分：qwen_image_score
+
+`qwen_image_score({ids, write?})` 对已完成任务算本地指标：edge/detail、grain、饱和度、亮度、肤色占比、高光/阴影剪切，并给暂定 flags（heavy-grain / texture-overload）。它是**诊断报告，不是 pass/fail 门禁**；阈值要等人工 ground truth 校准。`write=true` 只在图片旁写 `qa.json`，不改图片、收藏或任务记录。评分不加载模型、不建 SSH。
+
+命中 `heavy-grain` / `texture-overload` 时用 `qwen_image_reroll({ids})` 重投：同 prompt、同参数、seed+1，原图保留。它只重投命中标记的图，不重试未命中的；新图出来后再次评分。
+
+## 批量提交、批量导入与导出
+
+- 一次要出多张、或多个 seed 对比：`qwen_image_batch({jobs:[...], max_parallel?})`，1–10 个独立任务，返回真实 id，**不等待出图**。每个任务接受与 `qwen_generate_image` 相同的参数；后端只有 4 个准入位，工具会自动分波。失败按 index 报告，不自动重试已接受任务。
+- 一次导入多张本机参考图：`qwen_image_import_many({paths, kind})`，1–20 个绝对路径或 `~/`。同内容同 kind 返回已有 id（`deduped: true`），不会重复占空间；单张失败不影响其余。
+- 要把已完成任务交给外部图库/工具：`qwen_image_export({ids, out_dir})`，复制为 `<id>/image.png`、`<id>/job.json` 和 `manifest.json`，原图库不动、目标存在时拒绝覆盖。
+
+## 队列、批量状态与只读检索
+
+- 需要一次查多个任务或看整条队列：`qwen_image_jobs(ids?, status?, limit?)`。它有 `ids` 时批量返回，没有时返回活动队列、队列顺序和状态计数；只读，不启动模型。
+- 需要取消排队/生成中的任务：`qwen_image_cancel(ids)`。已结束或不存在的 ID 会逐条报告，不影响其他 ID；取消不删除图片。远程任务只有当前 DSH 进程仍持有请求时才能取消。
+- 需要按提示词、种子、收藏/归档、来源图或时间检索图库：`qwen_image_gallery(...)`。它只返回元数据与血缘字段（seed、source_image_id、reference_mode、lora_names、elapsed_seconds），不返回图片、附件或文件路径，也不改收藏。
+- 单个结果的附件仍用 `qwen_image_status(id)`；不要用 gallery 工具替代取图。
+
 工具遵循 DSH 权限；不自动公开图片、切换服务或改变调用模型的行为规则。视觉质量依据实际返回结果判断，不声称看见尚未生成的图片。切换 LoRA 组合时由后端重新加载模型，避免残留；Agent 不手动卸载服务或改运行文件。
 
 本机原生编辑保留当前模型目录和同一 LoRA 通道，但编辑与文生图使用不同模型实例，切换时卸载前一个实例。完整采样、不启用 step cache、Turbo 或自动重试；前缀 KV 复用不跳过采样步。参考输入按 1024 像素面积预算预处理；不要声称相同种子跨后端像素相同。
@@ -117,3 +163,7 @@ whenToUse: 实际生图、搜索参考图后图生图、按指令改图或换画
 ## 插件安装与维护边界（2.12.0）
 
 新装、连接配置、更新或故障诊断时，先阅读包根目录的 AGENTS.md。所有服务器地址、SSH 别名、目录和密钥由用户自行提供/选择；不要复制作者部署或猜测路径。自动检查默认开、自动安装默认关；维护不等于生成，不启动模型或 SSH。升级、回滚前检查任务，安装完成后提示用户择时手动重启，不能终止现有会话。图库收藏记录损坏时停止写入，从设置中的收藏备份恢复；不要删 gallery.json 以“修复”。
+
+## Windows 与远程依赖排错
+
+远程模式的图片导入也需要客户端 Python/Pillow，评分需要 numpy。缺失时报告实际解释器路径和错误，按用户授权参考 AGENTS.md 与 docs/SETUP.md 的 setup-image-python.py 安装；不要把本机依赖错误归因于远程 GPU。Windows 路径使用实际返回值，保留空格和中文；不拼接 shell 命令。多图任务查询/重投应保留 source_image_ids 全部引用。

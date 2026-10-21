@@ -17,6 +17,8 @@ export interface CreationDraft {
   seed: string;
   sourceId: string;
   sourceName: string;
+  additionalSourceIds: string[];
+  additionalSourceNames: string[];
   referenceMode: "variation" | "edit";
   changeStrength: number;
   loras: LoraChoice[];
@@ -40,6 +42,8 @@ export const draftDefaults: CreationDraft = {
   seed: "",
   sourceId: "",
   sourceName: "",
+  additionalSourceIds: [],
+  additionalSourceNames: [],
   referenceMode: "variation",
   changeStrength: 0.45,
   loras: [],
@@ -67,6 +71,11 @@ export function generationPayload(
   const [width, height] = draft.size.split("x").map(Number),
     seed = draft.seed.trim() === "" ? null : Number(draft.seed);
   if (!["variation", "edit"].includes(draft.referenceMode ?? "variation")) throw Error("参考图模式无效");
+  const additional = (draft.additionalSourceIds ?? []).filter(Boolean);
+  const allSources = sourceId ? [sourceId, ...additional] : [];
+  if (additional.length && (draft.referenceMode !== "edit" || draft.maskEnabled || draft.controlEnabled))
+    throw Error("多图参考只用于原生参考编辑，不能叠加蒙版或结构控制");
+  if (allSources.length > 8) throw Error("多图参考最多8张");
   const editing = draft.referenceMode === "edit" && Boolean(sourceId) && !draft.maskEnabled;
   if (editing && (draft.controlEnabled || draft.scheduler !== "linear" || width! % 32 || height! % 32))
     throw Error("原生参考编辑需要 linear、32的倍数尺寸，且不能叠加结构控制");
@@ -82,6 +91,8 @@ export function generationPayload(
     (!draft.maskEnabled && missing.sourceId)
   )
     throw Error("预设引用的图片已失效，请重新选择或移除失效引用");
+  if (missing.sourceExtra)
+    throw Error("多图参考中有图片已失效，请重新选择或移除");
   if (
     !Number.isFinite(draft.guidance) ||
     draft.guidance < 1 ||
@@ -119,7 +130,7 @@ export function generationPayload(
     )
   )
     throw Error("输出尺寸无效");
-  if (remote && (sourceId || loras.length || controlled(draft)))
+  if (remote && (sourceId || additional.length || loras.length || controlled(draft)))
     throw Error(
       "参考图、LoRA、ControlNet 和蒙版仅支持本地模式；请切换本地模式或移除已选参数",
     );
@@ -134,6 +145,7 @@ export function generationPayload(
   if (
     sourceId &&
     !draft.maskEnabled &&
+    !additional.length &&
     (!Number.isFinite(draft.changeStrength) ||
       draft.changeStrength < 0.05 ||
       draft.changeStrength > 0.95)
@@ -165,7 +177,9 @@ export function generationPayload(
           scheduler: draft.scheduler,
         }
       : {}),
-    ...(sourceId
+    ...(allSources.length > 1
+      ? { source_image_ids: allSources, reference_mode: "edit" as const }
+      : sourceId
       ? {
           source_image_id: sourceId,
           ...(!draft.maskEnabled
@@ -206,8 +220,10 @@ export function reuseDraft(
       ? job.id
       : job.mask_image_id
         ? ""
-        : (job.source_image_id ?? ""),
+        : (job.source_image_ids?.[0] ?? job.source_image_id ?? ""),
     sourceName: asReference ? "上一张生成结果" : "参考原图",
+    additionalSourceIds: !asReference && !job.mask_image_id ? (job.source_image_ids?.slice(1) ?? []) : [],
+    additionalSourceNames: !asReference && !job.mask_image_id ? (job.source_image_ids?.slice(1).map(() => "多图参考") ?? []) : [],
     referenceMode: asReference ? "variation" : job.reference_mode ?? "variation",
     changeStrength: asReference ? 0.45 : (job.change_strength ?? 0.45),
     // A new reference variation starts with no previous control/mask; parameter reuse retains them.

@@ -223,11 +223,21 @@ export function Settings({ scope }: { scope?: Scope }) {
           />
           {hint("localMfluxDirectory")}
         </div>
+        <div>
+          <PathField label="Python 可执行文件（图片导入/评分也需要）" name="Python路径" kind="python"
+            value={dirty.pythonPath === "set" ? (value.pythonPath ?? "") : (effective?.pythonPath ?? "")}
+            placeholder="选择安装了 Pillow 的 Python 虚拟环境" onChange={v => change("pythonPath", v)} onError={setMessage} />
+          {hint("pythonPath")}
+          <p className="q2-muted">远程模式仍在本机处理输入图片，需 Python 3.10+、Pillow 与 numpy（评分）。本机 Mac 推理另需 MFLUX；安装步骤见随包 docs/SETUP.md。</p>
+        </div>
+        <div>
+          <PathField label="LoRA 文件夹" name="LoRA 文件夹" placeholder="正在解析实际路径…" value={dirty.loraDirectory === "set" ? (value.loraDirectory ?? "") : (effective?.loraDirectory ?? "")} onChange={v => change("loraDirectory", v)} onError={setMessage} />
+          {hint("loraDirectory")}
+        </div>
         {value.connectionMode !== "remote" ? (
           <>
             {(
               [
-                ["pythonPath", "Python 可执行文件", "Python路径", "python"],
                 [
                   "modelPath",
                   "Qwen Image 2.1 MLX 模型目录",
@@ -235,7 +245,7 @@ export function Settings({ scope }: { scope?: Scope }) {
                   "directory",
                 ],
                 ["hfHome", "Hugging Face 缓存目录", "缓存目录", "directory"],
-                ["loraDirectory", "LoRA 文件夹", "LoRA 文件夹", "directory"],
+
               ] as const
             ).map(([key, label, name, kind]) => (
               <div key={key}>
@@ -315,7 +325,7 @@ export function Settings({ scope }: { scope?: Scope }) {
                 placeholder={
                   effective?.remoteApiKeyConfigured
                     ? "已配置，输入新值替换"
-                    : "未配置，服务无需鉴权时可留空"
+                    : "配套 Qwen 网关必填；普通 API 按服务要求"
                 }
                 onChange={(e) => change("remoteApiKey", e.target.value)}
               />

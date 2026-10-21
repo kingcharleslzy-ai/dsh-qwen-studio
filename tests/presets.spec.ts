@@ -10,7 +10,7 @@ import {
   realpath,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { resolveConfig } from "../src/resolved-config.js";
 import { listResources } from "../src/resources.js";
 import {
@@ -46,13 +46,13 @@ async function fixture() {
   );
   await writeFile(join(dir, "loras/manual.safetensors"), "manual");
   await writeFile(join(dir, "custom/custom.safetensors"), "custom");
-  for (const [i, kind] of ["source", "control", "mask"].entries()) {
+  for (const [i, kind] of ["source", "control", "mask", "source"].entries()) {
     const id = String(i + 1).repeat(32),
       folder = join(dir, "assets/images", id);
     await mkdir(folder, { recursive: true });
     await writeFile(
       join(folder, "image.png"),
-      Buffer.concat([png, Buffer.from(kind)]),
+      Buffer.concat([png, Buffer.from(kind + i)]),
     );
     await writeFile(
       join(folder, "asset.json"),
@@ -61,14 +61,36 @@ async function fixture() {
   }
   return { dir, config };
 }
+test("multi-image reference presets keep both ids and resource fingerprints", async () => {
+  const { dir, config } = await fixture();
+  try {
+    const values = {
+      ...draftDefaults,
+      prompt: undefined,
+      sourceId: "1".repeat(32),
+      additionalSourceIds: ["4".repeat(32)],
+      additionalSourceNames: ["garment.png"],
+      referenceMode: "edit" as const,
+    };
+    delete (values as any).prompt;
+    const p = await capturePreset(config, "换装组合", values);
+    expect(p.resources["sourceExtra:0"]?.id).toBe("4".repeat(32));
+    const loaded = await loadPreset(config, p);
+    expect(loaded.issues).toEqual([]);
+    expect(loaded.draft.additionalSourceIds).toEqual(["4".repeat(32)]);
+    const payload = generationPayload({ ...loaded.draft, prompt: "A garment swap" }, false, "id");
+    expect(payload).toMatchObject({ source_image_ids: ["1".repeat(32), "4".repeat(32)], reference_mode: "edit" });
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
 test("effective configuration is shared, environment-aware, secret-free and does not mutate inherited defaults", () => {
   const raw = { remoteApiKey: "private-key" };
   const config = resolveConfig(raw, { HF_HOME: "/cache/env" }, "/tmp/qwen-example");
   expect(config).toMatchObject({
-    localMfluxDirectory: "/tmp/qwen-example/.dsh/qwen-studio",
-    pythonPath: "/tmp/qwen-example/.dsh/qwen-studio/venv/bin/python",
-    loraDirectory: "/tmp/qwen-example/.dsh/qwen-studio/loras",
-    hfHome: "/cache/env",
+    localMfluxDirectory: resolve("/tmp/qwen-example/.dsh/qwen-studio"),
+    pythonPath: resolve("/tmp/qwen-example/.dsh/qwen-studio/venv", process.platform === "win32" ? "Scripts/python.exe" : "bin/python"),
+    loraDirectory: resolve("/tmp/qwen-example/.dsh/qwen-studio/loras"),
+    hfHome: resolve("/cache/env"),
     hfHomeSource: "environment",
     localMfluxIdleMinutes: 10,
     remoteApiKeyConfigured: true,
@@ -78,7 +100,7 @@ test("effective configuration is shared, environment-aware, secret-free and does
   expect(
     resolveConfig({ localMfluxDirectory: "/new" }, {}, "/tmp/qwen-example")
       .loraDirectory,
-  ).toBe("/new/loras");
+  ).toBe(resolve("/new/loras"));
   expect(() => resolveConfig({ localMfluxIdleMinutes: 0 })).toThrow();
 });
 test("catalog merges imported, default and custom LoRA without loading inference or requiring upload metadata", async () => {
@@ -95,7 +117,7 @@ test("catalog merges imported, default and custom LoRA without loading inference
     expect(
       catalog.items.some((r) => r.name === "managed-style.safetensors"),
     ).toBe(true);
-    expect(catalog.items.filter((r) => r.kind !== "lora")).toHaveLength(3);
+    expect(catalog.items.filter((r) => r.kind !== "lora")).toHaveLength(4);
     expect((await readPresets(dir)).items).toEqual([]);
   } finally {
     await rm(dir, { recursive: true, force: true });

@@ -22,6 +22,11 @@ export const generationParameters = {
           type: "integer",
           description: "Optional reproducible seed0–4294967295.",
         },
+        source_image_ids: {
+          type: "array",
+          items: { type: "string" },
+          description: "Qwen 2.1 native multi-image edit: 2–8 imported image ids. Use only with reference_mode=edit; the prompt addresses them as <image1>, <image2>, …. Do not combine with source_image_id, change_strength, mask or ControlNet. Remote gateway only.",
+        },
         source_image_id: {
           type: "string",
           description:
@@ -39,7 +44,7 @@ export const generationParameters = {
         negative_prompt: {
           type: "string",
           description:
-            "Local or Qwen gateway: unwanted visual characteristics, up to 8000 characters. With a negative prompt, guidance defaults to 2.5 if not above 1. Omit to skip the negative branch.",
+            "Qwen-Image-Edit officially recommends an empty or whitespace negative prompt. A long list fights the reference attributes and raises guidance to 2.5 (about 2× slower); use at most a few targeted terms. For text-to-image, a short quality list is enough. Omit to skip the negative branch entirely.",
         },
         guidance: {
           type: "number",

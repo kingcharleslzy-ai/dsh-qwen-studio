@@ -4,6 +4,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
+import {gzipSync} from "node:zlib";
 import {createHash} from 'node:crypto';
 import {UpdateController,PackageInstaller,installedPaths,inspectPackage,defaults,validatePreferences,latestRelease} from '../src/updates.js';
 const exec=promisify(execFile);
@@ -39,7 +40,9 @@ test('verified installer snapshots, uses profile CLI, preserves user state and c
  try{expect(inspectPackage(archive,'2.13.0').size).toBe(7);const result=await installer.install({...release,sha256:createHash('sha256').update(archive).digest('hex')},async()=>new Response(archive) as any);expect(result.restartRequired).toBe(true);expect((await installer.backups())[0]?.id).toBe(result.backupId);await installer.rollback(result.backupId);expect(JSON.parse(await readFile(join(root,'package.json'),'utf8')).version).toBe('2.12.0');expect(await readFile(join(profile,'cordis.patch.yml'),'utf8')).toBe('user settings');expect(commands.every(a=>a.includes('--profile')&&a.includes('test')&&!a.includes('restart')&&!a.includes('--home'))).toBe(true);await expect(installer.rollback('../bad')).rejects.toThrow('ID');}finally{await rm(dir,{recursive:true,force:true});}
 });
 test('unsafe linked archive rejected before install',async()=>{
- const dir=await fixture();try{await mkdir(join(dir,'package'));await exec('ln',['-s','/etc/passwd',join(dir,'package/leak')]);await exec('tar',['--format=ustar','-czf',join(dir,'bad.tgz'),'-C',dir,'package']);const archive=await readFile(join(dir,'bad.tgz'));expect(()=>inspectPackage(archive,'2.13.0')).toThrow('路径或链接');}finally{await rm(dir,{recursive:true,force:true});}
+ // Build a POSIX tar symlink entry without requiring ln or Windows symlink privileges.
+ const header=Buffer.alloc(512);header.write('package/leak');header.write('0000777\0',100);header.write('0000000\0',108);header.write('0000000\0',116);header.write('00000000000\0',124);header.write('00000000000\0',136);header.fill(32,148,156);header[156]=50;header.write('/etc/passwd',157);header.write('ustar\0',257);header.write('00',263);header.write(header.reduce((n,v)=>n+v,0).toString(8).padStart(6,'0')+'\0 ',148);
+ expect(()=>inspectPackage(gzipSync(Buffer.concat([header,Buffer.alloc(1024)])),'2.13.0')).toThrow('路径或链接');
 });
 
 test('worker maintenance blocks upload races and new generation after package replacement',async()=>{

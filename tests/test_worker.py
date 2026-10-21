@@ -128,7 +128,7 @@ class Tests(unittest.TestCase):
         w.atomic_json(source/'job.json',dict(id='c'*32,status='complete'))
         with self.assertRaises(ValueError):self.q.submit({**self.payload(),'source_image_id':'c'*32})
     def test_advanced_parameters_are_not_silently_dropped(self):
-        changes = dict(lora_paths=['/models/style.safetensors'], lora_scales=[.7], controlnet_image_id='c'*32, controlnet_strength=.8)
+        changes = dict(lora_paths=[str(self.root/'style.safetensors')], lora_scales=[.7], controlnet_image_id='c'*32, controlnet_strength=.8)
         params = w.validate({**self.payload(), **changes})
         for key, value in changes.items(): self.assertEqual(params[key], value)
         mask = w.validate({**self.payload(), 'source_image_id':'b'*32, 'mask_image_id':'c'*32})

@@ -70,6 +70,20 @@ test("save from completed job retains actual seed and parameters, never its prom
   } finally { await rm(f.dir, { recursive: true, force: true }); }
 });
 
+test("batch import reuses identical assets and reports per-path failures", async () => {
+  const f = await setup();
+  try {
+    const a = join(f.dir, "a.png"), b = join(f.dir, "b.png");
+    await writeFile(a, png); await writeFile(b, png);
+    const result = await f.run("qwen_image_import_many", { paths: [a, b, join(f.dir, "missing.png")], kind: "source" });
+    expect(result.imported).toBe(2);
+    expect(result.items[0].id).toBe(result.items[1].id);
+    expect(result.items[1].deduped).toBe(true);
+    expect(result.failed[0].index).toBe(2);
+    expect(f.worker.post).not.toHaveBeenCalled();
+  } finally { await rm(f.dir, { recursive: true, force: true }); }
+});
+
 test("agent imports a local reference and saves its real id into a reusable preset without inference", async () => {
   const f = await setup();
   try {

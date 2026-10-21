@@ -26,3 +26,7 @@ native loader and does not vendor ComfyUI implementation code.
 
 The update compatibility checker bundles node-semver 7.7.2 (ISC), copyright
 Isaac Z. Schlueter and Contributors. Its license is in LICENSES/SEMVER-ISC.txt.
+
+Windows process launching bundles cross-spawn 7.0.6 (MIT) and its dependencies
+path-key, which, isexe, shebang-command and shebang-regex. Their licenses are
+included in LICENSES/*-LICENSE.txt.

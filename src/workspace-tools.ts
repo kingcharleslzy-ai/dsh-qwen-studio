@@ -22,7 +22,9 @@ export function draftFromSettings(p: Record<string, any>): CreationDraft {
     guidance: p.guidance ?? 1, scheduler: p.scheduler ?? "linear",
     changeStrength: p.change_strength ?? .45,
     referenceMode: p.reference_mode ?? "variation",
-    sourceId: p.mask_image_id ? "" : (p.source_image_id ?? ""),
+    sourceId: p.mask_image_id ? "" : (p.source_image_ids?.[0] ?? p.source_image_id ?? ""),
+    additionalSourceIds: p.mask_image_id ? [] : (p.source_image_ids?.slice(1) ?? []),
+    additionalSourceNames: p.mask_image_id ? [] : (p.source_image_ids?.slice(1).map(() => "多图参考") ?? []),
     maskSourceId: p.mask_image_id ? (p.source_image_id ?? "") : "",
     maskId: p.mask_image_id ?? "", maskEnabled: Boolean(p.mask_image_id),
     controlId: p.controlnet_image_id ?? "", controlEnabled: Boolean(p.controlnet_image_id),
@@ -33,7 +35,7 @@ export function draftFromSettings(p: Record<string, any>): CreationDraft {
   };
   if (p.lora_scales && p.lora_scales.length !== d.loras.length) throw Error("每个 LoRA 必须对应一个权重");
   if (p.mask_image_id && p.change_strength !== undefined) throw Error("蒙版重绘不使用 change_strength");
-  if (p.reference_mode === "edit" && (!p.source_image_id || p.mask_image_id || p.change_strength !== undefined)) throw Error("原生参考编辑需要原图，且不能使用变化幅度或蒙版");
+  if (p.reference_mode === "edit" && ((!p.source_image_id && !p.source_image_ids?.length) || p.mask_image_id || p.change_strength !== undefined)) throw Error("原生参考编辑需要原图，且不能使用变化幅度或蒙版");
   generationPayload(d, false, "");
   return d;
 }
@@ -126,6 +128,38 @@ export function registerWorkspaceTools(ctx: Context, worker: Worker) {
       const parameter = asset.kind === "control" ? "controlnet_image_id" : asset.kind === "mask" ? "mask_image_id" : "source_image_id";
       return { result: JSON.stringify({ ...asset, parameter, settings: { [parameter]: asset.id },
         note: "已导入资源库，尚未生图，也不覆盖面板草稿。用户要求生成时，把此 ID 与完整目标 prompt 交给 qwen_generate_image；不要把 URL、文件路径或附件哈希当图库 ID。" }) };
+    },
+  }));
+  ctx.tools.register(defineTool({
+    name: "qwen_image_import_many",
+    description: "Import 1–20 existing host image files in one call into the managed source/control/mask library, without starting inference or SSH. Each path must be absolute or ~/; identical normalized bytes with the same kind reuse one resource id (deduped=true) instead of creating duplicates. Returns one item per path with real ids, dimensions and the parameter name; per-path failures never stop the rest. Use qwen_image_import for URLs or conversation attachments.",
+    timeoutMs: 180000,
+    parameters: {
+      paths: { type: "array", required: true, items: { type: "string" }, description: "1–20 existing absolute or ~/ image paths on the DSH host. Not Windows/server paths." },
+      kind: { type: "string", description: "source (default), control or mask; same kind is required for dedupe." },
+      name_prefix: { type: "string", description: "Optional name prefix; each item gets prefix-1, prefix-2, …" },
+    }, output,
+    async execute({ paths, kind = "source", name_prefix: prefix }, exec) {
+      if (!Array.isArray(paths) || !paths.length || paths.length > 20) throw Error("paths 需要 1–20 个本机图片路径");
+      const config = resolveConfig(worker.transportConfig());
+      const run = worker.withActivity ? worker.withActivity.bind(worker) : async (fn: () => Promise<any>) => fn();
+      const items: any[] = [], failed: any[] = [];
+      for (const [index, path] of paths.entries()) {
+        exec.signal.throwIfAborted();
+        try {
+          const asset = await run(() => importImage({ path, kind, ...(prefix ? { name: `${prefix}-${index + 1}` } : {}) }, {
+            directory: config.localMfluxDirectory, python: config.pythonPath, signal: exec.signal,
+            readAttachment: async () => { throw Error("批量本机导入不读取对话附件"); },
+          }));
+          const parameter = asset.kind === "control" ? "controlnet_image_id" : asset.kind === "mask" ? "mask_image_id" : "source_image_id";
+          items.push({ ...asset, parameter, settings: { [parameter]: asset.id } });
+        } catch (error) {
+          if (exec.signal.aborted) throw error;
+          failed.push({ index, path, error: error instanceof Error ? error.message : String(error) });
+        }
+      }
+      return { result: JSON.stringify({ items, failed, imported: items.length,
+        note: "已导入资源库，尚未生图。deduped=true 表示同内容同用途已存在，直接复用该 ID。" }) };
     },
   }));
   ctx.tools.register(defineTool({

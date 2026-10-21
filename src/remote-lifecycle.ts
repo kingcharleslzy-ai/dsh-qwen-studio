@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createConnection } from "node:net";
 import { setTimeout as wait } from "node:timers/promises";
@@ -27,6 +29,19 @@ export interface Tunnel {
   connect(config: Config): Promise<void>;
   disconnect(): Promise<void>;
 }
+export function sshExecutable() {
+  if (process.env.DSH_QWEN_SSH) return process.env.DSH_QWEN_SSH;
+  if (process.platform === "win32") {
+    const candidates = [
+      join(process.env.SystemRoot || "C:\\Windows", "System32/OpenSSH/ssh.exe"),
+      join(process.env.ProgramFiles || "C:\\Program Files", "Git/usr/bin/ssh.exe"),
+      join(process.env.ProgramFiles || "C:\\Program Files", "OpenSSH/ssh.exe"),
+    ];
+    const executable = candidates.find(p => existsSync(p));
+    if (executable) return executable;
+  }
+  return "ssh";
+}
 export class SshTunnel implements Tunnel {
   private child: ChildProcess | undefined;
   private exitHandler = () => { this.child?.kill(); };
@@ -37,11 +52,11 @@ export class SshTunnel implements Tunnel {
     const target = sshOptions(config);
     if (!target) throw Error("未配置按需 SSH");
     if (await probe(target.port)) throw Error("SSH 本机端口已被其他进程占用；请先停用旧常驻隧道或换端口");
-    const child = spawn("ssh", ["-N", "-T", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", "ExitOnForwardFailure=yes", "-o", "ConnectTimeout=12", "-o", "ControlMaster=no", "-o", "ControlPath=none", "-o", "ControlPersist=no", "-o", "ServerAliveInterval=20", "-o", "ServerAliveCountMax=3", "-L", `127.0.0.1:${target.port}:127.0.0.1:${target.remotePort}`, target.host], { stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
+    const child = spawn(sshExecutable(), ["-N", "-T", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", "ExitOnForwardFailure=yes", "-o", "ConnectTimeout=12", "-o", "ControlMaster=no", "-o", "ControlPath=none", "-o", "ControlPersist=no", "-o", "ServerAliveInterval=20", "-o", "ServerAliveCountMax=3", "-L", `127.0.0.1:${target.port}:127.0.0.1:${target.remotePort}`, target.host], { stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
     this.child = child;
     let error = "";
     child.stderr?.on("data", (chunk) => { error = (error + String(chunk)).slice(-2000); });
-    child.once("error", (e) => { error = e.message; });
+    child.once("error", (e: NodeJS.ErrnoException) => { error = e.code === "ENOENT" ? "找不到 SSH 客户端。Windows 请安装 OpenSSH Client 或 Git for Windows；也可用 DSH_QWEN_SSH 指定 ssh.exe。" : e.message; });
     try {
       for (let i = 0; i < 160; i++) {
         if (child.exitCode !== null || child.killed || (error && !child.pid))

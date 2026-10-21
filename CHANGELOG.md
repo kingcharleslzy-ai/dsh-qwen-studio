@@ -1,14 +1,18 @@
 # Changelog
 
-## 未发布 / Unreleased — 2026-10-21
+## 2.19.0 — 2026-10-21
 
-- Fix auto-update install on Windows: `cliCommand()` returns `dsh.cmd`, and `execFile` cannot launch `.cmd` without a shell (Node throws `EINVAL`), so the update path now routes through `cmd.exe /d /s /c`. macOS keeps the direct `execFile` call.
-- Rewrite the setup guide with a hardware self-check table (Apple Silicon unified memory, NVIDIA VRAM, disk), per-OS install commands including the `.cmd` caveat, the Windows/Linux gateway path, first-image acceptance and a troubleshooting table.
+- Use one Windows-aware argv launcher for DSH version checks, install and rollback, including quoted paths and shell metacharacters. Reject command control characters.
+- Fix Windows LoRA containment, UTF-8/BOM gateway configuration, readable Python errors, native venv paths, npm prepare/package checks and transient atomic state replacement failures.
+- Show client Python and LoRA settings in remote mode; add a model-free Pillow/numpy setup script and actionable dependency errors. Discover Windows OpenSSH and Git SSH without changing global PATH.
+- Preserve every multi-image reference in gallery records, lineage queries and rerolls.
+- Add Windows/macOS/Linux CI, real Windows batch-shim tests, BOM tests and clearer fresh-install instructions. Remove unsupported hardware/performance promises and private examples from bundled guidance.
+- Includes the previously local-only 2.13–2.18 features below; older verification records do not substitute for this version's acceptance.
 
 ## 2.18.3 — 2026-10-19
 
 - Shift the documented default to text-to-image exploration: reference edit is for a named person, garment, scene or local change, not the default path. Multi-reference stays person + garment/object only.
-- Record the 6-prompt text-to-image baseline: 6/6 usable, no watermarks, 10.9–11.5 s warm versus about 20 s for reference edit.
+- Earlier local notes included timing/quality observations; these are not a portable performance or quality guarantee and are not shipped as recommended defaults.
 
 ## 2.18.2 — 2026-10-19
 
@@ -30,7 +34,7 @@
 
 ## 2.17.3 — 2026-10-18
 
-- Document and surface Qwen-Image-Edit negative-prompt guidance: official recommendation is empty/whitespace; long lists fight the reference and trigger CFG 2.5, roughly doubling sampling time. Same seed measured 14.9 s without negative vs 27.2 s with a long list.
+- Document and surface Qwen-Image-Edit negative-prompt guidance: non-empty negative text activates CFG 2.5 when guidance=1; the extra compute cost depends on the run.
 
 ## 2.17.2 — 2026-10-18
 

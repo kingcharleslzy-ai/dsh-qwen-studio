@@ -82,7 +82,7 @@ export class Worker {
       sshOptions(this.transportConfig());
       // Configured Qwen protocol contract; actual handshake is mandatory at submission.
       // Passive reads must never create an SSH connection.
-      return { protocol: "dsh-qwen", version: 1, features: [...requiredFeatures, "reference_edit"], schedulers: ["linear", "flow_match_euler_discrete", "seedvr2_euler"], verification: "on_generation" } as RemoteCapabilities;
+      return { protocol: "dsh-qwen", version: 1, features: [...requiredFeatures, "reference_edit", "multi_image"], schedulers: ["linear", "flow_match_euler_discrete", "seedvr2_euler"], verification: "on_generation" } as RemoteCapabilities;
     }
     return this.remote.capabilities(this.transportConfig());
   }
@@ -275,6 +275,9 @@ export class Worker {
   }
   private async submit(path: string, data: unknown, start = true) {
     const referenceMode = (data as Record<string, unknown>)?.reference_mode;
+    const sourceIds = (data as Record<string, unknown>)?.source_image_ids;
+    if (path === "/v1/jobs" && Array.isArray(sourceIds) && sourceIds.length && this.mode() !== "remote")
+      throw Error("多图参考仅支持已更新的远程 Qwen 网关；本机请用单张 source_image_id");
     if (path === "/v1/jobs" && referenceMode === "edit" && this.mode() === "local") {
       const support = await this.referenceEditing();
       if (!support.supported) throw Error(support.reason || "当前本机 MFLUX 或模型不支持原生参考编辑；不会自动切换后端");

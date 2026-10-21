@@ -103,13 +103,16 @@ Version 2.11.0 passed 65 tool/UI tests and 31 backend tests. Native DSH selected
 ```sh
 git clone https://github.com/kingcharleslzy-ai/dsh-qwen-studio.git
 cd dsh-qwen-studio
-npm ci
+python -m pip install "Pillow>=11,<13" "numpy>=1.26,<3" "aiohttp>=3.10,<4"
+npm ci --ignore-scripts
 npm run check
 npm run check:package
 ```
 
-Node.js `^22.19.0 || >=24`; worker tests require Python 3.12 and Pillow 11–12. [Report an issue](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/issues) with versions, reproduction steps and errors after removing private data.
+Node.js `^22.19.0 || >=24`; worker tests require Python 3.12, Pillow 11–12, numpy 1.26–2.x and aiohttp 3.x. [Report an issue](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/issues) with versions, reproduction steps and errors after removing private data.
 
 Originated from [shanliuling/dsh-image-gen](https://github.com/shanliuling/dsh-image-gen)'s DSH integration and now maintained independently. Code: [Apache-2.0](LICENSE), original attribution in [NOTICE](NOTICE). Documentation images have [separate credits/licenses](docs/media/CREDITS.md). Model weights and inference dependencies retain their own licenses. Not an official Qwen, MFLUX or DeepSeek plugin.
 
 2.12.0 acceptance: 77 TypeScript/UI tests and 31 worker tests, native DSH update controls, a real 40-step chat generation synchronized to the creation panel, page switching, favorite/private-gallery routing and the shared market card. Native package installation and rollback were exercised in isolated profiles. See [verification](docs/VERIFICATION.md) for scope and limits.
+
+Remote clients also need Python 3.10+, Pillow and numpy for image imports/scoring. Run `python scripts/setup-image-python.py` (`python3` on macOS) inside the installed package and enter the printed executable in settings. Windows uses `venv\Scripts\python.exe`. The bundled gateway requires a private API key of at least 16 characters and the documented int8 safetensors; GGUF and 10–12 GB GPUs are not validated configurations.

@@ -4,10 +4,10 @@ import os
 import re
 
 SCHEDULERS = ('linear', 'flow_match_euler_discrete', 'seedvr2_euler')
-FEATURES = ('lora', 'controlnet', 'mask', 'img2img', 'negative_prompt', 'guidance', 'progress', 'cancel', 'reference_edit')
+FEATURES = ('lora', 'controlnet', 'mask', 'img2img', 'negative_prompt', 'guidance', 'progress', 'cancel', 'reference_edit', 'multi_image')
 
 def normalize(data):
-    allowed = {'id', 'model', 'prompt', 'width', 'height', 'steps', 'seed', 'source_sha', 'mask_sha', 'control_sha',
+    allowed = {'id', 'model', 'prompt', 'width', 'height', 'steps', 'seed', 'source_sha', 'source_shas', 'mask_sha', 'control_sha',
                'change_strength', 'reference_mode', 'controlnet_strength', 'loras', 'negative_prompt', 'guidance', 'scheduler'}
     if set(data) - allowed: raise ValueError('Unknown generation fields: '+', '.join(sorted(set(data)-allowed)))
     p = {**data}
@@ -27,13 +27,24 @@ def normalize(data):
     number('guidance',1.0,1,10)
     for k in ('source_sha','mask_sha','control_sha'):
         if k in p and not re.fullmatch('[a-f0-9]{64}',str(p[k])): raise ValueError('Invalid '+k)
+    if 'source_shas' in p:
+        if p.get('source_sha'): raise ValueError('source_sha and source_shas cannot both be set')
+        shas=p['source_shas']
+        if not isinstance(shas,list) or not 2<=len(shas)<=8 or any(not re.fullmatch('[a-f0-9]{64}',str(x)) for x in shas):
+            raise ValueError('source_shas must contain 2-8 image hashes')
+    else:
+        shas=[p['source_sha']] if p.get('source_sha') else []
+    p['source_shas']=shas
+    if shas: p['source_sha']=shas[0]
     if p.get('mask_sha') and not p.get('source_sha'): raise ValueError('Mask requires source image')
     if 'change_strength' in p and (not p.get('source_sha') or p.get('mask_sha')): raise ValueError('change_strength requires an unmasked source')
-    if p.get('control_sha') and p.get('source_sha') and not p.get('mask_sha'): raise ValueError('Control plus source requires mask')
     if 'controlnet_strength' in p and not p.get('control_sha'): raise ValueError('Control strength requires control image')
     if p.get('control_sha'): number('controlnet_strength',1.0,0,1)
     mode=p.get('reference_mode','variation')
     if mode not in ('variation','edit'): raise ValueError('Invalid reference mode')
+    if len(shas)>1:
+        if mode!='edit': raise ValueError('Multiple source images require reference_mode=edit')
+        if p.get('mask_sha') or p.get('control_sha') or 'change_strength' in p: raise ValueError('Multiple source images cannot use mask, ControlNet or change_strength')
     if mode=='edit':
         if not p.get('source_sha') or p.get('mask_sha') or p.get('control_sha') or 'change_strength' in p or p['scheduler']!='linear' or p['width']%32 or p['height']%32:
             raise ValueError('Native reference edit requires source, linear and multiples of32; no strength, mask or control')
@@ -80,7 +91,11 @@ def graph(p):
         model=[key,0]
     if p.get('source_sha'):
         g['10']={'class_type':'LoadImage','inputs':{'image':os.path.join('dsh',p['source_sha']+'.png')}}
-        g['11']={'class_type':'ImageScale','inputs':{'image':['10',0],'upscale_method':'lanczos','width':p['width'],'height':p['height'],'crop':'disabled'}}
+        g['11']={'class_type':'ImageScale','inputs':{'image':['10',0],'upscale_method':'lanczos','width':p['width'],'height':p['height'],'crop':'center'}}
+    for i,sha in enumerate(p.get('source_shas',[])[1:],start=1):
+        load=str(30+i);scale=str(40+i)
+        g[load]={'class_type':'LoadImage','inputs':{'image':os.path.join('dsh',sha+'.png')}}
+        g[scale]={'class_type':'ImageScale','inputs':{'image':[load,0],'upscale_method':'lanczos','width':p['width'],'height':p['height'],'crop':'center'}}
     if p.get('control_sha'):
         g['12']={'class_type':'LoadImage','inputs':{'image':os.path.join('dsh',p['control_sha']+'.png')}}
     if p.get('mask_sha'):
@@ -96,7 +111,9 @@ def graph(p):
     if p.get('source_sha') and not p.get('mask_sha') and p.get('reference_mode')!='edit':
         g['16']={'class_type':'VAEEncode','inputs':{'pixels':['11',0],'vae':['3',0]}};latent=['16',0]
     if p.get('reference_mode')=='edit':
-        g['4']['inputs'].update({'vae':['3',0],'images.image_1':['11',0],'resolution':0})
+        g['4']['inputs'].update({'vae':['3',0],'resolution':0})
+        for i in range(len(p.get('source_shas',[]))):
+            g['4']['inputs'][f'images.image_{i+1}']=['11',0] if i==0 else [str(40+i),0]
         latent=['4',2]
     cfg=p['guidance'] if (p['negative_prompt'].strip() or p.get('control_sha') or p.get('mask_sha')) else 1.0
     g['20']={'class_type':'CFGGuider','inputs':{'model':['6',0],'positive':['4',0],'negative':['4',1],'cfg':cfg}}

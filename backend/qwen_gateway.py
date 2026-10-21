@@ -28,7 +28,15 @@ PROCESS_FLAGS={'creationflags': subprocess.CREATE_NO_WINDOW} if WINDOWS else {}
 
 def atomic(path,data):
     path.parent.mkdir(parents=True,exist_ok=True)
-    tmp=path.with_suffix('.tmp');tmp.write_text(json.dumps(data),encoding='utf-8');tmp.replace(path)
+    tmp=path.with_suffix('.tmp');tmp.write_text(json.dumps(data),encoding='utf-8')
+    try:
+        for attempt in range(8):
+            try: tmp.replace(path);break
+            except PermissionError:
+                if not WINDOWS or attempt==7: raise
+                time.sleep(.01*2**attempt)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 def asset_path(sha,kind):
     if not re.fullmatch('[a-f0-9]{64}',sha) or kind not in ('image','lora'): raise ValueError('Invalid asset reference')
@@ -54,13 +62,13 @@ def validate_asset(path,kind,size):
 
 class Service:
     def __init__(self):
-        self.config=json.loads(CONFIG.read_text())
+        self.config=json.loads(CONFIG.read_text(encoding="utf-8-sig"))
         key=str(self.config.get('api_key') or '')
         if len(key)<16: raise SystemExit('gateway-config.json 的 api_key 至少 16 位；空密钥会让同机任意进程都能调用，拒绝启动')
         self.process=None;self.log=None;self.lock=asyncio.Lock();self.last=time.monotonic()
         self.jobs={};self.tasks={};self.cancelled=set();self.current=None;self.uploads={}
         for p in (ROOT/'jobs').glob('*/job.json'):
-            job=json.loads(p.read_text())
+            job=json.loads(p.read_text(encoding="utf-8-sig"))
             if job['status'] not in ('complete','cancelled','failed'):
                 job.update(status='failed',error='Gateway restarted before completion');atomic(p,job)
             self.jobs[job['id']]=job

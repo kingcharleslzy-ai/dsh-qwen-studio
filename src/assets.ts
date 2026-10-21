@@ -8,6 +8,7 @@ import {
   writeFile,
   link,
   lstat,
+  readdir,
 } from "node:fs/promises";
 import { createHash, randomUUID } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
@@ -24,6 +25,7 @@ export interface InputAsset {
   width?: number;
   height?: number;
   path?: string;
+  deduped?: boolean;
 }
 const exec = promisify(execFile);
 const imageId = (id: string) => /^[a-f0-9]{32}$/.test(id);
@@ -102,6 +104,37 @@ export async function validateLora(path: string, bytes: number) {
     await file.close();
   }
 }
+/** Content index for imported images. Same bytes + same kind reuse one id. */
+let imageIndexCache: { root: string; map: Map<string, string> } | undefined;
+let imageIndexWork: Promise<Map<string, string>> | undefined;
+
+async function imageIndex(root: string): Promise<Map<string, string>> {
+  if (imageIndexCache?.root === root) return imageIndexCache.map;
+  if (!imageIndexWork) {
+    imageIndexWork = (async () => {
+      const map = new Map<string, string>();
+      const base = join(root, "assets", "images");
+      let entries: string[] = [];
+      try { entries = await readdir(base); } catch {}
+      for (const id of entries.filter(imageId)) {
+        try {
+          const folder = join(base, id), metaPath = join(folder, "asset.json"), image = join(folder, "image.png");
+          const meta = JSON.parse(await readFile(metaPath, "utf8")) as InputAsset & { sha256?: string };
+          let sha256 = meta.sha256;
+          if (!sha256) {
+            sha256 = createHash("sha256").update(await readFile(image)).digest("hex");
+            await writeFile(metaPath, JSON.stringify({ ...meta, sha256 }), { mode: 0o600 });
+          }
+          map.set(`${meta.kind}:${sha256}`, id);
+        } catch { /* One damaged asset never hides the rest. */ }
+      }
+      imageIndexCache = { root, map };
+      return map;
+    })().finally(() => { imageIndexWork = undefined; });
+  }
+  return imageIndexWork;
+}
+
 /** Own selected bytes. Never trust a client-provided local filesystem path. */
 export async function importAsset(
   dir: string,
@@ -168,6 +201,8 @@ export async function importAsset(
     let dimensions: { width: number; height: number };
     try {
       const result = await exec(python, [script, source, output, kind], {
+        env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" },
+        windowsHide: true,
         timeout: 30000,
         maxBuffer: 65536,
         ...(signal ? { signal } : {}),
@@ -175,10 +210,18 @@ export async function importAsset(
       dimensions = JSON.parse(result.stdout);
     } catch (error) {
       signal?.throwIfAborted();
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ENOENT") throw Error(`找不到图片处理 Python：${python}。远程模式也需要客户端 Python + Pillow；请在设置中选择已安装 Pillow 的 Python 环境，或运行随包 scripts/setup-image-python.py。`);
       throw Error(
         (error as { stderr?: string }).stderr?.trim().split("\n")[0] ||
-          "图片导入失败，请确认 Python 环境已安装 Pillow",
+          "图片导入失败，请检查图片格式及客户端 Python/Pillow 环境",
       );
+    }
+    const sha256 = createHash("sha256").update(await readFile(output)).digest("hex");
+    const index = await imageIndex(dir), existing = index.get(`${kind}:${sha256}`);
+    if (existing) {
+      const meta = JSON.parse(await readFile(join(dir, "assets", "images", existing, "asset.json"), "utf8")) as InputAsset;
+      return { ...meta, deduped: true };
     }
     await rm(source);
     signal?.throwIfAborted();
@@ -190,10 +233,12 @@ export async function importAsset(
         bytes,
         ...dimensions,
       };
-    await writeFile(join(temp, "asset.json"), JSON.stringify(asset), {
+    await writeFile(join(temp, "asset.json"), JSON.stringify({ ...asset, sha256 }), {
       mode: 0o600,
     });
     await rename(temp, join(await managedDirectory(dir, "images"), id));
+    index.set(`${kind}:${sha256}`, id);
+    imageIndexCache = { root: dir, map: index };
     return asset;
   } finally {
     await rm(temp, { recursive: true, force: true });

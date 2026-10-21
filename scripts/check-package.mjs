@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { runNpm } from "./npm-command.mjs";
 import { readFileSync } from "node:fs";
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
-const output = execFileSync(
-  "npm",
+const output = runNpm(
   ["pack", "--dry-run", "--ignore-scripts", "--json"],
   { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
 );
@@ -18,6 +17,9 @@ for (const file of [
   "lib/maintenance.js",
   "bin/qwen-studio-maintain.mjs",
   "scripts/prepare.mjs",
+  "scripts/npm-command.mjs",
+  "scripts/setup-image-python.py",
+  "backend/score_image.py",
   "AGENTS.md",
   "backend/server.py",
   "backend/normalize_image.py",
