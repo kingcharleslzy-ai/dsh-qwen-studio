@@ -68,8 +68,8 @@ export function installedPaths(packageRoot = resolve(dirname(fileURLToPath(impor
   let profile=resolve(packageRoot,'../..');
   while(basename(dirname(profile)) !== 'profiles' && dirname(profile)!==profile) profile=dirname(profile);
   if(basename(packageRoot)!==PACKAGE || basename(dirname(packageRoot))!=='node_modules' || basename(dirname(profile))!=='profiles' || !existsSync(join(profile,'package.json')))throw Error("更新只能用于 DSH profile 中的正式安装；开发源码请使用 Git 更新");
-  profile=realpathSync(profile);
-  const canonical=realpathSync(packageRoot);
+  profile=realpathSync.native(profile);
+  const canonical=realpathSync.native(packageRoot);
   if(!canonical.startsWith(join(profile,'node_modules')+'/') && !canonical.startsWith(join(profile,'node_modules')+'\\'))
     throw Error("开发源码链接不自动覆盖，请使用正式安装包");
   return {packageRoot:canonical,profile,state:join(profile,'qwen-studio-updates')};

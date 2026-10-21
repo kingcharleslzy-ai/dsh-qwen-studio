@@ -3,6 +3,7 @@
 ## 2.19.0 — 2026-10-21
 
 - Use one Windows-aware argv launcher for DSH version checks, install and rollback, including quoted paths and shell metacharacters. Reject command control characters.
+- Normalize Windows 8.3 profile paths with the native realpath API so the updater does not mistake valid installs for development links.
 - Fix Windows LoRA containment, UTF-8/BOM gateway configuration, readable Python errors, native venv paths, npm prepare/package checks and transient atomic state replacement failures.
 - Show client Python and LoRA settings in remote mode; add a model-free Pillow/numpy setup script and actionable dependency errors. Discover Windows OpenSSH and Git SSH without changing global PATH.
 - Preserve every multi-image reference in gallery records, lineage queries and rerolls.
