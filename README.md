@@ -54,31 +54,47 @@ Native Qwen Image 2.1 generation & reference editing for **DeepSeek Harness**.
 - **用时启动，空闲释放** — 本机模型按需加载；远程按需 SSH、资源自动同步，模型卸载后断开。统一空闲时间可由界面或 Agent 调整。
 - **试稿收好，作品精选** — 默认存入隐私图库，收藏后进入普通图库；支持搜索、批量归档与回收站。隐私分类不隐藏对话图片，也不是加密或密码锁。
 
-这是 **DeepSeek Harness 插件**，不是独立生图 App。应用里叫「图像」，安装包为 `dsh-qwen-studio`，当前 **2.12.0**。独立维护、独立发布，无需安装旧 `dsh-image-gen`。
+这是 **DeepSeek Harness 插件**，不是独立生图 App。应用里叫「图像」，安装包为 `dsh-qwen-studio`，当前 **2.18.3**。独立维护、独立发布，无需安装旧 `dsh-image-gen`。
+
+## 先看这台机器跑不跑得动
+
+装之前先对一眼，别下完 40GB 模型才发现显存不够：
+
+| 环境 | 最低 | 推荐 | 走哪条路 |
+| --- | --- | --- | --- |
+| Apple Silicon Mac | 统一内存 **32 GB**、磁盘 **60 GB** 空闲 | 64 GB / 1 TB | 本机 MLX（[SETUP](docs/SETUP.md)） |
+| Windows + NVIDIA | 显存 **24 GB**（fp8）、磁盘 60 GB | 48 GB（bf16） | 自己的 GPU 网关（[REMOTE](docs/REMOTE.md)） |
+| Linux + NVIDIA | 同上 | 同上 | 同上 |
+| Intel Mac / 无独显 / 显存 < 16 GB | — | — | 用局域网里另一台带 GPU 的机器，或先只装插件看界面 |
+
+Apple Silicon 的统一内存是 CPU 与 GPU 共享的，模型权重、KV 缓存和系统要一起算；16 GB 机器不要开原生编辑。
 
 ## 三步开始
 
 **1. 安装插件。** 从 [Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载 `.tgz`，运行：
 
 ```sh
-dsh plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.12.0.tgz
+dsh plugin --profile desktop add /absolute/path/dsh-qwen-studio-<version>.tgz
 ```
 
 macOS 未安装全局 `dsh` 时，可使用桌面版内置 CLI：
 
 ```sh
 sh "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" \
-  plugin --profile desktop add /absolute/path/dsh-qwen-studio-2.12.0.tgz
+  plugin --profile desktop add /absolute/path/dsh-qwen-studio-<version>.tgz
 ```
 
 **2. 选择推理位置。** 正常退出并重新打开 DSH，在插件设置中配置「图像」：
 
-| 本机 Apple Silicon Mac | 自己的 NVIDIA GPU |
+| 本机 Apple Silicon Mac | 自己的 NVIDIA GPU（Windows / Linux） |
 | --- | --- |
 | Python 3.12 + MFLUX 0.22.0 | 配套 CUDA / ComfyUI Qwen 网关 |
 | 准备完整 Qwen Image 2.1 权重 | 准备服务器模型与访问地址 |
 | 选择 Python 环境、模型和图库目录 | 填写 `/v1` 地址、模型名、可选密钥与 SSH 别名 |
 | [本机安装步骤 →](docs/SETUP.md) | [远程部署步骤 →](docs/REMOTE.md) |
+| Python 3.12 + MFLUX 0.22.0 | 网关默认 `127.0.0.1:19488`，模型 `qwen-image-2.1-int8` |
+
+Windows 没有 MLX：本机只装插件看界面，真正的推理要么走局域网里的 NVIDIA 机器，要么用同一台机器的 GPU 跑网关。Windows 上 `dsh` 是 `.cmd`，必须用 `dsh.cmd` 或 `cmd /c dsh.cmd`，直接 `dsh` 会 EINVAL。
 
 模型权重独立准备，不随插件分发，也不会在首次打开时自动下载几十 GB 文件。原生编辑需要含视觉编码器与 `processor` 的完整模型；纯文本导出不通用。已有用户原位升级，沿用当前数据目录与预设。
 
@@ -139,7 +155,17 @@ sh "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" \
 | `qwen_image_presets` | 保存、加载、重命名、默认、导入导出整套参数 |
 | `qwen_generate_image` | 提交同一持久队列，返回图片附件和任务 ID |
 | `qwen_image_status` | 查进度、取回原结果，不重新生成 |
+| `qwen_image_jobs` | 一次批量查 200 个任务；查看活动队列与状态计数 |
+| `qwen_image_cancel` | 按 ID 批量取消正在排队/生成的任务，不删图 |
+| `qwen_image_gallery` | 只读检索图库：提示词、种子、状态、收藏、血缘字段 |
+| `qwen_image_batch` | 一次提交 1–10 个任务，按 4 个准入位自动分波，返回真实 ID |
+| `qwen_image_import_many` | 批量导入 1–20 个本机文件；同内容同用途复用 ID |
+| `qwen_image_export` | 把完成任务复制成 `<id>/image.png + job.json + manifest`，不改图库 |
+| `qwen_image_score` | 本地客观指标：边缘/颗粒/饱和度/肤色占比/高光剪切；只报告，不判 pass/fail |
+| `qwen_image_reroll` | 按 QA 标记（默认 grain/texture）重投，种子 +1，保留原图 |
 | `qwen_image_connection` | 实时切本机/远程、修改统一空闲时间 |
+
+工具之间的分工、重叠边界与常见组合见 [docs/TOOLS.md](docs/TOOLS.md)。
 
 只配置不生图，只写提示词不生图；已提交任务超时先查状态，不自动重提或绕去执行独立脚本。找图使用当前会话已有搜索/浏览器工具，插件不自带搜索引擎。
 
@@ -147,7 +173,7 @@ sh "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" \
 
 ## 已验证，也有边界
 
-[实测记录](docs/VERIFICATION.md) 区分自动检查、插件执行体联调和原生 DSH 验收，保留具体版本与限制。2.12.0 通过 **77 项工具/界面测试 + 31 项后端测试**，并完成原生 DSH 的更新开关、会话生图、创作页同步、切页保留任务、收藏分流与共享市场验收；真实安装和回滚在隔离 profile 中通过。先前 2.11.0 还完成本机 MLX 蓝杯转水彩实测。当前测试覆盖 Apple Silicon / MFLUX 与 Windows / RTX 4090 D；Linux 远程尚未完成真实 GPU 验收，CI 不运行模型推理。
+[实测记录](docs/VERIFICATION.md) 区分自动检查、插件执行体联调和原生 DSH 验收，保留具体版本与限制。2.18.3 通过 **91 项工具/界面测试 + Python 后端测试**，并完成原生 DSH 的更新开关、会话生图、创作页同步、切页保留任务、收藏分流与共享市场验收；真实安装和回滚在隔离 profile 中通过。2.13–2.17 新增批量提交/导入、只读检索、导出、客观评分、按标记重投与 Qwen 2.1 原生多图编辑；先前 2.11.0 还完成本机 MLX 蓝杯转水彩实测。当前测试覆盖 Apple Silicon / MFLUX 与 Windows / RTX 4090 D；Linux 远程尚未完成真实 GPU 验收，CI 不运行模型推理。
 
 自然语言触发已在 DSH / DeepSeek-V41-Flash 验证；其他模型取决于工具能力、上下文与 DSH 权限。原生编辑不保证每条指令成功，通路可用也不等于任意第三方 LoRA 都有好效果。
 

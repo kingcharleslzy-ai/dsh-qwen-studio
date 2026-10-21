@@ -1,5 +1,79 @@
 # Changelog
 
+## 未发布 / Unreleased — 2026-10-21
+
+- Fix auto-update install on Windows: `cliCommand()` returns `dsh.cmd`, and `execFile` cannot launch `.cmd` without a shell (Node throws `EINVAL`), so the update path now routes through `cmd.exe /d /s /c`. macOS keeps the direct `execFile` call.
+- Rewrite the setup guide with a hardware self-check table (Apple Silicon unified memory, NVIDIA VRAM, disk), per-OS install commands including the `.cmd` caveat, the Windows/Linux gateway path, first-image acceptance and a troubleshooting table.
+
+## 2.18.3 — 2026-10-19
+
+- Shift the documented default to text-to-image exploration: reference edit is for a named person, garment, scene or local change, not the default path. Multi-reference stays person + garment/object only.
+- Record the 6-prompt text-to-image baseline: 6/6 usable, no watermarks, 10.9–11.5 s warm versus about 20 s for reference edit.
+
+## 2.18.2 — 2026-10-19
+
+- Lay the multi-reference section across the full advanced-settings grid so the picker and selected-image strip are not cramped into one column.
+
+## 2.18.1 — 2026-10-19
+
+- Report `multi_image` in the synthetic capabilities used by managed-SSH status/preset reads, matching the real gateway handshake.
+
+## 2.18.0 — 2026-10-19
+
+- Add the multi-reference picker to advanced creation settings: in native edit mode, the first source is the person and up to seven additional sources can be attached as garment/object references; the section is hidden outside edit mode and cleared when mask or ControlNet is enabled.
+- Persist multi-reference selections in presets with per-slot resource fingerprints (`sourceExtra:0…6`), clear local ids on export, and remap by fingerprint on import/load. Old single-reference presets remain valid.
+- Tests cover multi-image payloads, preset roundtrips and picker visibility.
+
+## 2.17.4 — 2026-10-18
+
+- Allow ControlNet plus a source image without a mask, so pose skeletons can guide a variation while identity comes from the source. Mask-based inpainting remains unchanged.
+
+## 2.17.3 — 2026-10-18
+
+- Document and surface Qwen-Image-Edit negative-prompt guidance: official recommendation is empty/whitespace; long lists fight the reference and trigger CFG 2.5, roughly doubling sampling time. Same seed measured 14.9 s without negative vs 27.2 s with a long list.
+
+## 2.17.2 — 2026-10-18
+
+- Fix reference-image geometry: `ImageScale` now center-crops to the target aspect instead of stretching non-matching references, which caused horizontally widened bodies in edit jobs.
+- Document that two full-person references pollute face and body type; use a person plus garment/object reference, and use ControlNet or text for pose instead of a second person.
+
+## 2.17.1 — 2026-10-18
+
+- Fix multi-image edit validation: the legacy single-reference check rejected `source_image_ids` before the multi-image branch ran. Both paths now validate in the intended order.
+
+## 2.17.0 — 2026-10-18
+
+- Add native Qwen-Image 2.1 multi-image editing: `source_image_ids` accepts 2–8 imported references with `reference_mode=edit`; the gateway uploads each asset, builds one `LoadImage`+`ImageScale` per slot, and wires `TextEncodeQwenImage21` inputs `images.image_1..N`. Prompt references are `<image1>`, `<image2>`, ….
+- Multi-image is remote-gateway only in this release; local MFLUX rejects it explicitly instead of silently dropping references. Presets and the creation canvas still use the single-reference fields.
+- Gateway advertises `multi_image`; older gateways keep working for single-image jobs, while a multi-image request fails with an explicit “update gateway” error rather than falling back to one image.
+- Tests: multi-image graph wiring and remote upload/protocol validation; existing single-image paths unchanged.
+
+## 2.16.0 — 2026-10-18
+
+- Add `qwen_image_reroll`: score completed images and resubmit only those carrying requested QA flags (default heavy-grain / texture-overload), preserving prompt, size, steps, guidance, reference mode, LoRA, ControlNet and mask while advancing the seed. Originals stay for comparison; the tool never deletes or retries unflagged jobs.
+- Share the local scoring implementation between `qwen_image_score` and reroll so both use the same thresholds and metrics; cap reroll batches at 20 ids and keep submission asynchronous.
+- Keep scoring and reroll local: no model load, no SSH, no gallery mutation beyond normal task records.
+
+## 2.15.0 — 2026-10-18
+
+- Add `qwen_image_score` for objective local QA metrics on 1–30 completed images: edge/detail strength, high-frequency grain, saturation, brightness, skin ratio, highlight/shadow clipping, with provisional heavy-grain / texture-overload flags.
+- Report only: the tool is a diagnostic, not a pass/fail gate; optional `write=true` stores `qa.json` beside the image without touching pixels, gallery flags or job records. Thresholds require human ground-truth calibration.
+- Bundle `backend/score_image.py` (Pillow + numpy, same configured Python as image import) and keep scoring fully local: no model load, no SSH, no upload.
+
+## 2.14.0 — 2026-10-18
+
+- Add `qwen_image_batch` for 1–10 independent jobs in one call: shared validation, real task ids, per-index failures, and automatic waves within the backend's 4-job admission cap. It returns ids without waiting for pixels; never retries accepted jobs.
+- Add `qwen_image_import_many` for 1–20 host image files and content-addressed reuse: identical normalized bytes with the same kind return the existing resource id (`deduped: true`); per-path failures do not stop the batch.
+- Add `qwen_image_export` for copy-only handoff of completed jobs (`<id>/image.png`, `<id>/job.json`, `manifest.json`) with no overwrite and no gallery mutation.
+- Keep all existing tools, presets, gallery formats and job records unchanged; the new surface is additive and read-only except explicit submission/import.
+
+## 2.13.0 — 2026-10-18
+
+- Add `qwen_image_jobs` for batch task lookup (up to 200 ids), active-queue snapshots and status counts without starting inference.
+- Add `qwen_image_cancel` for targeted cancellation of up to 50 queued/running tasks; finished or unknown ids are reported per item and never fail the batch. Remote cancellation follows the existing pending-request ownership rules.
+- Add `qwen_image_gallery` read-only search over prompts, seed, status, favorite/archive flags, source image id and start time, returning lineage fields without touching `gallery.json` or exposing pixels.
+- Keep every existing tool contract and gallery file format unchanged; new tools are additive and read-only except explicit cancellation.
+
 ## 2.12.0 — 2026-10-18
 
 - Add independent automatic update checks (on by default, every 6 hours) and automatic installation (off by default), manual checks/install, SHA256 verification, package backups and rollback. Active uploads/queues/generation defer installation; never restart DSH automatically.

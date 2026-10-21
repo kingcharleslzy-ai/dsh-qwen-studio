@@ -91,8 +91,14 @@ export class PackageInstaller {
     const profileName=basename(this.paths.profile),home=resolve(this.paths.profile,'../../');
     if(resolve(home,'profiles',profileName)!==this.paths.profile)throw Error("仅支持 DSH_HOME/profiles/<名称> 的标准安装");
     const cli=cliCommand();
+    // Windows 的 dsh 是 .cmd，execFile 不能直接执行它（Node 会抛 EINVAL），
+    // 必须经 cmd.exe /c 转发；macOS/Linux 保持直接 execFile。
+    const bash=process.platform==='win32'&&/\.cmd$/i.test(cli.command);
+    const command=bash?(process.env.ComSpec||'cmd.exe'):cli.command;
+    const args=bash?['/d','/s','/c',cli.command,...cli.args,'plugin','--profile',profileName,'add',tarball]
+                   :[...cli.args,'plugin','--profile',profileName,'add',tarball];
     // Native installer owns dependency/lockfile bookkeeping. No restart/reload commands.
-    await this.run(cli.command,[...cli.args,'plugin','--profile',profileName,'add',tarball],{DSH_HOME:home});
+    await this.run(command,args,{DSH_HOME:home});
   }
   async backups() {
     const root=join(this.paths.state,'backups');

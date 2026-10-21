@@ -1,122 +1,153 @@
-# 图像插件：安装与连接
+# 图像插件：安装、硬件自查与连接
 
-插件包：dsh-qwen-studio。模型推理依赖不包含在插件包里。
+插件包 `dsh-qwen-studio`（当前 **2.18.3**）。模型权重和推理环境**不包含**在插件包里，需要单独准备。
 
-## 安装插件
+Agent 照这份文档做，就能把「用户机器够不够 → 装 → 连 → 出第一张图」走完；每一步都给了可执行命令和判读标准。
 
-从 [本项目 Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载安装包，运行 `dsh plugin --profile desktop add /绝对路径/dsh-qwen-studio-2.12.0.tgz`。若没有全局 dsh 命令，使用 README 中的桌面版内置 CLI。然后手动退出并重新打开 DSH，在插件设置中启用并配置「图像」。
+## 0. 先判断这台机器能不能跑
 
-包内的脚本和说明位于安装后 dsh-qwen-studio 包目录；也可从源代码包解压使用。
+| 环境 | 最低 | 推荐 | 走哪条路 |
+| --- | --- | --- | --- |
+| Apple Silicon Mac | 统一内存 32 GB、磁盘 60 GB 空闲 | 64 GB / 1 TB | 本机 MLX（§2） |
+| Windows + NVIDIA | 显存 24 GB（int8）、磁盘 60 GB | 48 GB（bf16） | 自己的 GPU 网关（§3 + [REMOTE](REMOTE.md)） |
+| Linux + NVIDIA | 同上 | 同上 | 同上 |
+| Intel Mac / 无独显 / 显存 < 16 GB | — | — | 局域网里另一台带 GPU 的机器（§3），或先只装插件看界面 |
 
-## Apple Silicon Mac
+Apple Silicon 的统一内存由 CPU 与 GPU 共享，权重、KV 缓存和系统要一起算。16 GB 机器不要开原生参考编辑。
 
-1. 安装Python3.12，运行随包提供的 `sh scripts/setup-local.sh /绝对路径/qwen-studio-venv`。脚本仅创建环境并安装MFLUX0.22.0。
-2. 按MFLUX官方Qwen Image2.1说明准备MLX模型权重及其共享组件。模型目录应包含model_index.json或模型配置文件；仅下载一个safetensors文件不等于完整模型。
-3. 在DSH插件配置选择「本地Mac」，设置Python、模型目录、可选HF_HOME缓存目录及图库数据目录。可手动输入，也可点击选择按钮打开macOS原生选择器。Python请选择安装MFLUX的虚拟环境文件夹（例如.venv）；插件会追加bin/python，避免macOS将符号链接解析到虚拟环境外的基础解释器。选择后点击保存。
-4. 保存并检查连接，再在左侧菜单打开「图像」。点击创作时启动本地模型，完成后按空闲设置自动释放内存。
-5. 请先确认磁盘空间及统一内存能容纳选用的权重；插件不会自动下载几十GB模型，也不会自动删除缓存。
+自查命令：
 
-官方参考：https://github.com/mflux-community/mflux/blob/main/src/mflux/models/qwen21/README.md
-本地支持文生图、参考变体和原生参考编辑，面板与会话工具共用 LoRA、控制图、蒙版及整套预设。公开图片直链、本机文件和会话附件可由 Agent 用导入工具接入。原生编辑需要 MFLUX 0.22.0 中的 QwenImage21Edit 与完整模型目录（含视觉编码器和 processor），不能使用缺少视觉编码器的纯文本导出。它并不保证任意局部像素不变；精确保留请使用蒙版分支。未接入 Turbo 或跳步加速。
+```sh
+# macOS
+sysctl -n hw.memsize | awk '{printf "统一内存 %.0f GB\n", $1/1073741824}'
+df -h / | tail -1
 
-在高级设置选择参考图，再选择「按指令编辑 · Qwen 原生」；Agent 先查询 qwen_image_resources 的 reference_edit.supported，再传 reference_mode=edit。原生编辑仅支持 linear、32倍数尺寸，不与控制图或蒙版混用。未保存 reference_mode 的旧预设继续按原来的参考变体运行。能力探测只检查 Python API 和组件，不启动推理、不下载模型；第一次生图才校验全部权重。
+# Windows（PowerShell）
+(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB
+nvidia-smi --query-gpu=name,memory.total --format=csv
+```
 
-## 远程自部署Qwen
+`nvidia-smi` 不存在 = 没有可用的 NVIDIA 驱动，别走本机 GPU 路线。
 
-选择「远程服务器」，填写以/v1结尾的接口地址、服务公布的模型名称、可选API Key。建议使用HTTPS或既有私有网络；不要将无鉴权推理服务直接暴露到公网。
+## 1. 安装插件
 
-协议：
-- GET /v1/models：连接检查。
-- POST /v1/images/generations：model、prompt、size、n=1、response_format=b64_json、seed、num_inference_steps。
-- 响应：data[0].b64_json，必须是PNG，不超过64MiB；不接受任意图片URL下载。
-- 不需要ComfyUI工作流JSON。已有ComfyUI需自行提供符合上述协议的适配服务，不能直接填8188地址。
-- 配套 Qwen 网关按需启动自己的 ComfyUI，并在空闲后退出；普通第三方服务的生命周期由服务管理。远程任务最多等待30分钟。配套网关支持取消；网络中断时不能保证收到取消确认。
-- 模型服务需支持传入的采样步数，例如常规Qwen Image；固定采样网格的Turbo部署不属于当前适配范围。
+三种入口，任选其一；装完**手动退出并重开 DSH**，再在插件设置里启用「图像」。
 
-vLLM-Omni协议参考：https://docs.vllm.ai/projects/vllm-omni/en/latest/user_guide/examples/online_serving/text_to_image/
-2.7.0 已在 Windows RTX 4090 D 上验收文生图、LoRA、Union 控制、蒙版、组合生成与真实步数。高级部署与缓存协议见 [远程网关](REMOTE.md)。
+**A. 插件市场**（最省事）：DSH → 插件 → 自定义插件市场 → 发现 → 添加索引
+`https://kingcharleslzy-ai.github.io/dsh-qwen-studio/index.json`，选 2.18.3 安装。
 
-## 让其他文字模型调用
+**B. 安装包（推荐给 Agent 执行）**：从 [Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载 `dsh-qwen-studio-2.18.3.tgz`，然后：
 
-插件启用后会注册qwen_generate_image工具。支持DSH工具调用的模型可以直接调用，图片以DSH附件返回，并在对话中显示独立图片卡片，收起工具步骤也不会隐藏。
-包内skills/qwen-image/SKILL.md说明触发条件和使用方法。插件通过DSH官方skills.register接口直接注册技能，无需手动复制目录；停用插件后技能随之撤销。工具本身不依赖技能是否被模型加载。
-模型是否选择调用受其能力、提示词、权限设置影响，不能保证每个模型自动触发。左侧「图像」的直接创作始终可用。
+```sh
+# macOS / Linux（全局有 dsh 时）
+dsh plugin --profile desktop add /绝对路径/dsh-qwen-studio-2.18.3.tgz
 
-## 隐私图库
+# macOS 没有全局 dsh：用桌面版内置 CLI
+sh "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" \
+  plugin --profile desktop add /绝对路径/dsh-qwen-studio-2.18.3.tgz
+```
 
-默认开启，主图库只显示收藏；未收藏作品从右上角「隐私图库」进入。关闭设置开关后恢复全部作品视图。详情见 [图库与参数](gallery-privacy.md)。这是界面偏好，不提供加密或访问控制，不会隐藏对话里的生成进度、新图片或历史图片。
+```powershell
+# Windows PowerShell（dsh 是 .cmd，直接调用会 EINVAL）
+dsh.cmd plugin --profile desktop add "C:\绝对路径\dsh-qwen-studio-2.18.3.tgz"
+# 或
+cmd /c dsh.cmd plugin --profile desktop add "C:\绝对路径\dsh-qwen-studio-2.18.3.tgz"
+```
 
-## 图库管理
+**C. 源码**：仅开发用，链接安装不会被自动更新覆盖。
 
-选择 → 全选当前结果 → 批量归档/删除。归档与回收站通过筛选菜单访问，不单独占栏目。
-删除先移到插件回收站；恢复不会改变原图。彻底删除需要再次确认，之后不能恢复。
-已保存到DSH对话的附件属于DSH独立附件库，不会跟随图库删除自动清理。
+校验（可选但建议）：
 
-## 外观
+```sh
+shasum -a 256 dsh-qwen-studio-2.18.3.tgz   # macOS
+certutil -hashfile dsh-qwen-studio-2.18.3.tgz SHA256   # Windows
+```
 
-入口固定在左侧主导航「图像」。字体继承DSH，字号跟随DSH通用设置的内容字号；颜色、按钮和边框使用宿主主题变量。宽窗口采用预览/编辑双栏，窄窗口改为单栏，滚动发生在内容区域外沿。
+## 2. Apple Silicon 本机（MLX）
 
-## 原位创作与图生图
+1. 装 Python 3.12（`brew install python@3.12` 或 python.org 安装包），然后跑随包脚本：
 
-点击生成后留在创作页，预览区显示进度和结果。切换页面不会取消任务；返回后恢复最近选择的结果。结果下方可「复用参数」「用作参考」「下载」，最近创作缩略图用于切换版本。图库详情也有复用/参考入口。
+   ```sh
+   cd ~/.dsh/profiles/desktop/node_modules/dsh-qwen-studio
+   sh scripts/setup-local.sh ~/qwen-studio-venv
+   ```
 
-用作参考后，右侧显示参考图和变化幅度。描述完整的目标画面；低幅度更接近原图，高幅度变化较大。此模式不是精准局部编辑，不保证仅改变指定物体或文字。本机实测成功，远程适配器尚不支持。输入会在任务接收时复制到新任务目录；删除原图不会破坏已接收任务。
+   脚本只创建虚拟环境并安装 **MFLUX 0.22.0**，不下载模型。
 
-会话中自然提出“画一张…”即可让支持工具调用的模型发现技能和工具；后续“沿用刚才的构图再做一版”可传上一任务ID做图生图。模型是否主动选择仍取决于模型能力及DSH权限，不能保证所有文字模型完全相同。
+2. 准备完整 Qwen Image 2.1 MLX 权重（含视觉编码器与 `processor`），参考
+   [MFLUX 官方说明](https://github.com/mflux-community/mflux/blob/main/src/mflux/models/qwen21/README.md)。
+   模型目录必须包含 `model_index.json` 或等价配置文件；**只下一个 safetensors 不算完整模型**。
 
-升级此版本后需正常退出并重开DSH，刷新宿主工具参数、技能描述与任务协议。只更新客户端不够；旧宿主会明确拒绝新参考参数，避免忽略参考图。
+3. 在 DSH 插件设置选「本地 Mac」，填三个路径：
+   - Python：选虚拟环境**文件夹**（脚本会追加 `bin/python`，避免符号链接解析到系统解释器）；
+   - 模型目录：第 2 步的权重目录；
+   - 图库数据目录：默认 `~/Pictures/qwen-studio` 即可。
 
-## 会话生成进度
+4. 点「保存并检查连接」。首次生图才会真正加载权重，之后按「空闲后释放」自动卸载。
 
-正式调用 qwen_generate_image 后，插件保存会话/调用与任务 ID 的对应回执；对话卡片按对应回执读取阶段与真实步数，完成后交给图片结果卡片展示。创作页会自动选择新活动任务，切页返回也能跟踪；手动清除后不会反复弹回同一任务，可从后台任务按钮重新打开。远程仅显示处理状态。独立 CLI 不经过本插件队列，需要另行接入。新增进度接口后需正常退出并重开 DSH。
+## 3. Windows / Linux + NVIDIA（远程网关）
 
-## 本地高级工具与任务恢复
+最短路径（详细步骤与模型文件名见 [REMOTE.md](REMOTE.md)）：
 
-- LoRA：在插件设置选择 LoRA 文件夹（留空默认数据目录下的 `loras`）。工具合并接受托管资源、默认 `loras` 和自定义文件夹内的 `.safetensors`，1–8 个，权重 0–2。不是任意文件路径访问入口；请自行准备匹配的 Qwen Image 2.1 LoRA。改变组合会重新加载模型。
-- ControlNet：模型目录需要完整的 Qwen Image 2.1 Union 控制分支（含 `controlnet/` 权重）。工具接收已导入或图库控制图的 ID，强度 0–1。
-- 蒙版：已有源图和蒙版的图库 ID 配对使用，白色重绘、黑色从原图复制。保持源图尺寸可保留黑区原像素；变化幅度不适用于蒙版。可从创作页高级设置选择本机 PNG/JPEG/WebP；输入图保存在独立资源目录，不混入作品图库。
-- ControlNet/蒙版只用默认调度器；远程高级参数明确报错。高级权重不自动下载，缺失和不兼容会显示实际错误。
-- `qwen_image_status` 用返回的完整任务 ID 查询或恢复图片，只读、不重新提交、不启动模型。运行中的任务继续在原会话卡片和创作页显示进度。
-- 发布包更新后手动重开 DSH；已有旧 worker 需先空闲退出或在插件中释放模型，再由下一次调用启动 v7。已知的空闲旧 worker 会由插件正常释放后替换；正在生成时不会被中断。新宿主不会向旧 worker 静默发送高级参数。
+```powershell
+# 1) 建目录
+New-Item -ItemType Directory -Force C:\qwen | Out-Null
+# 2) 复制网关脚本与自定义节点（从已安装的插件包里）
+Copy-Item "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-qwen-studio\backend\qwen_gateway.py" C:\qwen\
+Copy-Item "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-qwen-studio\backend\qwen_workflow.py" C:\qwen\
+Copy-Item -Recurse "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-qwen-studio\backend\comfy_nodes\dsh_qwen" C:\qwen\ComfyUI\custom_nodes\
+# 3) 虚拟环境（ComfyUI 依赖装在同一个环境里）
+python -m venv C:\qwen\venv
+C:\qwen\venv\Scripts\pip.exe install -r C:\qwen\ComfyUI\requirements.txt
+# 4) 私有配置：密钥 + 空闲时间
+'{"api_key":"<随机长串>","idle_seconds":300}' | Set-Content -Encoding UTF8 C:\qwen\gateway-config.json
+# 5) 启动网关（监听 127.0.0.1:19488，用时才拉起 ComfyUI）
+C:\qwen\venv\Scripts\python.exe C:\qwen\qwen_gateway.py
+```
 
-## 创作页的高级设置
+模型文件按 REMOTE.md 的四行清单放进 `C:\qwen\ComfyUI\models\` 对应子目录。网关启动时会检查 19489/8188/8189 是否被占用、显存是否已被占用超过 6 GB；占用就先释放，不要硬启。
 
-打开「图像 → 创作 → 高级设置」。
+然后在插件设置选「远程服务器」：
 
-- 模型风格：直接选择一个或多个 `.safetensors` LoRA（最多8个、每个不超过2GB）。可逐个开关、调权重、移除。文件导入本机资源库并按内容去重，不必手动搬进配置的 LoRA 文件夹。
-- 结构控制：选择本机控制图并调控制强度；需要已配置的 Qwen Image 2.1 Union 权重。这里选择的是线稿、姿态、边缘等图片，不是控制模型文件。
-- 局部重绘：选择原图和蒙版，白色重画、黑色保留。蒙版按128亮度阈值区分黑白。不同尺寸会缩放，保持源图尺寸可保留黑色区域原像素。关闭此效果后不会把原图偷偷作为普通图生图输入。
-- 采样、尺寸与参考变体：可展开调整基础参数，或选择本机参考图做普通图生图。
-- 返回创作后直接点生成。效果参数与已选文件关联随草稿保留；任务接收前会复制输入图片，移动原文件或切页不影响已接收任务。
-- PNG/JPEG/WebP 输入图最大64MB、最长边8192像素且不超过3200万像素；不接受动画。LoRA 不会传到远程服务器，本机高级创作在远程模式下禁用。
-- 移除关联不删除原文件或已导入资源。输入资源按设计保留以支持历史参数复用；导入失败和取消时仅清理该次临时文件。
+| 字段 | 值 |
+| --- | --- |
+| 接口地址 | `http://127.0.0.1:19488/v1` |
+| 模型名 | `qwen-image-2.1-int8` |
+| 密钥 | `gateway-config.json` 里的 `api_key` |
+| 按需 SSH 主机 | 可选，填 `~/.ssh/config` 里的别名（如 `gpu-server`），端口 19488 |
 
-## 配置值、资源库和预设
+SSH 首次信任主机密钥、配置公钥登录，都要先在终端手工完成——插件不会自动接受陌生主机密钥，也不会索要密码。
 
-设置页显示实际解析的路径，并根据 DSH 原始用户配置标明来源。恢复默认清除用户覆盖；保存只提交编辑过的字段。修改 Python/模型/缓存路径不会中断运行任务，当前 worker 路径与下次启动配置分别展示。
+## 4. 连接与第一张图
 
-资源库合并 `assets/loras/`、图库的 `loras/` 和设置中的 LoRA 目录；手放文件保留原名，不强制搬移。控制图、蒙版和原图可以从已导入图片和现有作品再次选择。
+1. 保存配置 → 点「检查连接」（远程走 `GET /v1/models`；本机检查 Python 与模型目录）；
+2. 左侧「图像 → 创作」，输入「一只坐在窗台上的橘猫，下午光」，尺寸 1024×1024，步数 20；
+3. 判读：
+   - **进度条有真实步数** → 后端通了；
+   - 卡在 0% 且无日志 → 看 §5；
+   - 出图后图库出现缩略图，且会话里也有图片卡片 → 全链路通。
 
-高级设置顶部保存整套预设；`state/presets.json` 带格式版本与修订号，`presets.backup.json` 用于立即撤销。不要编辑 `runtime-config.json` 保存预设。JSON 导入不会改动连接配置或自动替换当前默认预设，也不包含模型与参考图片；资源需已在本机目录或图库中。
+会话里也可以直接说「画一张…」；Agent 会调用 `qwen_generate_image`。
 
-## Agent 配置与保存
+## 5. 排错
 
-本插件内置可由模型自动发现的 `qwen-image` 技能，也可显式加载。完整流程见 [SKILL.md](../skills/qwen-image/SKILL.md)。
+| 现象 | 原因 | 处理 |
+| --- | --- | --- |
+| `model_index.json` 缺失 / 加载即失败 | 模型不完整（只下了单文件） | 按官方说明下完整目录 |
+| 本机连接检查失败 | Python 选成了系统解释器 | 重选虚拟环境**文件夹**，确认 `<venv>/bin/python` 存在 |
+| 远程 401 | 密钥为空或与 `gateway-config.json` 不一致 | 两边对齐，重启网关 |
+| 远程连不上 / 端口占用 | 19488/19489/8188/8189 被占 | `lsof -i :19488` / `netstat -ano | findstr 19488` |
+| 网关报显存不足 | 已有推理占用 GPU | 先停掉视频/其他模型进程 |
+| SSH 连接被拒 | 首次 known_hosts 未确认 | 终端先 `ssh gpu-server` 手工确认一次 |
+| 任务 30 分钟超时 | 远程排队或步数过高 | 降步数/尺寸，或取消后重试 |
+| 出图但会话没有卡片 | 模型没调用工具，只是文字描述 | 明确说「用图像插件生成」，或直接在创作页出图 |
 
-- 只配置、不生图：`qwen_image_resources` 查真实 LoRA/图像资源，`qwen_image_presets` 管理预设；这两种操作不会启动模型。
-- 保存某张结果：先 list 取得 revision，再 save(name, from_job_id, revision)，不保存画面描述。
-- 调整已有预设：load 后保留完整 settings，与改动合并，再 save。保存是整套替换，不是局部补丁；省略值回到内置默认。
-- 预设出图：load 检查 issues，把 settings 与用户完整 prompt 合并交给 qwen_generate_image。不要改跑脚本。
-- Agent 与面板共用预设库；已打开的面板可在管理里刷新列表。加载不会擅自覆盖用户正在编辑的面板草稿。
-- 新本机输入文件仍由高级设置选择器导入；查询工具不接受任意路径读取。远程当前仅支持基础文生图，不会静默忽略高级参数。
+## 6. 升级与回滚
 
-这两个新宿主工具需要 DSH 正常退出并重开后加载；只看到客户端新界面并不代表宿主工具已经更新。
+- 默认每 6 小时检查更新，自动安装默认关闭；生图时延后安装，安装前备份；
+- 更新不会覆盖模型、图库、预设和远程配置，也不自动重启 DSH；
+- 回滚：维护页「回滚」按备份恢复插件本体，数据目录不动。
 
+## 7. 让其他文字模型调用
 
-### Agent 导入外部参考图（2.9.0）
-
-`qwen_image_import` 接受 url、path、attachment 三选一，kind 为 source（默认）/control/mask。url 须为 PNG/JPEG/WebP 图片直链；path 是 DSH 宿主上的绝对路径或 ~/ 路径；attachment 使用会话里真实完整的图片引用。返回 settings 可以合并到生成参数或保存为预设。用户要求找参考并生成时，Agent 先使用会话的搜索/浏览器工具找图，再导入并调用 qwen_generate_image，不需要手动操作图库或运行下载脚本。
-
-导入不启动模型、不唤醒 SSH，也不改创作页草稿。图片只进入输入资源库；实际生成后才产生图库作品和会话结果。远程使用相同资源 ID，由插件按内容哈希自动同步。64MiB、8192边长、3200万像素与面板一致。导入不会自动生成线稿或蒙版。公网网址不接受登录认证或内网地址，HTML 页面会提示改用图片直链。
-
-Fake-IP DNS 下，插件只对待导入图片域名单独请求阿里公共 DNS（失败时 Cloudflare）的 HTTPS 解析，校验返回地址并固定下载连接；不修改系统 DNS、代理配置或其他软件出口。解析失败会明确报错，可改用其他链接或本机文件。
+插件启用后注册 `qwen_generate_image` 工具与 `skills/qwen-image/SKILL.md` 技能。是否触发取决于模型能力、提示词与权限设置；左侧「图像」直接创作始终可用。
