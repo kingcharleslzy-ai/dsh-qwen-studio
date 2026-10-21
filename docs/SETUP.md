@@ -6,14 +6,16 @@ Agent 照这份文档做，就能把「用户机器够不够 → 装 → 连 →
 
 ## 0. 先判断这台机器能不能跑
 
-| 环境 | 最低 | 推荐 | 走哪条路 |
-| --- | --- | --- | --- |
-| Apple Silicon Mac | 统一内存 32 GB、磁盘 60 GB 空闲 | 64 GB / 1 TB | 本机 MLX（§2） |
-| Windows + NVIDIA | 显存 24 GB（int8）、磁盘 60 GB | 48 GB（bf16） | 自己的 GPU 网关（§3 + [REMOTE](REMOTE.md)） |
-| Linux + NVIDIA | 同上 | 同上 | 同上 |
-| Intel Mac / 无独显 / 显存 < 16 GB | — | — | 局域网里另一台带 GPU 的机器（§3），或先只装插件看界面 |
+Qwen Image 2.1 有量化版本，最低门槛比 bf16 低很多。按这张表选档位，再决定要不要下权重：
 
-Apple Silicon 的统一内存由 CPU 与 GPU 共享，权重、KV 缓存和系统要一起算。16 GB 机器不要开原生参考编辑。
+| 环境 | 最低（量化） | 舒适 | 说明 |
+| --- | --- | --- | --- |
+| Apple Silicon Mac | 统一内存 16 GB + 4-bit MLX，512–768 px | 24–32 GB | 16 GB 能出图但慢；24 GB 起可 1024 px 与原生编辑 |
+| Windows / Linux + NVIDIA | 显存 10–12 GB + GGUF Q4 或 int8，≤768 px | 24 GB（int8，1024 px） | 12 GB 别与视频模型并行 |
+| 任意 + bf16 全量 | 显存/内存 40 GB+ | 48 GB+ | 最高画质，下载与加载都最重 |
+| Intel Mac / 无独显 | — | — | 只装插件看界面，推理交给局域网 GPU 机器 |
+
+磁盘预留：量化 40 GB 起，bf16 80 GB 起。系统要留 2–4 GB 余量，卡满会 OOM 或走 swap。
 
 自查命令：
 

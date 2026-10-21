@@ -58,16 +58,16 @@ Native Qwen Image 2.1 generation & reference editing for **DeepSeek Harness**.
 
 ## 先看这台机器跑不跑得动
 
-装之前先对一眼，别下完 40GB 模型才发现显存不够：
+Qwen Image 2.1 有量化版本，**门槛比想象中低**。按显存/内存挑档位，别一上来就下 bf16 全家桶：
 
-| 环境 | 最低 | 推荐 | 走哪条路 |
+| 环境 | 最低（量化） | 舒适 | 能做多少 |
 | --- | --- | --- | --- |
-| Apple Silicon Mac | 统一内存 **32 GB**、磁盘 **60 GB** 空闲 | 64 GB / 1 TB | 本机 MLX（[SETUP](docs/SETUP.md)） |
-| Windows + NVIDIA | 显存 **24 GB**（fp8）、磁盘 60 GB | 48 GB（bf16） | 自己的 GPU 网关（[REMOTE](docs/REMOTE.md)） |
-| Linux + NVIDIA | 同上 | 同上 | 同上 |
-| Intel Mac / 无独显 / 显存 < 16 GB | — | — | 用局域网里另一台带 GPU 的机器，或先只装插件看界面 |
+| Apple Silicon Mac | 统一内存 **16 GB** + 4-bit MLX 权重，512–768 px | 24–32 GB | 16 GB 可出图，单张从几十秒到几分钟；24 GB 以上开 1024 px 和原生编辑 |
+| Windows / Linux + NVIDIA | 显存 **10–12 GB** + GGUF Q4 或 int8，≤768 px | 24 GB（int8，1024 px） | 12 GB 能跑，别同时开视频模型；24 GB 顺畅 |
+| 任意 + bf16 全量 | 显存/内存 40 GB 以上 | 48 GB+ | 最高画质，最慢下载 |
+| Intel Mac / 无独显 | — | — | 只装插件看界面，推理走局域网里带 GPU 的机器 |
 
-Apple Silicon 的统一内存是 CPU 与 GPU 共享的，模型权重、KV 缓存和系统要一起算；16 GB 机器不要开原生编辑。
+磁盘：量化权重约 **40 GB** 起，bf16 全家桶 80 GB 起。显存/内存要给系统留 2–4 GB 余量，刚好卡满会 OOM 或被迫走 swap。
 
 ## 三步开始
 
