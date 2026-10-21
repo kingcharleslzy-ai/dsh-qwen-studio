@@ -1,7 +1,6 @@
 import type { Context } from "@deepseek-ai/cordis";
 import { defineTool } from "@deepseek-ai/dsh-tools";
 import type {} from "@deepseek-ai/dsh-attachment";
-import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { setTimeout as wait } from "node:timers/promises";
 import { readJob, imagePath } from "./storage.js";
@@ -11,14 +10,23 @@ import type { Worker } from "./worker.js";
 import { generationParameters } from "./generation-parameters.js";
 import { registerWorkspaceTools } from "./workspace-tools.js";
 import { registerStatusTool } from "./status-tool.js";
+import { registerGalleryTools } from "./gallery-tool.js";
+import { registerBatchTool } from "./batch-tool.js";
+import { registerScoreTool } from "./score-tool.js";
+import { registerRerollTool } from "./reroll-tool.js";
+import { generationPayload, newJobId, validateGeneration } from "./generation-request.js";
 export function registerTools(ctx: Context, worker: Worker) {
   registerStatusTool(ctx, worker);
   registerWorkspaceTools(ctx, worker);
+  registerGalleryTools(ctx, worker);
+  registerBatchTool(ctx, worker);
+  registerScoreTool(ctx, worker);
+  registerRerollTool(ctx, worker);
   ctx.tools.register(
     defineTool({
       name: "qwen_generate_image",
       description:
-        "Default DSH image-generation route: generate with this tool so the conversation, live progress and gallery stay synchronized. Create images with the configured local Qwen Image or self-hosted server. Use for requests to draw, illustrate, make a poster/product image, or generate a picture (画一张、配图、生图). To make a variation of a previous result while retaining its composition, pass that result's source_image_id and change_strength (local or Qwen gateway). Describe the complete desired image, not just an edit instruction. source_image_id alone is strength-based img2img. For style transfer or instruction edits, query capabilities and use reference_mode=edit on supported local MFLUX or an updated Qwen gateway, with full desired edits and no change_strength; legacy variation may reconstruct the original photo. Check qwen_image_resources reference_edit.supported first. Local editing requires MFLUX with QwenImage21Edit and a complete vision-capable checkpoint. Native editing requires linear and dimensions divisible by32, and cannot combine with masks/ControlNet. For a web URL, local file or conversation reference attachment, first call qwen_image_import and use its returned id; no manual gallery import or downloader script is needed. Local and the Qwen gateway support negative_prompt / guidance / scheduler; query qwen_image_resources for remote_capabilities, ordinary Images servers may support text-to-image only. Negative prompts require guidance above 1; the worker uses 2.5 if a negative prompt is supplied with the default guidance. lora_paths / lora_scales stack LoRAs on the base model. controlnet_image_id pins composition and pose from a control image, where structure comes from the control image and content from the prompt. mask_image_id performs masked inpainting over source_image_id: white mask areas are redrawn from the prompt while black areas are copied from the source resized to output dimensions. Returns a visible image attachment plus an id for follow-up variations. Selected Mac assets are synchronized and cached automatically on the configured Qwen gateway; do not invent Windows paths or upload files with scripts. Use qwen_image_resources for real LoRA paths and imported image ids; use qwen_image_presets to list/load/save advanced settings. Preset configuration alone must not trigger generation. No shell, manual server startup, file search, or manual skill installation is needed. If an accepted task times out, query qwen_image_status with its full id; never resubmit or switch to a standalone script automatically.",
+        "Default DSH image-generation route: generate with this tool so the conversation, live progress and gallery stay synchronized. Create images with the configured local Qwen Image or self-hosted server. Use for requests to draw, illustrate, make a poster/product image, or generate a picture (画一张、配图、生图). To make a variation of a previous result while retaining its composition, pass that result's source_image_id and change_strength (local or Qwen gateway). Describe the complete desired image, not just an edit instruction. source_image_id alone is strength-based img2img. For style transfer or instruction edits, query capabilities and use reference_mode=edit on supported local MFLUX or an updated Qwen gateway, with full desired edits and no change_strength; legacy variation may reconstruct the original photo. Check qwen_image_resources reference_edit.supported first. Local editing requires MFLUX with QwenImage21Edit and a complete vision-capable checkpoint. Native editing requires linear and dimensions divisible by32, and cannot combine with masks/ControlNet. For a web URL, local file or conversation reference attachment, first call qwen_image_import and use its returned id; no manual gallery import or downloader script is needed. For two to eight reference images in one edit, pass source_image_ids (remote Qwen 2.1 gateway only), reference_mode=edit, and address them as <image1>, <image2>, … in the prompt; do not combine with change_strength, mask or ControlNet. Local and the Qwen gateway support negative_prompt / guidance / scheduler; query qwen_image_resources for remote_capabilities, ordinary Images servers may support text-to-image only. Negative prompts require guidance above 1; the worker uses 2.5 if a negative prompt is supplied with the default guidance. lora_paths / lora_scales stack LoRAs on the base model. controlnet_image_id pins composition and pose from a control image, where structure comes from the control image and content from the prompt. mask_image_id performs masked inpainting over source_image_id: white mask areas are redrawn from the prompt while black areas are copied from the source resized to output dimensions. Returns a visible image attachment plus an id for follow-up variations. Selected Mac assets are synchronized and cached automatically on the configured Qwen gateway; do not invent Windows paths or upload files with scripts. Use qwen_image_resources for real LoRA paths and imported image ids; use qwen_image_presets to list/load/save advanced settings. Preset configuration alone must not trigger generation. No shell, manual server startup, file search, or manual skill installation is needed. If an accepted task times out, query qwen_image_status with its full id; never resubmit or switch to a standalone script automatically.",
       timeoutMs: 1200000,
       parameters: generationParameters,
       output: {
@@ -69,13 +77,8 @@ export function registerTools(ctx: Context, worker: Worker) {
         ],
       },
       async execute(args, exec) {
-        if (args.reference_mode !== undefined && !["variation", "edit"].includes(args.reference_mode)) throw Error("参考图模式无效");
-        if (args.reference_mode === "edit" && (!args.source_image_id || args.change_strength !== undefined || args.mask_image_id || args.controlnet_image_id))
-          throw Error("原生参考编辑需要 source_image_id，不使用变化幅度、蒙版或结构控制");
-        if (args.mask_image_id && args.change_strength !== undefined) throw Error("蒙版重绘不使用 change_strength，请移除此参数");
-        if (args.change_strength !== undefined && !args.source_image_id)
-          throw Error("变化幅度必须配合上一张图片的source_image_id");
-        const id = randomUUID().replaceAll("-", ""),
+        validateGeneration(args);
+        const id = newJobId(),
           dir = worker.directory();
         await recordInvocation(
           dir,
@@ -86,38 +89,7 @@ export function registerTools(ctx: Context, worker: Worker) {
           exec.agent?.id ?? "",
         );
         try {
-          await worker.post(
-            "/v1/jobs",
-            {
-              id,
-              prompt: args.prompt,
-              width: args.width ?? 1024,
-              height: args.height ?? 1024,
-              steps: args.steps ?? 40,
-              seed: args.seed ?? null,
-              ...(args.source_image_id
-                ? {
-                    source_image_id: args.source_image_id,
-                    ...(!args.mask_image_id ? args.reference_mode === "edit" ? { reference_mode: "edit" } : { change_strength: args.change_strength ?? 0.45 } : {}),
-                  }
-                : {}),
-              ...(args.negative_prompt
-                ? { negative_prompt: args.negative_prompt }
-                : {}),
-              ...(args.guidance !== undefined
-                ? { guidance: args.guidance }
-                : {}),
-              ...(args.scheduler ? { scheduler: args.scheduler } : {}),
-              ...(args.lora_paths ? { lora_paths: args.lora_paths } : {}),
-              ...(args.lora_scales ? { lora_scales: args.lora_scales } : {}),
-              ...(args.controlnet_image_id ? { controlnet_image_id: args.controlnet_image_id } : {}),
-              ...(args.controlnet_strength !== undefined ? { controlnet_strength: args.controlnet_strength } : {}),
-              ...(args.mask_image_id
-                ? { mask_image_id: args.mask_image_id }
-                : {}),
-            },
-            true,
-          );
+          await worker.post("/v1/jobs", generationPayload(args, id), true);
         } catch (error) {
           await recordInvocation(
             dir,

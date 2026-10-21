@@ -4,7 +4,7 @@
 
 ## 先确认环境，保留已有数据
 
-1. 确认 DSH 版本、profile 和 DSH_HOME。2.12.0 声明支持 `>=0.2.1-rc.1 <0.2.2-0`；新宿主版本须重新测试，不能直接放宽兼容范围。
+1. 确认 DSH 版本、profile 和 DSH_HOME。2.19.0 声明支持 `>=0.2.1-rc.1 <0.2.2-0`；新宿主版本须重新测试，不能直接放宽兼容范围。
 2. 先读 profile 的 package.json 和 Qwen 已有设置，只报告必要的非敏感字段。不要打印 API Key、SSH 配置密钥或整份用户配置。
 3. 已安装用户：保留 localMfluxDirectory、Python/模型/HF 缓存路径、连接模式、SSH、空闲时间。保留图库的 state、images、trash、assets、loras；不要用示例覆盖它们。预设不需要迁移。
 4. 新用户：请根据实际设备选择 Apple Silicon MLX 或用户自己的 NVIDIA 服务器。本项目不提供公共 GPU、预配置服务器地址、个人主机别名或通用密钥。不存在能直接照抄的作者部署。
@@ -17,6 +17,7 @@
 - 安装命令：`dsh plugin --profile <实际profile> add <安装包绝对路径>`。macOS 没有全局 dsh 时，使用 `/bin/sh "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" plugin --profile <实际profile> add <安装包绝对路径>`。
 - 预编译 tgz 安装不需要全局 npm、tsc 或 Git；市场使用 Git 来源，因此需有可用的 Git（没有时用 tgz）。模型权重另行准备。源码开发才需要 Node.js 和 `npm ci --ignore-scripts && npm run check`。
 - 安装后由用户在合适时手动退出并重新打开 DSH。不要自动重启或强行刷新其正在运行的会话。
+- 远程 Qwen 网关是独立 Python 进程；改网关代码后用 部署时由用户设置的 Windows 计划任务 重启，不要用 SSH 里直接 `Start-Process`（会话结束会被回收）。
 
 ## 本机 Mac：完整模型与 Python 环境
 
@@ -25,7 +26,7 @@
 | 设置 | 新用户如何填写 |
 | --- | --- |
 | localMfluxDirectory | 自己选定的图库与任务目录；空白使用当前账户的 `~/.dsh/qwen-studio` |
-| pythonPath | 含 MFLUX 的 venv 的 Python；空白解析为 `<图库>/venv/bin/python` |
+| pythonPath | 含 MFLUX 的 venv 的 Python；空白解析为 `<图库>/venv/bin/python`；Windows 为 `<图库>/venv/Scripts/python.exe` |
 | modelPath | 已准备好的完整 MLX 模型目录；空白解析为 `<图库>/models/qwen-image-2.1` |
 | hfHome | 共享组件缓存；留空按环境变量/当前账户默认缓存解析 |
 | loraDirectory | 可选自定义 LoRA 文件夹；同时合并托管资源和 `<图库>/loras` |
@@ -34,6 +35,8 @@
 设置页显示实际生效值和来源。脚本默认创建的 venv 目录与图库的默认 Python 路径不一定相同：安装后务必填写脚本打印的 Python 路径，不要误以为安装脚本已自动配置 DSH。原生编辑需要 checkpoint 的视觉组件和 QwenImage21Edit API，单个权重文件或纯文生图导出不够。
 
 ## 远程 NVIDIA：先部署，再填写自己的连接信息
+
+客户端导入/评分也需要 Python：按 [docs/SETUP.md](docs/SETUP.md) 运行客户端依赖脚本并填写打印的解释器路径。
 
 按 [docs/REMOTE.md](docs/REMOTE.md) 部署配套 ComfyUI、网关及指定模型。普通 OpenAI Images API 只具备基础文生图；ComfyUI 的 8188 地址不能直接当作 `/v1` 网关。
 

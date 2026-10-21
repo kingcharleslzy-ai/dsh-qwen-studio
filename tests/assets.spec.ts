@@ -52,6 +52,10 @@ test("selected images normalize without becoming gallery results and reject malf
     expect(await readFile(await imagePath(dir, asset.id))).toMatchObject({
       length: expect.any(Number),
     });
+    const again = await importAsset(dir, process.env.QWEN_TEST_PYTHON || "python3", "control", "edge-copy.png", chunks(png));
+    expect(again).toMatchObject({ id: asset.id, deduped: true });
+    const asSource = await importAsset(dir, process.env.QWEN_TEST_PYTHON || "python3", "source", "edge-source.png", chunks(png));
+    expect(asSource.id).not.toBe(asset.id);
     expect(await inputImagePath(dir, asset.id)).toBeTruthy();
     await expect(
       importAsset(

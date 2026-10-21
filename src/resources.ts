@@ -1,7 +1,7 @@
 import { readdir, readFile, realpath, stat, open } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { join, basename, extname } from "node:path";
+import { join, basename, extname, relative, isAbsolute } from "node:path";
 import { loraRoots, type EffectiveConfig } from "./resolved-config.js";
 import { readJobs, imagePath } from "./storage.js";
 export interface Resource {
@@ -58,7 +58,8 @@ export async function listResources(
         if (extname(name).toLowerCase() !== ".safetensors") continue;
         try {
           const file = await realpath(join(canonicalRoot, name));
-          if (!file.startsWith(canonicalRoot + "/") || seen.has(file)) continue;
+          const rel = relative(canonicalRoot, file);
+          if (!rel || rel === ".." || rel.startsWith("..\\") || rel.startsWith("../") || isAbsolute(rel) || seen.has(file)) continue;
           const info = await stat(file);
           if (!info.isFile()) continue;
           seen.add(file);

@@ -7,7 +7,7 @@ export function resolveConfig(
   home = homedir(),
 ) {
   const path = (value: string) =>
-    resolve(value.startsWith("~/") ? join(home, value.slice(2)) : value);
+    resolve(/^~[\\/]/.test(value) ? join(home, value.slice(2)) : value);
   const directory = path(
     raw.localMfluxDirectory || join(home, ".dsh/qwen-studio"),
   );
@@ -23,7 +23,7 @@ export function resolveConfig(
     localMfluxDirectory: directory,
     localMfluxIdleMinutes: minutes,
     connectionMode: raw.connectionMode ?? "local",
-    pythonPath: path(raw.pythonPath || join(directory, "venv/bin/python")),
+    pythonPath: path(raw.pythonPath || join(directory, process.platform === "win32" ? "venv/Scripts/python.exe" : "venv/bin/python")),
     modelPath: path(raw.modelPath || join(directory, "models/qwen-image-2.1")),
     hfHome,
     loraDirectory: path(raw.loraDirectory || join(directory, "loras")),

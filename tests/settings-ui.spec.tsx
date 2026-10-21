@@ -1,4 +1,5 @@
 import { test, expect, vi } from "vitest";
+import { resolve } from "node:path";
 import React from "react";
 import { create, act } from "react-test-renderer";
 import { Settings } from "../src/client/settings.js";
@@ -98,7 +99,7 @@ test("configuration form displays resolved inherited paths, saves only edited fi
           .findAllByType("input")
           .find((x: any) => x.props["aria-label"] === name);
     expect(field("LoRA 文件夹").props.value).toBe(
-      "/tmp/qwen-test/.dsh/qwen-studio/loras",
+      resolve("/tmp/qwen-test/.dsh/qwen-studio/loras"),
     );
     await act(async () => {
       field("空闲卸载时间").props.onChange({ target: { value: "12" } });

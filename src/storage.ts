@@ -8,6 +8,7 @@ import {
   realpath,
   stat,
 } from "node:fs/promises";
+import { setTimeout as wait } from "node:timers/promises";
 import { join } from "node:path";
 import { watch, type FSWatcher } from "node:fs";
 import { randomUUID } from "node:crypto";
@@ -17,7 +18,17 @@ export const validId = (id: string) => /^[a-f0-9]{32}$/.test(id);
 export async function atomicJSON(path: string, value: unknown) {
   const temp = `${path}.${randomUUID()}.tmp`;
   await writeFile(temp, JSON.stringify(value, null, 2), { mode: 0o600 });
-  await rename(temp, path);
+  try {
+    // Windows readers/virus scanners can briefly deny replacement; never unlink
+    // the destination, which would expose a missing or partial JSON document.
+    for (let attempt = 0; ; attempt++) {
+      try { await rename(temp, path); break; }
+      catch (error) {
+        if (process.platform !== "win32" || !["EPERM", "EACCES", "EBUSY"].includes((error as NodeJS.ErrnoException).code ?? "") || attempt >= 7) throw error;
+        await wait(10 * 2 ** attempt);
+      }
+    }
+  } finally { await rm(temp, { force: true }).catch(() => {}); }
 }
 type Flags = Record<string, { favorite?: boolean; archived?: boolean }>;
 function parseFlags(text: string): Flags {
@@ -76,6 +87,7 @@ function jobRecord(
     scheduler: raw.scheduler,
     guidance_auto_raised: raw.guidance_auto_raised,
     source_image_id: raw.source_image_id,
+    source_image_ids: raw.source_image_ids,
     reference_mode: raw.reference_mode,
     controlnet_image_id: raw.controlnet_image_id,
     controlnet_strength: raw.controlnet_strength,

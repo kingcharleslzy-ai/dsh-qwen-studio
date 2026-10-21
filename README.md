@@ -54,7 +54,7 @@ Native Qwen Image 2.1 generation & reference editing for **DeepSeek Harness**.
 - **用时启动，空闲释放** — 本机模型按需加载；远程按需 SSH、资源自动同步，模型卸载后断开。统一空闲时间可由界面或 Agent 调整。
 - **试稿收好，作品精选** — 默认存入隐私图库，收藏后进入普通图库；支持搜索、批量归档与回收站。隐私分类不隐藏对话图片，也不是加密或密码锁。
 
-这是 **DeepSeek Harness 插件**，不是独立生图 App。应用里叫「图像」，安装包为 `dsh-qwen-studio`，当前 **2.18.3**。独立维护、独立发布，无需安装旧 `dsh-image-gen`。
+这是 **DeepSeek Harness 插件**，不是独立生图 App。应用里叫「图像」，安装包为 `dsh-qwen-studio`，当前 **2.19.0**。独立维护、独立发布，无需安装旧 `dsh-image-gen`。
 
 ## 先看这台机器跑不跑得动
 
@@ -62,9 +62,9 @@ Qwen Image 2.1 有量化版本，**门槛比想象中低**。按显存/内存挑
 
 | 环境 | 最低（量化） | 舒适 | 能做多少 |
 | --- | --- | --- | --- |
-| Apple Silicon Mac | 统一内存 **16 GB** + 4-bit MLX 权重，512–768 px | 24–32 GB | 16 GB 可出图，单张从几十秒到几分钟；24 GB 以上开 1024 px 和原生编辑 |
-| Windows / Linux + NVIDIA | 显存 **10–12 GB** + GGUF Q4 或 int8，≤768 px | 24 GB（int8，1024 px） | 12 GB 能跑，别同时开视频模型；24 GB 顺畅 |
-| 任意 + bf16 全量 | 显存/内存 40 GB 以上 | 48 GB+ | 最高画质，最慢下载 |
+| Apple Silicon Mac | MFLUX + 对应 MLX 权重 | 本次实机为 128 GB Apple Silicon | 16/24/32 GB 设备未做本版实测，不承诺低内存原生编辑；按模型实际峰值预留系统内存 |
+| Windows + NVIDIA | 本包仅验证 24 GB RTX 4090 D 的指定 int8 safetensors | 24 GB | 不支持直接替换 GGUF；10–12 GB 尚未真机验证 |
+| bf16 全量 | 另行核算权重、编码器和推理峰值 | 本版未验收 | 不能仅凭权重精度承诺最高画质或固定内存门槛 |
 | Intel Mac / 无独显 | — | — | 只装插件看界面，推理走局域网里带 GPU 的机器 |
 
 磁盘：量化权重约 **40 GB** 起，bf16 全家桶 80 GB 起。显存/内存要给系统留 2–4 GB 余量，刚好卡满会 OOM 或被迫走 swap。
@@ -90,7 +90,7 @@ sh "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" \
 | --- | --- |
 | Python 3.12 + MFLUX 0.22.0 | 配套 CUDA / ComfyUI Qwen 网关 |
 | 准备完整 Qwen Image 2.1 权重 | 准备服务器模型与访问地址 |
-| 选择 Python 环境、模型和图库目录 | 填写 `/v1` 地址、模型名、可选密钥与 SSH 别名 |
+| 选择 Python 环境、模型和图库目录 | 填写 `/v1` 地址、模型名、配套网关必需的密钥及可选 SSH 别名 |
 | [本机安装步骤 →](docs/SETUP.md) | [远程部署步骤 →](docs/REMOTE.md) |
 | Python 3.12 + MFLUX 0.22.0 | 网关默认 `127.0.0.1:19488`，模型 `qwen-image-2.1-int8` |
 
@@ -173,7 +173,7 @@ Windows 没有 MLX：本机只装插件看界面，真正的推理要么走局�
 
 ## 已验证，也有边界
 
-[实测记录](docs/VERIFICATION.md) 区分自动检查、插件执行体联调和原生 DSH 验收，保留具体版本与限制。2.18.3 通过 **91 项工具/界面测试 + Python 后端测试**，并完成原生 DSH 的更新开关、会话生图、创作页同步、切页保留任务、收藏分流与共享市场验收；真实安装和回滚在隔离 profile 中通过。2.13–2.17 新增批量提交/导入、只读检索、导出、客观评分、按标记重投与 Qwen 2.1 原生多图编辑；先前 2.11.0 还完成本机 MLX 蓝杯转水彩实测。当前测试覆盖 Apple Silicon / MFLUX 与 Windows / RTX 4090 D；Linux 远程尚未完成真实 GPU 验收，CI 不运行模型推理。
+[实测记录](docs/VERIFICATION.md) 区分自动检查、插件执行体联调和原生 DSH 验收，保留具体版本与限制。2.19.0 的 Windows 修复及逐项验收见实测记录；历史版本的 UI 与 GPU 验收不自动代表本版已通过。2.13–2.17 新增批量提交/导入、只读检索、导出、客观评分、按标记重投与 Qwen 2.1 原生多图编辑；先前 2.11.0 还完成本机 MLX 蓝杯转水彩实测。当前测试覆盖 Apple Silicon / MFLUX 与 Windows / RTX 4090 D；Linux 远程尚未完成真实 GPU 验收，CI 不运行模型推理。
 
 自然语言触发已在 DSH / DeepSeek-V41-Flash 验证；其他模型取决于工具能力、上下文与 DSH 权限。原生编辑不保证每条指令成功，通路可用也不等于任意第三方 LoRA 都有好效果。
 
@@ -184,12 +184,13 @@ Windows 没有 MLX：本机只装插件看界面，真正的推理要么走局�
 ```sh
 git clone https://github.com/kingcharleslzy-ai/dsh-qwen-studio.git
 cd dsh-qwen-studio
-npm ci
+python -m pip install "Pillow>=11,<13" "numpy>=1.26,<3" "aiohttp>=3.10,<4"
+npm ci --ignore-scripts
 npm run check
 npm run check:package
 ```
 
-开发需要 Node.js `^22.19.0 || >=24`、Python 3.12、Pillow 11–12。接口与界面在 `src/`，worker 与网关在 `backend/`。发布包含编译包、技能及 SHA-256，不包含权重、图库或个人日志。
+开发需要 Node.js `^22.19.0 || >=24`、Python 3.12、Pillow 11–12、numpy 1.26–2.x、aiohttp 3.x。接口与界面在 `src/`，worker 与网关在 `backend/`。发布包含编译包、技能及 SHA-256，不包含权重、图库或个人日志。
 
 [报告 Bug / 提建议](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/issues) · [更新记录](CHANGELOG.md) · [English guide](README.en.md)
 

@@ -18,3 +18,6 @@ models/
 market-dist/
 .bundle-commit.txt
 release-notes.md
+
+# 本机私有笔记（经验/交接），不提交
+.local/

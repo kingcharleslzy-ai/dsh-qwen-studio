@@ -30,6 +30,7 @@ export interface PresetStore {
   items: Preset[];
 }
 const imageKeys = ["sourceId", "controlId", "maskId", "maskSourceId"] as const;
+const imageListKeys = ["additionalSourceIds"] as const;
 const cleanName = (name: unknown) => {
   if (typeof name !== "string" || !name.trim() || name.trim().length > 80)
     throw Error("预设名称需为1–80个字符");
@@ -63,6 +64,14 @@ export function presetValues(input: unknown): Values {
   for (const key of imageKeys)
     if (d[key] && !/^[a-f0-9]{32}$/.test(d[key]))
       throw Error("图片资源 ID 无效");
+  if (!Array.isArray(d.additionalSourceIds) || d.additionalSourceIds.length > 7 ||
+      d.additionalSourceIds.some((id: unknown) => typeof id !== "string" || !/^[a-f0-9]{32}$/.test(id)) ||
+      new Set(d.additionalSourceIds).size !== d.additionalSourceIds.length ||
+      (d.sourceId && d.additionalSourceIds.includes(d.sourceId)))
+    throw Error("多图参考 ID 无效或重复");
+  if (!Array.isArray(d.additionalSourceNames) || d.additionalSourceNames.length !== d.additionalSourceIds.length ||
+      d.additionalSourceNames.some((name: unknown) => typeof name !== "string" || name.length > 180))
+    throw Error("多图参考名称无效");
   if (
     !/^\d+x\d+$/.test(d.size) ||
     d.size
@@ -145,6 +154,11 @@ export async function capturePreset(
       if (!r) throw Error("图片资源已失效，请重新选择：" + key);
       resources[key] = await reference(config, r);
     }
+  for (const [i, id] of values.additionalSourceIds.entries()) {
+    const r = items.find((r) => r.kind !== "lora" && r.id === id);
+    if (!r) throw Error("多图参考图片已失效：" + id);
+    resources[`sourceExtra:${i}`] = await reference(config, r);
+  }
   for (const [i, l] of values.loras.entries()) {
     const canonical = await realpath(l.path).catch(() => null),
       r = items.find((r) => r.kind === "lora" && r.path === canonical);
@@ -159,6 +173,8 @@ export async function loadPreset(config: EffectiveConfig, preset: Preset) {
       ...preset.values,
       prompt: "",
       loras: preset.values.loras.map((l) => ({ ...l })),
+      additionalSourceIds: [],
+      additionalSourceNames: [],
     },
     issues: string[] = [],
     missingResources: Record<string, string> = {};
@@ -184,6 +200,12 @@ export async function loadPreset(config: EffectiveConfig, preset: Preset) {
       l.path = found?.path || "";
       l.name = found?.name || ref.name;
       l.missing = !found;
+    } else if (key.startsWith("sourceExtra:")) {
+      const index = Number(key.slice("sourceExtra:".length));
+      if (!Number.isInteger(index) || index < 0 || index >= 7) throw Error("预设多图引用无效");
+      draft.additionalSourceIds[index] = found?.id || "";
+      draft.additionalSourceNames[index] = found?.name || ref.name;
+      if (!found) missingResources["sourceExtra"] = ref.name;
     } else if (imageKeys.includes(key as any)) {
       (draft as any)[key] = found?.id || "";
       if (!found) missingResources[key] = ref.name;
@@ -207,7 +229,7 @@ function validatePreset(p: any): Preset {
   for (const [key, value] of Object.entries(p.resources)) {
     const r = value as ResourceRef;
     if (
-      (!imageKeys.includes(key as any) && !/^lora:[0-7]$/.test(key)) ||
+      (!imageKeys.includes(key as any) && !/^sourceExtra:[0-6]$/.test(key) && !/^lora:[0-7]$/.test(key)) ||
       !r ||
       typeof r.name !== "string" ||
       r.name.length > 180 ||
@@ -246,6 +268,8 @@ export function exportPresets(store: PresetStore, selectedId?: string) {
     const values = structuredClone(p.values);
     values.loras.forEach((l) => (l.path = ""));
     imageKeys.forEach((key) => (values[key] = ""));
+    values.additionalSourceIds = [];
+    values.additionalSourceNames = [];
     return {
       ...p,
       values,

@@ -23,13 +23,22 @@ export async function responseJSON(response: Response) {
 }
 export function advancedParameters(data: Record<string, any>, capabilities: RemoteCapabilities) {
   const result: Record<string, any> = {};
-  for (const key of ["negative_prompt", "guidance", "scheduler", "source_image_id", "reference_mode", "change_strength", "controlnet_image_id", "controlnet_strength", "mask_image_id", "lora_paths", "lora_scales", "lora_names"])
+  for (const key of ["negative_prompt", "guidance", "scheduler", "source_image_id", "source_image_ids", "reference_mode", "change_strength", "controlnet_image_id", "controlnet_strength", "mask_image_id", "lora_paths", "lora_scales", "lora_names"])
     if (data[key] != null) result[key] = data[key];
   const negative = result.negative_prompt ?? "";
   if (result.reference_mode !== undefined && !["variation", "edit"].includes(result.reference_mode)) throw Error("参考图模式无效");
+  const sourceIds = result.source_image_ids;
+  if (sourceIds !== undefined) {
+    if (!Array.isArray(sourceIds) || sourceIds.length < 2 || sourceIds.length > 8 || sourceIds.some((id) => !validId(id)))
+      throw Error("多图参考需要 2–8 个有效图片ID");
+    if (!capabilities.features.includes("multi_image")) throw Error("远程网关尚未支持多图参考，请更新网关；不会退回单图");
+    if (result.source_image_id || result.mask_image_id || result.controlnet_image_id || result.change_strength !== undefined)
+      throw Error("多图参考不与 source_image_id、蒙版、结构控制或变化幅度同用");
+    if (result.reference_mode !== "edit") throw Error("多图参考只用于 reference_mode=edit");
+  }
   if (result.reference_mode === "edit") {
     if (!capabilities.features.includes("reference_edit")) throw Error("远程网关尚未支持原生参考编辑，请更新网关；不会退回参考变体");
-    if (!result.source_image_id || result.mask_image_id || result.controlnet_image_id || result.change_strength !== undefined || (result.scheduler ?? "linear") !== "linear" || Number(data.width ?? 1024) % 32 || Number(data.height ?? 1024) % 32)
+    if ((!result.source_image_id && !sourceIds?.length) || result.mask_image_id || result.controlnet_image_id || result.change_strength !== undefined || (result.scheduler ?? "linear") !== "linear" || Number(data.width ?? 1024) % 32 || Number(data.height ?? 1024) % 32)
       throw Error("原生参考编辑需要原图、linear和32倍数尺寸，不使用变化幅度、蒙版或结构控制");
   }
   if (typeof negative !== "string" || negative.length > 8000) throw Error("负向提示词无效");
@@ -41,7 +50,6 @@ export function advancedParameters(data: Record<string, any>, capabilities: Remo
   if (result.mask_image_id && !result.source_image_id) throw Error("蒙版需要原图");
   if (result.change_strength !== undefined && (!result.source_image_id || result.mask_image_id || !Number.isFinite(result.change_strength) || result.change_strength < .05 || result.change_strength > .95)) throw Error("参考图变化幅度无效，蒙版不使用变化幅度");
   if (result.controlnet_strength !== undefined && (!result.controlnet_image_id || !Number.isFinite(result.controlnet_strength) || result.controlnet_strength < 0 || result.controlnet_strength > 1)) throw Error("控制强度无效");
-  if (result.controlnet_image_id && result.source_image_id && !result.mask_image_id) throw Error("控制图与原图同时使用需要蒙版");
   if ((result.controlnet_image_id || result.mask_image_id) && result.scheduler && result.scheduler !== "linear") throw Error("结构控制和蒙版需要 linear 调度器");
   const paths = result.lora_paths ?? [], scales = result.lora_scales ?? paths.map(() => 1);
   if (!Array.isArray(paths) || paths.length > 8 || paths.some(p => typeof p !== "string") || !Array.isArray(scales) || scales.length !== paths.length || scales.some(s => !Number.isFinite(s) || s < 0 || s > 2)) throw Error("LoRA 路径与权重无效");
@@ -59,7 +67,10 @@ export async function runExtended({ base, headers, dir, config, job, signal, pat
   const body: Record<string, any> = { id: job.id, model: config.remoteModel || "qwen-image", prompt: job.prompt, width: job.width, height: job.height, steps: job.steps, seed: job.seed, loras: [] };
   for (const k of ["negative_prompt", "guidance", "scheduler", "reference_mode", "change_strength", "controlnet_strength"])
     if (job[k] != null) body[k] = job[k];
-  for (const [key, field] of [["source_image_id", "source_sha"], ["controlnet_image_id", "control_sha"], ["mask_image_id", "mask_sha"]])
+  const sourceIds: string[] = job.source_image_ids?.length ? job.source_image_ids : job.source_image_id ? [job.source_image_id] : [];
+  for (const [index, id] of sourceIds.entries())
+    inputs.push({ path: await imagePath(dir, id), kind: "image", field: `source_sha_${index}` });
+  for (const [key, field] of [["controlnet_image_id", "control_sha"], ["mask_image_id", "mask_sha"]])
     if (job[key!]) inputs.push({ path: await imagePath(dir, job[key!]), kind: "image", field: field! });
   if (job.lora_paths?.length) {
     const resources = await listResources(resolveConfig({ ...config, localMfluxDirectory: dir }));
@@ -72,10 +83,14 @@ export async function runExtended({ base, headers, dir, config, job, signal, pat
       inputs.push({ path: canonical, kind: "lora", field: "loras", scale: job.lora_scales?.[index] ?? 1 });
     }
   }
+  const sourceShas: string[] = [];
   for (const [i, input] of inputs.entries()) {
     signal.throwIfAborted();
     await patch({ status: "uploading", phase: `同步资源 ${i + 1}/${inputs.length}：${input.kind === "lora" ? basename(input.path) : "图片"}` });
-    if (input.field === "source_sha") await copyFile(input.path, join(dir, "images", job.id, "reference.png"));
+    if (input.field.startsWith("source_sha_")) {
+      const index = Number(input.field.slice("source_sha_".length));
+      await copyFile(input.path, join(dir, "images", job.id, sourceIds.length > 1 ? `reference-${index + 1}.png` : "reference.png"));
+    }
     const sha = await fingerprint(input.path);
     const url = `${base}/qwen/assets/${sha}?kind=${input.kind}`;
     const exists = await fetch(url, { method: "HEAD", headers, signal, redirect: "error" });
@@ -91,8 +106,11 @@ export async function runExtended({ base, headers, dir, config, job, signal, pat
       } finally { stream.destroy(); }
     }
     if (input.field === "loras") body.loras.push({ sha, scale: input.scale });
+    else if (input.field.startsWith("source_sha_")) sourceShas[Number(input.field.slice("source_sha_".length))] = sha;
     else body[input.field] = sha;
   }
+  if (sourceShas.length === 1) body.source_sha = sourceShas[0];
+  else if (sourceShas.length > 1) body.source_shas = sourceShas;
   signal.throwIfAborted();
   accepted(); // Submission may be accepted even if its response is lost.
   await responseJSON(await fetch(base + "/qwen/jobs", { method: "POST", headers, body: JSON.stringify(body), signal, redirect: "error" }));

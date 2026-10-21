@@ -5,11 +5,9 @@ import { dirname, join, basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash, randomUUID } from "node:crypto";
 import { gunzipSync } from "node:zlib";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { runCommand } from "./commands.js";
 import { satisfies } from "semver";
 import { atomicJSON } from "./storage.js";
-const exec = promisify(execFile);
 export const REPO = "kingcharleslzy-ai/dsh-qwen-studio";
 export const PACKAGE = "dsh-qwen-studio";
 export interface UpdatePreferences { autoCheck: boolean; autoInstall: boolean; intervalHours: number }
@@ -70,8 +68,8 @@ export function installedPaths(packageRoot = resolve(dirname(fileURLToPath(impor
   let profile=resolve(packageRoot,'../..');
   while(basename(dirname(profile)) !== 'profiles' && dirname(profile)!==profile) profile=dirname(profile);
   if(basename(packageRoot)!==PACKAGE || basename(dirname(packageRoot))!=='node_modules' || basename(dirname(profile))!=='profiles' || !existsSync(join(profile,'package.json')))throw Error("更新只能用于 DSH profile 中的正式安装；开发源码请使用 Git 更新");
-  profile=realpathSync(profile);
-  const canonical=realpathSync(packageRoot);
+  profile=realpathSync.native(profile);
+  const canonical=realpathSync.native(packageRoot);
   if(!canonical.startsWith(join(profile,'node_modules')+'/') && !canonical.startsWith(join(profile,'node_modules')+'\\'))
     throw Error("开发源码链接不自动覆盖，请使用正式安装包");
   return {packageRoot:canonical,profile,state:join(profile,'qwen-studio-updates')};
@@ -82,23 +80,26 @@ export function cliCommand() {
     const bundled='/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh';
     if(existsSync(bundled))return {command:'/bin/sh',args:[bundled]};
   }
+  if (process.platform === 'win32') {
+    const candidates = [
+      join(dirname(process.execPath), 'resources/runtime/cli/bin/dsh.cmd'),
+      join(process.env.LOCALAPPDATA || '', 'Programs/DeepSeek Harness/resources/runtime/cli/bin/dsh.cmd'),
+      join(process.env.ProgramFiles || '', 'DeepSeek Harness/resources/runtime/cli/bin/dsh.cmd'),
+    ];
+    const bundled = candidates.find(p => existsSync(p));
+    if (bundled) return { command: bundled, args: [] as string[] };
+  }
   return {command:process.platform==='win32'?'dsh.cmd':'dsh',args:[] as string[]};
 }
 export class PackageInstaller {
   readonly paths: ReturnType<typeof installedPaths>;
-  constructor(packageRoot?: string, private run:(command:string,args:string[],env?:Record<string,string>)=>Promise<string|void>=(command,args,env)=>exec(command,args,{timeout:180000,maxBuffer:2*1024*1024,windowsHide:true,env:{...process.env,...env}}).then(({stdout})=>stdout)) { this.paths=installedPaths(packageRoot); }
+  constructor(packageRoot?: string, private run:(command:string,args:string[],env?:Record<string,string>)=>Promise<string|void>=runCommand) { this.paths=installedPaths(packageRoot); }
   private async invoke(tarball:string) {
     const profileName=basename(this.paths.profile),home=resolve(this.paths.profile,'../../');
     if(resolve(home,'profiles',profileName)!==this.paths.profile)throw Error("仅支持 DSH_HOME/profiles/<名称> 的标准安装");
     const cli=cliCommand();
-    // Windows 的 dsh 是 .cmd，execFile 不能直接执行它（Node 会抛 EINVAL），
-    // 必须经 cmd.exe /c 转发；macOS/Linux 保持直接 execFile。
-    const bash=process.platform==='win32'&&/\.cmd$/i.test(cli.command);
-    const command=bash?(process.env.ComSpec||'cmd.exe'):cli.command;
-    const args=bash?['/d','/s','/c',cli.command,...cli.args,'plugin','--profile',profileName,'add',tarball]
-                   :[...cli.args,'plugin','--profile',profileName,'add',tarball];
-    // Native installer owns dependency/lockfile bookkeeping. No restart/reload commands.
-    await this.run(command,args,{DSH_HOME:home});
+    // Both version probing and package mutations use the same argv-safe launcher.
+    await this.run(cli.command,[...cli.args,'plugin','--profile',profileName,'add',tarball],{DSH_HOME:home});
   }
   async backups() {
     const root=join(this.paths.state,'backups');

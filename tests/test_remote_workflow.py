@@ -17,7 +17,7 @@ class RemoteWorkflowTest(unittest.TestCase):
         self.assertEqual(g['15']['inputs']['inpaint_image'],['11',0]);self.assertEqual(g['15']['inputs']['mask'],['13',0])
         self.assertEqual(g['6']['inputs']['model'],['15',0]);self.assertEqual(g['20']['inputs']['cfg'],2.5)
     def test_invalid_combinations_fail_instead_of_silently_downgrading(self):
-        for args in [dict(mask_sha='b'*64),dict(control_sha='b'*64,source_sha='c'*64),dict(source_sha='../private'),dict(control_sha='b'*64,scheduler='seedvr2_euler'),dict(loras=[dict(sha='b'*64,scale=float('nan'))])]:
+        for args in [dict(mask_sha='b'*64),dict(source_sha='../private'),dict(control_sha='b'*64,scheduler='seedvr2_euler'),dict(loras=[dict(sha='b'*64,scale=float('nan'))])]:
             with self.subTest(args=args),self.assertRaises(ValueError):self.base(**args)
     def test_reference_strength_changes_actual_step_count(self):
         weak=module.sigmas(self.base(source_sha='b'*64,change_strength=.1));strong=module.sigmas(self.base(source_sha='b'*64,change_strength=.9))
@@ -36,6 +36,27 @@ class RemoteWorkflowTest(unittest.TestCase):
     def test_native_edit_rejects_incompatible_legacy_knobs(self):
         for args in [dict(reference_mode='edit'),dict(reference_mode='unknown'),dict(source_sha='b'*64,reference_mode='edit',change_strength=.45),dict(source_sha='b'*64,reference_mode='edit',mask_sha='c'*64),dict(source_sha='b'*64,reference_mode='edit',width=528)]:
             with self.subTest(args=args),self.assertRaises(ValueError): self.base(**args)
+    def test_multi_image_edit_wires_every_reference_slot(self):
+        p=self.base(source_shas=['b'*64,'c'*64,'d'*64],reference_mode='edit')
+        g=module.graph(p)
+        self.assertEqual(p['source_sha'],'b'*64)
+        self.assertEqual(g['4']['inputs']['images.image_1'],['11',0])
+        self.assertEqual(g['4']['inputs']['images.image_2'],['41',0])
+        self.assertEqual(g['4']['inputs']['images.image_3'],['42',0])
+        self.assertEqual(g['31']['class_type'],'LoadImage')
+        self.assertEqual(g['41']['class_type'],'ImageScale')
+        self.assertEqual(g['7']['inputs']['latent_image'],['4',2])
+        for args in [dict(source_shas=['b'*64,'c'*64]),dict(source_shas=['b'*64,'c'*64],reference_mode='edit',mask_sha='d'*64),dict(source_shas=['b'*64],reference_mode='edit'),dict(source_shas=['b'*64,'bad'],reference_mode='edit')]:
+            with self.subTest(args=args),self.assertRaises(ValueError):self.base(**args)
+
+    def test_pose_control_uses_source_latent_without_a_mask(self):
+        p=self.base(source_sha='b'*64,control_sha='c'*64,change_strength=.9)
+        g=module.graph(p)
+        self.assertEqual(g['15']['inputs']['image'],['12',0])
+        self.assertNotIn('inpaint_image',g['15']['inputs'])
+        self.assertEqual(g['7']['inputs']['latent_image'],['16',0])
+        self.assertEqual(len(module.sigmas(p))-1,18)
+
     def test_cfg_without_negative_does_not_become_quality_knob(self):
         g=module.graph(self.base(guidance=5));self.assertEqual(g['20']['inputs']['cfg'],1)
 if __name__=='__main__':unittest.main()

@@ -1,6 +1,6 @@
 # Qwen 远程高级网关
 
-2.7.0 的配套网关让 DSH 的创作页和会话共用远程文生图、LoRA、结构控制、蒙版重绘、强度式参考变体及真实采样进度。普通 OpenAI Images API 仍作为基础文生图接口兼容；只有完成能力握手的 Qwen 网关才启用高级参数，不会静默忽略效果。
+配套网关让 DSH 的创作页和会话共用远程文生图、LoRA、结构控制、蒙版重绘、强度式参考变体及真实采样进度。普通 OpenAI Images API 仍作为基础文生图接口兼容；只有完成能力握手的 Qwen 网关才启用高级参数，不会静默忽略效果。
 
 ## 服务器准备
 
@@ -32,7 +32,7 @@ model_patches/qwen_image_2.1_fun_controlnet_union_int8_convrot.safetensors
 5. 使用该 venv 的 Python 运行 `qwen_gateway.py`。默认 root 是脚本所在目录，也可通过 `QWEN_REMOTE_ROOT` 指定。网关监听 `127.0.0.1:19488`；收到请求才启动自己的 ComfyUI（`127.0.0.1:19489`），闲置后关闭其进程树。不会关闭其他推理服务。
 6. 在插件设置选择远程，接口地址填 `http://127.0.0.1:19488/v1`，模型 `qwen-image-2.1-int8`，填写密钥。在「按需 SSH 主机」填已配置的 SSH 别名（例如 `gpu-server`），服务器网关端口填 `19488`。首次信任服务器主机密钥和配置公钥登录须先在终端完成，插件不会自动接受陌生主机密钥或索要密码。服务器的轻量网关可由 Task Scheduler / systemd 待命；SSH 隧道由插件按需管理，不再需要 Mac 登录时常驻的隧道。已有常驻转发须先停用，否则同一端口会冲突，插件不会杀掉不属于自己的进程。
 
-不要和视频模型并行推理。本网关会在启动时检查常用视频服务端口及显存占用，但这不等于跨所有程序的 GPU 互斥锁。
+不要和视频模型并行推理。本网关会在首次任务启动 ComfyUI 前检查常用视频服务端口及显存占用，但这不等于跨所有程序的 GPU 互斥锁。
 
 ## 按需连接与统一空闲时间（2.8.0）
 
@@ -46,7 +46,7 @@ model_patches/qwen_image_2.1_fun_controlnet_union_int8_convrot.safetensors
 
 ## 现有预设无需迁移
 
-预设仍引用 Mac 上资源库的路径、图片 ID 和指纹。用户选文件后首先导入 Mac 资源库；生成任务只同步本次选中的资源。LoRA 与图片使用 SHA256 校验，在远程私有缓存中复用，不需要填 Windows 路径。现有配置、收藏/隐私分类及默认预设不变。
+预设仍引用 客户端电脑上资源库的路径、图片 ID 和指纹。用户选文件后首先导入 Mac 资源库；生成任务只同步本次选中的资源。LoRA 与图片使用 SHA256 校验，在远程私有缓存中复用，不需要填 Windows 路径。现有配置、收藏/隐私分类及默认预设不变。
 
 首次同步较大的 LoRA 可能需要等待。此时显示“同步资源”；模型加载阶段和采样阶段分别显示，采样步数来自 ComfyUI WebSocket 事件。图片先保存回原图库，再在创作页和对话里显示。不同计算后端即使同种子也不保证像素相同。
 
@@ -55,7 +55,7 @@ model_patches/qwen_image_2.1_fun_controlnet_union_int8_convrot.safetensors
 - LoRA 最多 8 个，每个权重 0–2；无匹配层时报错，不冒充已启用。
 - ControlNet 使用 Qwen Image **2.1** Union，控制图需已是线稿、边缘、深度、姿态等图。界面不会从任意照片自动生成姿态图。
 - 蒙版白色区域重画、黑色区域保留。服务器会把原图缩放到输出尺寸，并将黑色区域原像素复制回结果；同尺寸时可做像素一致检查。灰度蒙版按 128 阈值转为二值。不要同时传参考变化幅度。
-- 原图 + ControlNet 同时使用时需要蒙版。普通参考变体通过 VAE 编码原图与截取噪声表实现，变化幅度越高，采样越充分；不等于精准指令编辑。
+- 远程支持原图 + ControlNet 的参考变体；本机 MLX 组合仍需要蒙版。普通参考变体通过 VAE 编码原图与截取噪声表实现，变化幅度越高，采样越充分；不等于精准指令编辑。
 - 支持 `linear`、`flow_match_euler_discrete`、`seedvr2_euler`。网关显式生成噪声表，使用 ComfyUI 原生 Euler 采样器；前两者分别按 MFLUX 的 Qwen 分辨率时间偏移/终点规则及 FlowMatch 表计算，SeedVR2 使用均匀表。ControlNet 和蒙版沿用 `linear` 限制。
 - 文生图 CFG 只在负向词非空时生效；填写负向词且引导强度为 1 时自动采用 2.5。控制/蒙版分支允许空负向词与 CFG 大于 1。
 
@@ -86,7 +86,11 @@ MLX 与 PyTorch/CUDA 的同一个 seed 不保证产生相同初始噪声；量�
 
 更新服务器端 qwen_workflow.py 并在网关空闲时重启网关；capabilities.features 应含 reference_edit。客户端选择 reference_mode=edit 会把 source_sha 送入 TextEncodeQwenImage21 的 images.image_1、VAE参考潜变量与空目标潜变量，使用完整采样表，不截断为旧的部分降噪。使用 linear、32倍数尺寸，不传 change_strength、蒙版或控制图。旧的 source_image_id + change_strength 继续执行参考变体，未改已有预设。
 
-原生模式更适合按指令换风格，仍不保证任意位置严格不变；有像素保留要求时使用原来的蒙版流程。目前本机未接入这条编辑分支，客户端会明确拒绝，不自动切后端。
+原生模式更适合按指令换风格，仍不保证任意位置严格不变；有像素保留要求时使用原来的蒙版流程。本机 Apple Silicon 在完整视觉模型与 MFLUX 0.22.0 条件下也支持单图原生编辑；多图仍只支持配套远程网关。
 
 **网关不会在空密钥下启动**：`gateway-config.json` 的 `api_key` 至少 16 位，否则直接报错退出（空密钥等于同机任意进程都能调用）。
 
+
+## Windows 编码与依赖
+
+配置按 UTF-8 读取，也兼容 PowerShell 5.1 `Set-Content -Encoding UTF8` 写出的 BOM。`api_key` 必填且至少 16 字符。客户端图片导入另需 Pillow，评分另需 numpy，详见 [SETUP.md](SETUP.md)。当前工作流加载指定的 safetensors；不能将 GGUF 路径直接替换进去。

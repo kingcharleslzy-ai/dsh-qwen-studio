@@ -48,6 +48,24 @@ test("advanced creation sends the same plugin parameters and does not silently d
   ).toThrow("同时使用");
   expect(() => generationPayload(draft, true, "id")).toThrow("仅支持本地");
 });
+test("multi-reference edit sends source_image_ids and rejects illegal combinations", () => {
+  const person = "a".repeat(32), garment = "b".repeat(32), third = "c".repeat(32);
+  const draft = {
+    ...base,
+    sourceId: person,
+    additionalSourceIds: [garment],
+    additionalSourceNames: ["garment"],
+    referenceMode: "edit" as const,
+  };
+  const payload = generationPayload(draft, false, "d".repeat(32));
+  expect(payload).toMatchObject({ source_image_ids: [person, garment], reference_mode: "edit" });
+  expect(payload).not.toHaveProperty("source_image_id");
+  expect(payload).not.toHaveProperty("change_strength");
+  expect(() => generationPayload({ ...draft, referenceMode: "variation" }, false, "id")).toThrow("多图");
+  expect(() => generationPayload({ ...draft, maskEnabled: true, maskId: third, maskSourceId: person }, false, "id")).toThrow("多图");
+  expect(() => generationPayload({ ...draft, additionalSourceIds: Array(8).fill(garment) }, false, "id")).toThrow("最多");
+});
+
 test("disabled effects retain their selections without leaking into plain generation", () => {
   const payload = generationPayload(
     {
@@ -180,4 +198,19 @@ test("native reference edit is explicit, roundtrips results and leaves legacy st
   expect(reuseDraft({ ...edit, id: sourceId, status: "complete", started_at: 1, seed: 1 } as any, false)).toMatchObject({ referenceMode: "edit" });
   const html = renderToStaticMarkup(createElement(AdvancedSettings, { draft: { ...base, sourceId, referenceMode: "edit" }, update() {}, remote: false, nativeEdit: true, ready: true, close() {} }));
   expect(html).toContain("按指令编辑"); expect(html).not.toContain('aria-label="高级变化幅度"');
+});
+
+test("advanced settings expose the multi-reference picker only in native edit mode", () => {
+  const props = { update: () => {}, remote: false, ready: true, close: () => {} };
+  const html = renderToStaticMarkup(createElement(AdvancedSettings, {
+    ...props,
+    draft: { ...base, sourceId: "a".repeat(32), referenceMode: "edit" as const },
+  }));
+  expect(html).toContain("多图参考");
+  expect(html).toContain("添加服装/物品参考");
+  const variation = renderToStaticMarkup(createElement(AdvancedSettings, {
+    ...props,
+    draft: { ...base, sourceId: "a".repeat(32), referenceMode: "variation" as const },
+  }));
+  expect(variation).not.toContain("多图参考");
 });

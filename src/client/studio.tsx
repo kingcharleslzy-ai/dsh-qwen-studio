@@ -172,6 +172,8 @@ export function Studio() {
     update({
       sourceId: "",
       sourceName: "",
+      additionalSourceIds: [],
+      additionalSourceNames: [],
       maskId: "",
       maskName: "",
       maskEnabled: false,
@@ -187,6 +189,8 @@ export function Studio() {
       for (const key of ["sourceId", "controlId", "maskId", "maskSourceId"])
         if (Object.prototype.hasOwnProperty.call(patch, key))
           delete missingResources[key];
+      if (Object.prototype.hasOwnProperty.call(patch, "additionalSourceIds"))
+        delete missingResources.sourceExtra;
       const value = { ...old, missingResources, ...patch };
       localStorage.setItem(DRAFT, JSON.stringify(value));
       return value;
@@ -468,6 +472,8 @@ export function Studio() {
                         update({
                           sourceId: "",
                           sourceName: "",
+                          additionalSourceIds: [],
+                          additionalSourceNames: [],
                           maskId: "",
                           maskEnabled: false,
                           maskSourceId: "",
@@ -662,7 +668,7 @@ export function Studio() {
                 ) : (
                   <ArrowUp size={17} />
                 )}
-                {draft.sourceId ? "生成变体" : "生成图片"} <small>⌘ ↵</small>
+                {draft.sourceId ? "生成变体" : "生成图片"} <small>{typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ ↵" : "Ctrl ↵"}</small>
               </button>
             </div>
           </div>

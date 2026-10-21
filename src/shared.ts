@@ -5,6 +5,7 @@ export interface Job {
   guidance_auto_raised?: boolean;
   scheduler?: "linear" | "flow_match_euler_discrete" | "seedvr2_euler";
   source_image_id?: string;
+  source_image_ids?: string[];
   reference_mode?: "variation" | "edit";
   controlnet_image_id?: string;
   controlnet_strength?: number;
