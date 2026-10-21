@@ -66,7 +66,7 @@ sh "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" \
 
 **Local:** Apple Silicon, Python 3.12, MFLUX 0.22.0 and separately prepared Qwen Image 2.1 weights. Native editing needs a complete checkpoint with the vision encoder and processor; text-only exports are insufficient. Memory requirements depend on weights, resolution and extra components. [Setup guide](docs/SETUP.md).
 
-**Remote:** deploy the bundled Qwen gateway with your ComfyUI installation and model files. Configure its `/v1` address, model, optional key and SSH alias. Ordinary OpenAI-compatible Images APIs support basic text-to-image only; do not enter a raw ComfyUI address as an Images endpoint. Windows / RTX 4090 D is GPU-tested; Linux lifecycle code is not yet GPU-qualified. [Remote guide](docs/REMOTE.md).
+**Remote:** deploy the bundled Qwen gateway with your ComfyUI installation and model files. Configure its `/v1` address, model, optional key and SSH alias. Ordinary OpenAI-compatible Images APIs support basic text-to-image only; do not enter a raw ComfyUI address as an Images endpoint. Windows / 24 GB NVIDIA GPU is GPU-tested; Linux lifecycle code is not yet GPU-qualified. [Remote guide](docs/REMOTE.md).
 
 Weights are not distributed or automatically downloaded. In-place upgrades preserve your configured data directory, existing presets and gallery originals.
 

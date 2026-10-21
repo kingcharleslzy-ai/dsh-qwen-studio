@@ -87,3 +87,6 @@ MLX 与 PyTorch/CUDA 的同一个 seed 不保证产生相同初始噪声；量�
 更新服务器端 qwen_workflow.py 并在网关空闲时重启网关；capabilities.features 应含 reference_edit。客户端选择 reference_mode=edit 会把 source_sha 送入 TextEncodeQwenImage21 的 images.image_1、VAE参考潜变量与空目标潜变量，使用完整采样表，不截断为旧的部分降噪。使用 linear、32倍数尺寸，不传 change_strength、蒙版或控制图。旧的 source_image_id + change_strength 继续执行参考变体，未改已有预设。
 
 原生模式更适合按指令换风格，仍不保证任意位置严格不变；有像素保留要求时使用原来的蒙版流程。目前本机未接入这条编辑分支，客户端会明确拒绝，不自动切后端。
+
+**网关不会在空密钥下启动**：`gateway-config.json` 的 `api_key` 至少 16 位，否则直接报错退出（空密钥等于同机任意进程都能调用）。
+

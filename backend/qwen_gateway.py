@@ -55,6 +55,8 @@ def validate_asset(path,kind,size):
 class Service:
     def __init__(self):
         self.config=json.loads(CONFIG.read_text())
+        key=str(self.config.get('api_key') or '')
+        if len(key)<16: raise SystemExit('gateway-config.json 的 api_key 至少 16 位；空密钥会让同机任意进程都能调用，拒绝启动')
         self.process=None;self.log=None;self.lock=asyncio.Lock();self.last=time.monotonic()
         self.jobs={};self.tasks={};self.cancelled=set();self.current=None;self.uploads={}
         for p in (ROOT/'jobs').glob('*/job.json'):
@@ -136,6 +138,8 @@ class Service:
         p=normalize(data);id=p['id']
         for key in ('source_sha','mask_sha','control_sha'):
             if p.get(key) and not asset_path(p[key],'image').is_file():raise ValueError('Missing uploaded '+key)
+        for sha in p.get('source_shas',[])[1:]:
+            if not asset_path(sha,'image').is_file():raise ValueError('Missing uploaded reference image')
         for lora in p['loras']:
             if not asset_path(lora['sha'],'lora').is_file():raise ValueError('Missing uploaded LoRA')
         if (p.get('mask_sha') or p.get('control_sha')) and not (ROOT/'ComfyUI/models/model_patches/qwen_image_2.1_fun_controlnet_union_int8_convrot.safetensors').is_file():raise ValueError('Qwen Image 2.1 Union weights are not ready')
@@ -211,7 +215,7 @@ class Service:
                                 destination=ROOT/'jobs'/id/'image.png';tmp=destination.with_suffix('.pending.png');tmp.write_bytes(png);tmp.replace(destination)
                                 seconds=round(time.monotonic()-started,2)
                                 self.patch(id,status='complete',step=job['sampling_steps'],elapsed_seconds=seconds,phase='已完成',guidance=p['guidance'],guidance_auto_raised=p.get('guidance_auto_raised',False))
-                                logging.info('Complete %s in %ss, control=%s, mask=%s, LoRAs=%s',id,seconds,bool(p.get('control_sha')),bool(p.get('mask_sha')),len(p['loras']))
+                                logging.info('Complete %s in %ss, sources=%s, control=%s, mask=%s, LoRAs=%s',id,seconds,len(p.get('source_shas',[])),bool(p.get('control_sha')),bool(p.get('mask_sha')),len(p['loras']))
                                 return
                         await asyncio.sleep(.5)
                     raise RuntimeError('Generation exceeded 30 minutes')
