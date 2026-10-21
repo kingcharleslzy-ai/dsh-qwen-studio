@@ -1,0 +1,106 @@
+export interface GenerationArgs {
+    prompt: string;
+    width?: number;
+    height?: number;
+    steps?: number;
+    seed?: number;
+    negative_prompt?: string;
+    guidance?: number;
+    scheduler?: string;
+    source_image_id?: string;
+    source_image_ids?: string[];
+    change_strength?: number;
+    reference_mode?: string;
+    controlnet_image_id?: string;
+    controlnet_strength?: number;
+    mask_image_id?: string;
+    lora_paths?: string[];
+    lora_scales?: number[];
+}
+/** Same validation as the single-image tool, shared with batch submission. */
+export declare function validateGeneration(args: GenerationArgs): void;
+export declare function newJobId(): string;
+/** Build the worker payload; callers submit it through the same queue. */
+export declare function generationPayload(args: GenerationArgs, id: string): {
+    mask_image_id?: string;
+    controlnet_strength?: number;
+    controlnet_image_id?: string;
+    lora_scales?: number[];
+    lora_paths?: string[];
+    scheduler?: string;
+    guidance?: number;
+    negative_prompt?: string;
+    source_image_ids: string[];
+    reference_mode: string;
+    id: string;
+    prompt: string;
+    width: number;
+    height: number;
+    steps: number;
+    seed: number | null;
+} | {
+    mask_image_id?: string;
+    controlnet_strength?: number;
+    controlnet_image_id?: string;
+    lora_scales?: number[];
+    lora_paths?: string[];
+    scheduler?: string;
+    guidance?: number;
+    negative_prompt?: string;
+    reference_mode: string;
+    source_image_id: string;
+    id: string;
+    prompt: string;
+    width: number;
+    height: number;
+    steps: number;
+    seed: number | null;
+} | {
+    mask_image_id?: string;
+    controlnet_strength?: number;
+    controlnet_image_id?: string;
+    lora_scales?: number[];
+    lora_paths?: string[];
+    scheduler?: string;
+    guidance?: number;
+    negative_prompt?: string;
+    change_strength: number;
+    source_image_id: string;
+    id: string;
+    prompt: string;
+    width: number;
+    height: number;
+    steps: number;
+    seed: number | null;
+} | {
+    mask_image_id?: string;
+    controlnet_strength?: number;
+    controlnet_image_id?: string;
+    lora_scales?: number[];
+    lora_paths?: string[];
+    scheduler?: string;
+    guidance?: number;
+    negative_prompt?: string;
+    source_image_id: string;
+    id: string;
+    prompt: string;
+    width: number;
+    height: number;
+    steps: number;
+    seed: number | null;
+} | {
+    mask_image_id?: string;
+    controlnet_strength?: number;
+    controlnet_image_id?: string;
+    lora_scales?: number[];
+    lora_paths?: string[];
+    scheduler?: string;
+    guidance?: number;
+    negative_prompt?: string;
+    id: string;
+    prompt: string;
+    width: number;
+    height: number;
+    steps: number;
+    seed: number | null;
+};
