@@ -1,0 +1,32 @@
+图像 for DSH / dsh-qwen-studio
+Copyright 2026 kingcharleslzy-ai and contributors
+
+This project includes work derived from dsh-image-gen:
+https://github.com/shanliuling/dsh-image-gen
+Copyright 2026 shanliuling
+Licensed under the Apache License, Version 2.0.
+
+The DSH integration originated from dsh-image-gen v0.9.1
+(commit b128d0d38416360f6835c07331bc5b78ddcd242a).
+This distribution is independently maintained. It substantially changes the
+interface, local Qwen worker, durable queue, gallery, privacy preferences,
+conversation results, settings and model-facing tool/skill flow.
+It does not require the dsh-image-gen package at runtime.
+
+Qwen, MLX, MFLUX and DeepSeek Harness belong to their respective owners.
+Their model weights, inference dependencies and licenses are separate.
+ComfyUI and InvokeAI informed queue/workspace design; no source from those
+projects is included in this distribution.
+
+Remote sigma schedules follow the published MFLUX scheduler formulas.
+MFLUX: Copyright (c) 2026 Filip Strand, MIT License.
+The license is included in LICENSES/MFLUX-MIT.txt.
+ComfyUI is a separately installed dependency; the checked LoRA node calls its
+native loader and does not vendor ComfyUI implementation code.
+
+The update compatibility checker bundles node-semver 7.7.2 (ISC), copyright
+Isaac Z. Schlueter and Contributors. Its license is in LICENSES/SEMVER-ISC.txt.
+
+Windows process launching bundles cross-spawn 7.0.6 (MIT) and its dependencies
+path-key, which, isexe, shebang-command and shebang-regex. Their licenses are
+included in LICENSES/*-LICENSE.txt.
