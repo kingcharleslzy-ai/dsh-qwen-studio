@@ -21,6 +21,10 @@ test("remote mode keeps the shared idle control visible and saves it without rep
     await act(async () => { input.props.onChange({ target: { value: "7" } }); await flush(); });
     await act(async () => { await tree.root.findAllByType("button").find((n: any) => n.children.join("") === "保存设置").props.onClick(); });
     expect(mutations).toEqual([[{ op: "set", path: ["localMfluxIdleMinutes"], value: 7 }]]);
+    const mode = tree.root.findByProps({"aria-label":"远程文生图默认档位"});
+    await act(async () => { mode.props.onChange({target:{value:"turbo"}}); await flush(); });
+    await act(async () => { await tree.root.findAllByType("button").find((n: any) => n.children.join("") === "保存设置").props.onClick(); });
+    expect(mutations.at(-1)).toEqual([{op:"set",path:["remoteImageMode"],value:"turbo"}]);
   } finally { await act(async () => tree?.unmount()); vi.unstubAllGlobals(); }
 });
 function environment() {

@@ -274,6 +274,11 @@ export class Worker {
     return this.submit(path, data, false);
   }
   private async submit(path: string, data: unknown, start = true) {
+    if (path === "/v1/jobs" && this.mode() === "local" && data && typeof data === "object" && "image_mode" in data) {
+      if (data.image_mode !== "quality") throw Error("Turbo 仅支持远程 Qwen 网关；请在图像设置里选择远程。");
+      const { image_mode, ...local } = data;
+      data = local;
+    }
     const referenceMode = (data as Record<string, unknown>)?.reference_mode;
     const sourceIds = (data as Record<string, unknown>)?.source_image_ids;
     if (path === "/v1/jobs" && Array.isArray(sourceIds) && sourceIds.length && this.mode() !== "remote")

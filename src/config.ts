@@ -9,6 +9,7 @@ export interface Config {
   loraDirectory?: string;
   remoteBaseURL?: string;
   remoteModel?: string;
+  remoteImageMode?: "quality" | "turbo";
   remoteApiKey?: string;
   remoteSshHost?: string;
   remoteSshPort?: number;
@@ -22,6 +23,7 @@ export const Config = z.object({
   hfHome: z.string().default("").volatile(),
   loraDirectory: z.string().default("").volatile(),
   remoteBaseURL: z.string().default("").volatile(),
+  remoteImageMode: z.union(["quality", "turbo"]).default("quality").volatile(),
   remoteModel: z.string().default("qwen-image").volatile(),
   remoteApiKey: z.string().default("").role("secret").volatile(),
   remoteSshHost: z.string().default("").volatile(),

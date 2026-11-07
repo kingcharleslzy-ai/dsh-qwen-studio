@@ -1,6 +1,6 @@
 ---
 name: qwen-image
-description: DSH 图像工作区：生图优先 qwen_generate_image，同步对话进度与图库；原生参考编辑用 reference_mode=edit；qwen_image_import 导入网址/本机文件/对话参考图，qwen_image_resources 查资源，qwen_image_presets 配置和保存整套预设，qwen_image_connection 实时切换本机/远程并设置空闲卸载；qwen_image_jobs 批量查队列、qwen_image_cancel 取消任务、qwen_image_gallery 只读检索图库、qwen_image_batch 批量提交、qwen_image_import_many 批量导入、qwen_image_export 复制导出、qwen_image_score 本地客观评分、qwen_image_reroll 按标记重投、`source_image_ids` 多图编辑。不改跑独立脚本。
+description: DSH 图像工作区：远程 Turbo 快速文生图用 image_mode=turbo，生图优先 qwen_generate_image，同步对话进度与图库；原生参考编辑用 reference_mode=edit；qwen_image_import 导入网址/本机文件/对话参考图，qwen_image_resources 查资源，qwen_image_presets 配置和保存整套预设，qwen_image_connection 实时切换本机/远程并设置空闲卸载；qwen_image_jobs 批量查队列、qwen_image_cancel 取消任务、qwen_image_gallery 只读检索图库、qwen_image_batch 批量提交、qwen_image_import_many 批量导入、qwen_image_export 复制导出、qwen_image_score 本地客观评分、qwen_image_reroll 按标记重投、`source_image_ids` 多图编辑。不改跑独立脚本。
 whenToUse: 实际生图、搜索参考图后图生图、按指令改图或换画风、导入图片、参考变体、局部重绘、配置 LoRA/控制图/蒙版/采样、保存或加载图像预设、切换本机或远程生图、调整空闲卸载时间、批量提交或导入、批量查任务/取消任务、按提示词或种子检索图库、导出任务文件、查询资源或已有结果时加载。仅写提示词、讨论方案、搜索已有图片时不自动生成。
 ---
 
@@ -10,6 +10,7 @@ whenToUse: 实际生图、搜索参考图后图生图、按指令改图或换画
 
 用户要出图时，使用已注册的 `qwen_generate_image`。它统一管理任务、按需启动、会话进度、图片附件与图库；提示词类技能负责画面描述，执行仍走此工具。若本技能正文已经完整注入，不重复加载。
 
+- 用户说“用 Turbo 快速打样”时，调用 `qwen_generate_image(prompt=完整画面描述, image_mode="turbo")`。该档加载 Qwen 2.1 Turbo 权重，固定 8 步，适用远程纯文生图。用户要求质量档时传 `image_mode="quality"`。省略档位沿用插件设置；单独改步数不会切换模型。
 - 常规生图、参考变体、负向提示词、CFG 与支持的调度器，优先用工具当前公布的参数。
 - 不用终端、Python/MFLUX CLI、旧生图工具、直接 HTTP 请求或手写图库文件代替插件；不用安装软件、修改插件、运行补丁或手动启动服务。
 - 工具缺失、参数未支持或失败时，如实说明具体情况，保留任务 ID。不要静默改跑脚本或切到其他服务。只有用户明确要求使用独立 CLI/其他产品时才采用其指定路线，并说明它不具备本插件完整的会话进度同步。

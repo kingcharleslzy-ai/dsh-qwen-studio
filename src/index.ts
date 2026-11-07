@@ -222,6 +222,7 @@ export function apply(ctx: Context, config: Config = {}) {
                 return json(200, {
                   ...gallerySnapshots.project(jobs, prior),
                   apiVersion: 10,
+                  remoteImageMode: current().remoteImageMode ?? "quality",
                   remoteAdvanced: worker.mode() === "remote" && Boolean(await worker.capabilities().catch(() => null)),
                   referenceEditSupported: (await worker.referenceEditing()).supported,
                   health:

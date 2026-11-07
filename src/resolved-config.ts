@@ -28,6 +28,7 @@ export function resolveConfig(
     hfHome,
     loraDirectory: path(raw.loraDirectory || join(directory, "loras")),
     remoteBaseURL: raw.remoteBaseURL || "",
+    remoteImageMode: raw.remoteImageMode ?? "quality",
     remoteModel: raw.remoteModel || "qwen-image",
     remoteApiKeyConfigured: Boolean(raw.remoteApiKey),
     remoteSshHost: raw.remoteSshHost || "",

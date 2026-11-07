@@ -1,5 +1,6 @@
 export const API = "/api/qwen-studio";
 export interface Job {
+  image_mode?: "quality" | "turbo";
   negative_prompt?: string;
   guidance?: number;
   guidance_auto_raised?: boolean;
@@ -51,6 +52,7 @@ export interface Snapshot {
   apiVersion?: number;
   jobsRevision?: string;
   remoteAdvanced?: boolean;
+  remoteImageMode?: "quality" | "turbo";
   referenceEditSupported?: boolean;
   jobs: Job[];
   health: Health;

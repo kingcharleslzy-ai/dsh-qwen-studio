@@ -31,6 +31,7 @@ const rawDefaults: Config = {
   loraDirectory: "",
   remoteBaseURL: "",
   remoteModel: "qwen-image",
+  remoteImageMode: "quality",
   remoteApiKey: "",
   remoteSshHost: "",
   remoteSshPort: 19488,
@@ -301,6 +302,15 @@ export function Settings({ scope }: { scope?: Scope }) {
                 onChange={(e) => change("remoteBaseURL", e.target.value)}
               />
               {hint("remoteBaseURL")}
+            </label>
+            <label>
+              远程文生图默认档位
+              <select aria-label="远程文生图默认档位" value={value.remoteImageMode ?? "quality"}
+                onChange={(e) => change("remoteImageMode", e.target.value)}>
+                <option value="quality">质量 · 基础模型</option>
+                <option value="turbo">Turbo · 8 步预览</option>
+              </select>
+              <small>纯文生图可在对话中临时指定档位；参考图和高级控制沿用质量档。</small>
             </label>
             <label>
               模型名称
