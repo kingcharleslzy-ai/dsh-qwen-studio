@@ -54,7 +54,7 @@ Native Qwen Image 2.1 generation & reference editing for **DeepSeek Harness**.
 - **用时启动，空闲释放** — 本机模型按需加载；远程按需 SSH、资源自动同步，模型卸载后断开。统一空闲时间可由界面或 Agent 调整。
 - **试稿收好，作品精选** — 默认存入隐私图库，收藏后进入普通图库；支持搜索、批量归档与回收站。隐私分类不隐藏对话图片，也不是加密或密码锁。
 
-这是 **DeepSeek Harness 插件**，不是独立生图 App。应用里叫「图像」，安装包为 `dsh-qwen-studio`，当前 **2.19.1**。独立维护、独立发布，无需安装旧 `dsh-image-gen`。
+这是 **DeepSeek Harness 插件**，不是独立生图 App。应用里叫「图像」，安装包为 `dsh-qwen-studio`，当前 **2.19.2**。独立维护、独立发布，无需安装旧 `dsh-image-gen`。
 
 ## 先看这台机器跑不跑得动
 

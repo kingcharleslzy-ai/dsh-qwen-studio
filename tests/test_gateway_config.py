@@ -7,6 +7,45 @@ import tempfile
 import unittest
 
 class GatewayConfigTest(unittest.TestCase):
+    def test_runtime_selection_after_reinstall(self):
+        from unittest.mock import patch
+        backend = Path(__file__).parents[1] / 'backend'
+        with patch.object(sys, 'path', [str(backend), *sys.path]):
+            import qwen_gateway as gateway
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            config = root / 'gateway-config.json'
+            original = {'api_key': 'test-only-key-0123456789'}
+            legacy = root / 'ComfyUI'
+            legacy_python = root / ('venv/Scripts/python.exe' if os.name == 'nt' else 'venv/bin/python')
+            custom = root / '新 runtime'
+            python = custom / 'env' / legacy_python.name
+            for f in (legacy / 'main.py', legacy_python, custom / 'main.py', python):
+                f.parent.mkdir(parents=True, exist_ok=True)
+                f.touch()
+            with patch.object(gateway, 'ROOT', root), patch.object(gateway, 'CONFIG', config):
+                config.write_text(json.dumps(original), encoding='utf-8')
+                cwd, argv = gateway.Service().comfy_launch()
+                self.assertEqual((cwd, argv[0]), (legacy, str(legacy_python)))
+                self.assertNotIn('--use-sage-attention', argv)
+                settings = dict(original, comfy_root=str(custom), python_executable=str(python),
+                                use_sage_attention=True, conserve_memory=True)
+                config.write_text(json.dumps(settings), encoding='utf-8')
+                cwd, argv = gateway.Service().comfy_launch()
+                self.assertEqual((cwd, argv[0]), (custom, str(python)))
+                self.assertIn('--use-sage-attention', argv)
+                self.assertIn('--cache-none', argv)
+                self.assertEqual(argv[argv.index('--input-directory') + 1], str(legacy / 'input'))
+                self.assertEqual(argv[argv.index('--output-directory') + 1], str(legacy / 'output'))
+                for overrides in ({'comfy_root': str(custom)}, {'python_executable': str(python)},
+                                  {'comfy_root': '', 'python_executable': str(python)},
+                                  {'comfy_root': str(custom), 'python_executable': str(root / 'gone')},
+                                  {'comfy_root': str(root / 'gone'), 'python_executable': str(python)}):
+                    with self.subTest(overrides=overrides):
+                        config.write_text(json.dumps({**original, **overrides}), encoding='utf-8')
+                        with self.assertRaises(ValueError):
+                            gateway.Service().comfy_launch()
+
     def test_powershell_bom_and_unicode_config_are_loaded_without_locale_dependence(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
