@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 export interface GenerationArgs {
   prompt: string;
+  image_mode?: string;
   width?: number;
   height?: number;
   steps?: number;
@@ -46,6 +47,7 @@ export function generationPayload(args: GenerationArgs, id: string) {
   return {
     id,
     prompt: args.prompt,
+    ...(args.image_mode ? { image_mode: args.image_mode } : {}),
     width: args.width ?? 1024,
     height: args.height ?? 1024,
     steps: args.steps ?? 40,

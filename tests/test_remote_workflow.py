@@ -3,6 +3,15 @@ p=pathlib.Path(__file__).parents[1]/'backend/qwen_workflow.py'
 spec=importlib.util.spec_from_file_location('qwen_workflow',p);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
 class RemoteWorkflowTest(unittest.TestCase):
     def base(self,**kw):return module.normalize(dict(id='a'*32,prompt='a blue teapot',width=512,height=512,steps=20,seed=42)|kw)
+    def test_turbo_selects_distilled_weights_and_eight_step_schedule(self):
+        request = self.base(image_mode='turbo')
+        graph = module.graph(request)
+        self.assertEqual(request['steps'], 8)
+        self.assertIn('turbo_int8', graph['1']['inputs']['unet_name'])
+        self.assertEqual(module.sigmas(request), [1, .978453, .95418, .926626, .89508, .845148, .704534, .414568, 0])
+        self.assertNotIn('turbo', module.graph(self.base(steps=8))['1']['inputs']['unet_name'])
+        with self.assertRaises(ValueError):
+            self.base(image_mode='turbo', source_sha='b'*64)
     def test_shared_presets_have_real_scheduler_tables(self):
         tables=[]
         for name in module.SCHEDULERS:

@@ -1,4 +1,5 @@
 export const generationParameters = {
+        image_mode: { type: "string", description: "Remote Qwen text-to-image mode: turbo selects the dedicated Turbo checkpoint and fixed 8-step schedule; quality selects the base model. Omit to use settings. Turbo accepts plain positive text only; no reference images, LoRA or advanced controls." },
         prompt: {
           type: "string",
           required: true,

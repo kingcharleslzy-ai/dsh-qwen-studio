@@ -64,7 +64,7 @@ export async function runExtended({ base, headers, dir, config, job, signal, pat
   reconnect?: (() => Promise<void>) | undefined;
 }) {
   const inputs: { path: string; kind: "image" | "lora"; field: string; scale?: number }[] = [];
-  const body: Record<string, any> = { id: job.id, model: config.remoteModel || "qwen-image", prompt: job.prompt, width: job.width, height: job.height, steps: job.steps, seed: job.seed, loras: [] };
+  const body: Record<string, any> = { id: job.id, model: config.remoteModel || "qwen-image", ...(job.image_mode === "turbo" ? { image_mode: "turbo" } : {}), prompt: job.prompt, width: job.width, height: job.height, steps: job.steps, seed: job.seed, loras: [] };
   for (const k of ["negative_prompt", "guidance", "scheduler", "reference_mode", "change_strength", "controlnet_strength"])
     if (job[k] != null) body[k] = job[k];
   const sourceIds: string[] = job.source_image_ids?.length ? job.source_image_ids : job.source_image_id ? [job.source_image_id] : [];

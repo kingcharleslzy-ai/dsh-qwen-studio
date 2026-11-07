@@ -18,6 +18,7 @@ export function jobToGenerationArgs(job: Job, stride = 1): GenerationArgs {
     width: job.width,
     height: job.height,
     steps: job.steps,
+    ...(job.source === "remote" ? {image_mode: job.image_mode ?? "quality"} : {}),
     ...(seed !== undefined ? { seed } : {}),
     ...(job.negative_prompt ? { negative_prompt: job.negative_prompt } : {}),
     ...(job.guidance !== undefined ? { guidance: job.guidance } : {}),

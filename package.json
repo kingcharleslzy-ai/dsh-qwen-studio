@@ -1,6 +1,6 @@
 {
   "name": "dsh-qwen-studio",
-  "version": "2.19.1",
+  "version": "2.19.2",
   "description": "Qwen Image 2.1 for DeepSeek Harness: native reference editing on Apple Silicon MLX and self-hosted CUDA, LoRA, ControlNet, inpainting and live chat progress",
   "type": "module",
   "author": "kingcharleslzy-ai",

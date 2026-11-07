@@ -32,6 +32,16 @@ model_patches/qwen_image_2.1_fun_controlnet_union_int8_convrot.safetensors
 5. 使用该 venv 的 Python 运行 `qwen_gateway.py`。默认 root 是脚本所在目录，也可通过 `QWEN_REMOTE_ROOT` 指定。网关监听 `127.0.0.1:19488`；收到请求才启动自己的 ComfyUI（`127.0.0.1:19489`），闲置后关闭其进程树。不会关闭其他推理服务。
 6. 在插件设置选择远程，接口地址填 `http://127.0.0.1:19488/v1`，模型 `qwen-image-2.1-int8`，填写密钥。在「按需 SSH 主机」填已配置的 SSH 别名（例如 `gpu-server`），服务器网关端口填 `19488`。首次信任服务器主机密钥和配置公钥登录须先在终端完成，插件不会自动接受陌生主机密钥或索要密码。服务器的轻量网关可由 Task Scheduler / systemd 待命；SSH 隧道由插件按需管理，不再需要 Mac 登录时常驻的隧道。已有常驻转发须先停用，否则同一端口会冲突，插件不会杀掉不属于自己的进程。
 
+### Turbo 文生图
+
+将 `qwen_image_2.1_turbo_int8_convrot.safetensors` 放在 ComfyUI 可发现的 diffusion_models 目录。部署时配套更新网关和工作流两个 Python 文件。图像插件设置的远程区域可以选择文生图默认档位；创作页和对话中的 `image_mode` 可按次覆盖。Turbo 使用专用权重与固定 8 步调度。参考编辑、LoRA、负向词和控制图使用质量档。
+
+### 重装或升级时沿用服务器运行环境
+
+在服务器现有的 `gateway-config.json` 中同时设置 `comfy_root`（含 `main.py` 的目录）和 `python_executable`（该环境的 Python 可执行文件），两个值均为绝对路径。显式配置的路径无效时，任务会报告对应错误。未配置两项的旧部署继续使用上述默认目录。网关服务自身使用的 Python 可以与推理解释器不同。
+
+重装客户端时保留桌面 profile。单独更新服务器网关时只替换代码，保留私有 JSON、模型和任务目录。自定义运行环境需安装 `dsh_qwen` 节点，并通过 ComfyUI 的 `extra_model_paths.yaml` 加载已有网关的模型、LoRA 和控制模型目录。网关继续使用原有的 input、output 和 jobs。已验证支持 SageAttention 的环境可设置 `"use_sage_attention": true`；设置 `"conserve_memory": true` 可关闭 pinned memory 与节点缓存，并预留 1 GB 显存。两项默认关闭。
+
 不要和视频模型并行推理。本网关会在首次任务启动 ComfyUI 前检查常用视频服务端口及显存占用，但这不等于跨所有程序的 GPU 互斥锁。
 
 ## 按需连接与统一空闲时间（2.8.0）

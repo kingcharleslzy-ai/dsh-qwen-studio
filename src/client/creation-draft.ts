@@ -7,6 +7,7 @@ export interface LoraChoice {
   missing?: boolean;
 }
 export interface CreationDraft {
+  imageMode?: "default" | "quality" | "turbo";
   prompt: string;
   negativePrompt: string;
   guidance: number;
@@ -33,6 +34,7 @@ export interface CreationDraft {
   maskSourceName: string;
 }
 export const draftDefaults: CreationDraft = {
+  imageMode: "default",
   prompt: "",
   negativePrompt: "",
   guidance: 1,
@@ -166,6 +168,7 @@ export function generationPayload(
   return {
     id,
     prompt: draft.prompt,
+    ...(draft.imageMode && draft.imageMode !== "default" ? {image_mode: draft.imageMode} : {}),
     width,
     height,
     steps: draft.steps,
@@ -209,6 +212,7 @@ export function reuseDraft(
 ): Partial<CreationDraft> {
   return {
     prompt: job.prompt,
+    imageMode: asReference ? "quality" : job.source === "remote" ? job.image_mode ?? "quality" : "default",
     negativePrompt: job.negative_prompt ?? "",
     guidance: job.guidance ?? 1,
     scheduler: job.scheduler ?? "linear",

@@ -61,6 +61,13 @@ export class RemoteQueue {
     reconnect?: () => Promise<void>,
   ) {
     const capabilities = await this.capabilities(config);
+    const advancedInput = Boolean(data.source_image_id || data.source_image_ids || data.controlnet_image_id ||
+      data.mask_image_id || (data.lora_paths as unknown[] | undefined)?.length || data.negative_prompt ||
+      (data.guidance ?? 1) !== 1 || (data.scheduler ?? "linear") !== "linear");
+    const mode = data.image_mode ?? (advancedInput ? "quality" : config.remoteImageMode ?? "quality");
+    if (mode !== "turbo" && mode !== "quality") throw Error("未知的 Qwen 生图档位");
+    if (mode === "turbo" && advancedInput) throw Error("Turbo 8 步预设仅支持纯文生图，请选择质量档使用高级参数。");
+    if (mode === "turbo" && !capabilities?.features.includes("turbo")) throw Error("此远程网关未支持 Turbo，请更新配套网关。");
     if (!capabilities && (data.source_image_id != null || data.change_strength != null || data.reference_mode != null))
       throw Error(
         "当前远程接口仅支持文生图，不能忽略参考图继续生成；请切换本地模式或移除参考图",
@@ -81,7 +88,7 @@ export class RemoteQueue {
     const prompt = data.prompt,
       width = data.width ?? 1024,
       height = data.height ?? 1024,
-      steps = data.steps ?? 40,
+      steps = mode === "turbo" ? 8 : data.steps ?? 40,
       seed = data.seed ?? null;
     if (typeof prompt !== "string" || !prompt.trim() || prompt.length > 16000)
       throw Error("请填写1–16000字的描述");
@@ -114,6 +121,7 @@ export class RemoteQueue {
     const advanced = capabilities ? advancedParameters(data, capabilities) : {};
     const request = {
         ...advanced,
+        ...(mode === "turbo" ? { image_mode: "turbo" as const } : {}),
         prompt,
         width: width as number,
         height: height as number,
@@ -171,6 +179,7 @@ export class RemoteQueue {
       extended = Boolean(await this.capabilities(config));
       await patch({ status: "running" });
       let bytes: Buffer;
+      if (job.image_mode === "turbo" && !extended) throw Error("远程 Turbo 能力不可用");
       if (extended) {
         bytes = await runExtended({ base: remoteURL(config), headers: headers(config), dir, config, job, signal: controller.signal, patch, reconnect, accepted: () => { extendedAccepted = true; } });
       } else {

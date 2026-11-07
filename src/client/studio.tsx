@@ -259,7 +259,7 @@ export function Studio() {
       const payload = saved
         ? JSON.parse(saved)
         : generationPayload(
-            draft,
+            snapshot?.mode === "local" ? {...draft, imageMode: "default"} : draft,
             snapshot?.mode === "remote" && !snapshot?.remoteAdvanced,
             crypto.randomUUID().replaceAll("-", ""),
           );
@@ -564,9 +564,18 @@ export function Studio() {
                         ))}
                       </select>
                     </label>
+                    {snapshot?.mode === "remote" && <label>
+                      生图档位
+                      <select aria-label="生图档位" value={draft.imageMode ?? "default"}
+                        onChange={e => update({imageMode: e.target.value as NonNullable<Draft["imageMode"]>})}>
+                        <option value="default">跟随设置（{snapshot.remoteImageMode === "turbo" ? "纯文生图 Turbo" : "质量"}）</option>
+                        <option value="turbo">Turbo · 固定 8 步</option>
+                        <option value="quality">质量 · 自选步数</option>
+                      </select>
+                    </label>}
                     <label>
                       <span className="q2-field-title">
-                        步数
+                        质量档步数
                         <ParameterHelp name="步数" text={STEPS_HELP} />
                       </span>
                       <input

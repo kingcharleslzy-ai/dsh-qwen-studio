@@ -4,10 +4,10 @@ import os
 import re
 
 SCHEDULERS = ('linear', 'flow_match_euler_discrete', 'seedvr2_euler')
-FEATURES = ('lora', 'controlnet', 'mask', 'img2img', 'negative_prompt', 'guidance', 'progress', 'cancel', 'reference_edit', 'multi_image')
+FEATURES = ('lora', 'controlnet', 'mask', 'img2img', 'negative_prompt', 'guidance', 'progress', 'cancel', 'reference_edit', 'multi_image', 'turbo')
 
 def normalize(data):
-    allowed = {'id', 'model', 'prompt', 'width', 'height', 'steps', 'seed', 'source_sha', 'source_shas', 'mask_sha', 'control_sha',
+    allowed = {'id', 'model', 'image_mode', 'prompt', 'width', 'height', 'steps', 'seed', 'source_sha', 'source_shas', 'mask_sha', 'control_sha',
                'change_strength', 'reference_mode', 'controlnet_strength', 'loras', 'negative_prompt', 'guidance', 'scheduler'}
     if set(data) - allowed: raise ValueError('Unknown generation fields: '+', '.join(sorted(set(data)-allowed)))
     p = {**data}
@@ -55,11 +55,19 @@ def normalize(data):
     for item in p['loras']:
         if not isinstance(item,dict) or set(item)!={'sha','scale'} or not re.fullmatch('[a-f0-9]{64}',str(item['sha'])): raise ValueError('Invalid LoRA reference')
         if type(item['scale']) not in (int,float) or not math.isfinite(item['scale']) or not 0<=item['scale']<=2: raise ValueError('Invalid LoRA strength')
+    mode = p.get('image_mode', 'quality')
+    if mode not in ('turbo', 'quality'): raise ValueError('Unknown image mode')
+    if mode == 'turbo':
+        if shas or p.get('control_sha') or p.get('mask_sha') or p['loras'] or p['negative_prompt'].strip() or p['guidance'] != 1 or p['scheduler'] != 'linear':
+            raise ValueError('Turbo preset supports plain text-to-image only')
+        p['steps'] = 8
     if p['negative_prompt'].strip() and p['guidance']<=1:
         p['guidance']=2.5;p['guidance_auto_raised']=True
     return p
 
 def sigmas(p):
+    if p.get('image_mode') == 'turbo':
+        return [1.0, .978453, .95418, .926626, .89508, .845148, .704534, .414568, 0.0]
     n=p['steps']
     if n==1: values=[1.0,0.0]
     elif p['scheduler']=='seedvr2_euler': values=[1-i/n for i in range(n+1)]
@@ -84,6 +92,8 @@ def graph(p):
       '4':{'class_type':'TextEncodeQwenImage21','inputs':{'clip':['2',0],'prompt':p['prompt'],'negative_prompt':p['negative_prompt'],'resolution':1024}},
       '5':{'class_type':'EmptyLatentImage','inputs':{'width':p['width'],'height':p['height'],'batch_size':1}},
     }
+    if p.get('image_mode') == 'turbo':
+        g['1']['inputs']['unet_name'] = 'qwen_image_2.1_turbo_int8_convrot.safetensors'
     model=['1',0]
     for i,lora in enumerate(p['loras']):
         key=str(100+i)

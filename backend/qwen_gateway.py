@@ -89,6 +89,34 @@ class Service:
         return self.public(job)
     def public(self,job):
         return {k:v for k,v in job.items() if k not in ('request','prompt_id','image_file')}
+    def comfy_launch(self):
+        root = self.config.get('comfy_root')
+        python = self.config.get('python_executable')
+        if 'comfy_root' in self.config or 'python_executable' in self.config:
+            for name, value in [('comfy_root', root), ('python_executable', python)]:
+                if not isinstance(value, str) or not value.strip() or not Path(value).is_absolute():
+                    raise ValueError(f'gateway-config.json: {name} must be an absolute path; configure both runtime paths')
+            runtime, interpreter = Path(root), Path(python)
+        else:
+            runtime = ROOT / 'ComfyUI'
+            interpreter = ROOT / ('venv/Scripts/python.exe' if WINDOWS else 'venv/bin/python')
+        if not (runtime / 'main.py').is_file():
+            raise ValueError(f'ComfyUI main.py missing in {runtime}')
+        if not interpreter.is_file():
+            raise ValueError(f'ComfyUI Python missing at {interpreter}')
+        command = [str(interpreter), '-u', 'main.py', '--listen', '127.0.0.1', '--port', '19489',
+                   '--disable-auto-launch', '--disable-all-custom-nodes', '--whitelist-custom-nodes',
+                   'dsh_qwen', '--preview-method', 'none', '--offline']
+        if self.config.get('use_sage_attention') is True:
+            command.append('--use-sage-attention')
+        if self.config.get('conserve_memory') is True:
+            command.extend(['--disable-pinned-memory', '--reserve-vram', '1', '--cache-none'])
+        # Input assets and generated files belong to the gateway deployment across runtime upgrades.
+        data = ROOT / 'ComfyUI'
+        if runtime != data:
+            command.extend(['--input-directory', str(data / 'input'), '--output-directory', str(data / 'output')])
+        return runtime, command
+
     async def ensure(self):
         if self.process and self.process.poll() is None: return
         for port in (19489,8188,8189):
@@ -96,9 +124,9 @@ class Service:
                 if sock.connect_ex(('127.0.0.1',port))==0: raise RuntimeError(f'GPU service port {port} is occupied; inspect it before starting Qwen')
         used=int(subprocess.check_output(['nvidia-smi','--query-gpu=memory.used','--format=csv,noheader,nounits'],text=True,**PROCESS_FLAGS).strip().splitlines()[0])
         if used>6000: raise RuntimeError(f'GPU already uses {used} MiB; free it before loading Qwen')
+        runtime, command = self.comfy_launch()
         self.log=(ROOT/'comfy.log').open('ab')
-        command=[str(ROOT/('venv/Scripts/python.exe' if WINDOWS else 'venv/bin/python')),'-u','main.py','--listen','127.0.0.1','--port','19489','--disable-auto-launch','--disable-all-custom-nodes','--whitelist-custom-nodes','dsh_qwen','--preview-method','none','--offline']
-        self.process=subprocess.Popen(command,cwd=ROOT/'ComfyUI',stdout=self.log,stderr=self.log,**PROCESS_FLAGS,start_new_session=not WINDOWS,env={**os.environ,'HF_HUB_OFFLINE':'1','TRANSFORMERS_OFFLINE':'1'})
+        self.process=subprocess.Popen(command,cwd=runtime,stdout=self.log,stderr=self.log,**PROCESS_FLAGS,start_new_session=not WINDOWS,env={**os.environ,'HF_HUB_OFFLINE':'1','TRANSFORMERS_OFFLINE':'1'})
         for _ in range(360):
             if self.process.poll() is not None: raise RuntimeError('ComfyUI exited; inspect comfy.log')
             try: await self.call('/system_stats'); return
