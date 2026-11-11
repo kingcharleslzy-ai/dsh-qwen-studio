@@ -4,7 +4,7 @@
 
 ## 先确认环境，保留已有数据
 
-1. 确认 DSH 版本、profile 和 DSH_HOME。2.19.2 声明支持 `>=0.2.1-rc.1 <0.2.2-0 || 0.2.2-rc.1`；新宿主版本须重新测试，不能直接放宽兼容范围。
+1. 确认 DSH 版本、profile 和 DSH_HOME。插件要求 DSH `>=0.2.1-rc.1`。新宿主发布时用实际运行时测试面板和工具；保留开放的版本上限。
 2. 先读 profile 的 package.json 和 Qwen 已有设置，只报告必要的非敏感字段。不要打印 API Key、SSH 配置密钥或整份用户配置。
 3. 已安装用户：保留 localMfluxDirectory、Python/模型/HF 缓存路径、连接模式、SSH、空闲时间。保留图库的 state、images、trash、assets、loras；不要用示例覆盖它们。预设不需要迁移。
 4. 新用户：请根据实际设备选择 Apple Silicon MLX 或用户自己的 NVIDIA 服务器。本项目不提供公共 GPU、预配置服务器地址、个人主机别名或通用密钥。不存在能直接照抄的作者部署。
