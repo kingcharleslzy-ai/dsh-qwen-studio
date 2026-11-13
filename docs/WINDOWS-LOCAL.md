@@ -12,6 +12,8 @@
 
 安装 [DeepSeek Harness Desktop](https://github.com/deepseek-ai/deepseek-harness/tree/master/apps/desktop)。在插件市场添加 [DSH-Spicy 索引](https://kingcharleslzy-ai.github.io/DSH-Spicy/index.json)，安装并启用插件。手动从侧栏创作时，可以在欢迎页选择「稍后配置」。使用 TGZ 时从 [GitHub Release](https://github.com/kingcharleslzy-ai/DSH-Spicy/releases/latest) 下载编译包和校验文件，以 `Get-FileHash -Algorithm SHA256` 核对同名文件。在插件详情确认版本，在侧栏找「创作」。包内文档、网关和工作流位于当前 profile 的 node_modules/dsh-qwen-studio。
 
+若 `install_bundle` 返回 `EPERM`，先查看错误里的实际路径。若失败的是盘符根目录下的 pnpm store，保留共享 store 的权限。在当前 desktop profile 备份已有 `pnpm-workspace.yaml`，只设置或更新顶层 `storeDir`，指向当前用户可写的专用目录，例如 DSH 数据目录内的 `.pnpm-store`。保留其他 YAML 字段。创建目录、写入并删除测试文件后，再通过宿主安装同一份已校验的 TGZ。Windows 普通账户实测中，该做法使插件成功注册并加载部署技能。
+
 ### 让自己的 AI 代装
 
 首次打开 Windows DSH 时，先登录可用账户，或在欢迎页 /「模型」设置中配置自己的对话模型。新建会话，点输入框旁的模型选择器，选择能调用工具的模型，再发送「帮我装 DSH-Spicy，在本机生图和做视频」。如果选择器显示「暂无可用模型」，或会话提示 `no API key for provider route`，先完成该服务商的凭据配置，再新建会话重试。密钥填在 DSH 的凭据设置里。
