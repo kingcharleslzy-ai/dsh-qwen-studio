@@ -2,9 +2,9 @@
 <title id="title">DSH-Spicy — Images, video and film inside DeepSeek Harness</title><desc id="desc">Qwen Image 2.1 and MiniMax H3 for DeepSeek Harness.</desc>
 <rect width="1200" height="360" rx="20" fill="#171c20"/>
 <path d="M770 0V360M0 303H1200" stroke="#344149"/>
-<g font-family="Trebuchet MS, sans-serif"><text x="48" y="53" font-size="13" letter-spacing="3" fill="#a6b9c0">CREATIVE WORKSPACE FOR DEEPSEEK HARNESS</text>
+<g font-family="Trebuchet MS, sans-serif"><text x="48" y="53" font-size="13" letter-spacing="3" fill="#a6b9c0">NSFW CREATION FOR DEEPSEEK HARNESS</text>
 <text x="44" y="129" font-size="64" font-weight="700" fill="#f3f0e7">DSH-Spicy</text>
-<text x="48" y="179" font-size="23" fill="#c5d1d5">Image, video and multi-shot film</text>
+<text x="48" y="179" font-size="23" fill="#c5d1d5">NSFW image, video and multi-shot film</text>
 <text x="48" y="223" font-size="16" fill="#91b5c7">Qwen Image 2.1 · MiniMax H3 · ComfyUI</text>
 <rect x="48" y="252" width="150" height="28" rx="14" fill="#b7d7dd"/><text x="68" y="271" font-size="12" fill="#172b35">Reference to video</text>
 <text x="48" y="337" font-size="13" fill="#a9b8bf">Direct creation + Agent tools</text><text x="800" y="337" font-size="13" fill="#a9b8bf">STORYBOARD · REVIEW · FINAL CUT</text></g>

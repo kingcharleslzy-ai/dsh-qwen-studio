@@ -71,7 +71,7 @@ for (const path of paths) {
 }
 assert.equal(
   pkg.repository.url,
-  "git+https://github.com/kingcharleslzy-ai/dsh-qwen-studio.git",
+  "git+https://github.com/kingcharleslzy-ai/DSH-Spicy.git",
 );
 assert(
   !pkg.dependencies?.["dsh-image-gen"],

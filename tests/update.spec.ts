@@ -8,7 +8,7 @@ import {gzipSync} from "node:zlib";
 import {createHash} from 'node:crypto';
 import {UpdateController,PackageInstaller,installedPaths,inspectPackage,defaults,validatePreferences,latestRelease} from '../src/updates.js';
 const exec=promisify(execFile);
-const release={version:'2.13.0',url:'https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/download/v2.13.0/dsh-qwen-studio-2.13.0.tgz',sha256:'0'.repeat(64)};
+const release={version:'2.13.0',url:'https://github.com/kingcharleslzy-ai/DSH-Spicy/releases/download/v2.13.0/dsh-qwen-studio-2.13.0.tgz',sha256:'0'.repeat(64)};
 async function fixture(){return mkdtemp(join(tmpdir(),'qwen-updater-'));}
 test('checks are on, installations off; network checking never starts inference or installs',async()=>{
  const dir=await fixture(),install=vi.fn(),guard=vi.fn(async(fn:any)=>fn());
@@ -30,7 +30,7 @@ test('bad checksums, missing assets and prereleases never install',async()=>{
 });
 test('verified installer snapshots, uses profile CLI, preserves user state and can roll back',async()=>{
  const dir=await fixture(),profile=join(dir,'profiles/test'),root=join(profile,'node_modules/dsh-qwen-studio'),stage=join(dir,'staging');
- const pkg=(version:string)=>({name:'dsh-qwen-studio',version,repository:{url:'git+https://github.com/kingcharleslzy-ai/dsh-qwen-studio.git'},engines:{dsh:'>=0.2.1-rc.1 <0.2.2-0'}});
+ const pkg=(version:string)=>({name:'dsh-qwen-studio',version,repository:{url:'git+https://github.com/kingcharleslzy-ai/DSH-Spicy.git'},engines:{dsh:'>=0.2.1-rc.1 <0.2.2-0'}});
  await mkdir(root,{recursive:true});await writeFile(join(profile,'package.json'),'{}');await writeFile(join(profile,'cordis.patch.yml'),'user settings');await writeFile(join(root,'package.json'),JSON.stringify(pkg('2.12.0')));
  for(const path of ['lib/index.js','lib/client.js','lib/maintenance.js','backend/server.py','skills/qwen-image/SKILL.md','cordis.patch.yml']){await mkdir(join(stage,'package',path,'..'),{recursive:true});await writeFile(join(stage,'package',path),'fixture');}
  await writeFile(join(stage,'package/package.json'),JSON.stringify(pkg('2.13.0')));await exec('tar',['--format=ustar','-czf',join(dir,'new.tgz'),'-C',stage,'package']);const archive=await readFile(join(dir,'new.tgz'));

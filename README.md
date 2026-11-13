@@ -6,23 +6,31 @@
 
 **完美适配 purge 的 nsfw content creation 插件**
 
-在 DeepSeek Harness 里用 **Qwen Image 2.1** 画图、改图，用 **MiniMax H3** 把参考图拍成有声镜头，再由 Agent 逐镜审片、剪辑并交付完整 MP4。
+在 DeepSeek Harness 中制作 **NSFW 成人向图像、有声视频和多镜头短片**。从成年虚构角色的一张定妆照开始，用 Qwen Image 2.1 调整造型、光线和构图，再交给 MiniMax H3 拍成有声镜头。创作可以在自己的机器或远程 GPU 上完成。
 
-[![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-qwen-studio)](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) [![CI](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/DSH-Spicy)](https://github.com/kingcharleslzy-ai/DSH-Spicy/releases/latest) [![CI](https://github.com/kingcharleslzy-ai/DSH-Spicy/actions/workflows/ci.yml/badge.svg)](https://github.com/kingcharleslzy-ai/DSH-Spicy/actions/workflows/ci.yml)
 
-[下载插件](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) · [Agent 安装手册](AGENTS.md) · [模型部署技能](skills/studio-model-setup/SKILL.md) · [English](README.en.md)
+[下载插件](https://github.com/kingcharleslzy-ai/DSH-Spicy/releases/latest) · [Agent 安装手册](AGENTS.md) · [模型部署技能](skills/studio-model-setup/SKILL.md) · [English](README.en.md)
 
 </div>
 
+## NSFW 创作可以做什么
+
+| 创作环节 | 在 DSH-Spicy 中怎么做 |
+| --- | --- |
+| 成人向写真与插画 | 用提示词生成成年虚构角色的定妆照，加载后端支持的 LoRA 统一画风，或用蒙版只重绘服饰、背景等选区。 |
+| 从写真到动态镜头 | 将满意的作品作为 H3 质量档的参考图，描述镜头运动、人物动作与声音，生成可直接播放的 MP4。 |
+| 多镜头叙事 | 让 Agent 用角色卡和参考图维持人物造型，按分镜生成片段。逐镜审看、重做，再加旁白、剪辑并导出母版。 |
+
 ## 安装
 
-DSH **0.2.2-rc.1 或更新版本**。在「插件 → 发现 → 索引源」添加 [本项目市场索引](https://kingcharleslzy-ai.github.io/dsh-qwen-studio/index.json)，选择 **DSH-Spicy**（安装包 `dsh-qwen-studio`）。也可以从 Release 下载 [预编译 TGZ](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest/download/dsh-qwen-studio.tgz)，与 [SHA256SUMS.txt](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest/download/SHA256SUMS.txt) 中同名文件核对，再从实际 profile 安装。桌面版可用插件管理器，CLI 示例：
+DSH **0.2.2-rc.1 或更新版本**。在「插件 → 发现 → 索引源」添加 [本项目市场索引](https://kingcharleslzy-ai.github.io/DSH-Spicy/index.json)，选择 **DSH-Spicy**（安装包 `dsh-qwen-studio`）。也可以从 Release 下载 [预编译 TGZ](https://github.com/kingcharleslzy-ai/DSH-Spicy/releases/latest/download/dsh-qwen-studio.tgz)，与 [SHA256SUMS.txt](https://github.com/kingcharleslzy-ai/DSH-Spicy/releases/latest/download/SHA256SUMS.txt) 中同名文件核对，再从实际 profile 安装。桌面版可用插件管理器，CLI 示例：
 
 ```sh
 dsh plugin --profile desktop add /absolute/path/to/dsh-qwen-studio.tgz
 ```
 
-**从旧版升级**：原图像包直接升级。已有独立视频或长片插件时，等任务结束，停用旧的 `dsh-h3-video`、`dsh-h3-film-local` 两个 bundle，再重新加载创作插件。图库、预设、视频、角色卡和未完成工程沿用原位置。兼容过渡与回退见 [迁移说明](AGENTS.md#旧插件迁移与回退)。
+**从 3.0.1 或更早版本升级**：在上面的新市场索引安装一次，或使用 Release 的 TGZ 原位升级。旧版内置更新器校验旧仓库地址；从 3.0.2 起会检查新仓库。已有独立视频或长片插件时，等任务结束，停用旧的 `dsh-h3-video`、`dsh-h3-film-local` 两个 bundle，再重新加载创作插件。图库、预设、视频、角色卡和未完成工程沿用原位置。兼容过渡与回退见 [迁移说明](AGENTS.md#旧插件迁移与回退)。
 
 ## 打开「DSH-Spicy」，或直接在对话里说
 

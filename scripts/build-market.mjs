@@ -1,6 +1,6 @@
 import {execFileSync} from 'node:child_process';
 import {mkdirSync,writeFileSync,readFileSync,copyFileSync} from 'node:fs';
-const repo='kingcharleslzy-ai/dsh-qwen-studio';
+const repo='kingcharleslzy-ai/DSH-Spicy';
 const headers={'user-agent':'qwen-studio-market',accept:'application/vnd.github+json'};
 if(process.env.GH_TOKEN)headers.authorization=`Bearer ${process.env.GH_TOKEN}`;
 let releases;
@@ -29,5 +29,4 @@ const studioDescription = Object.fromEntries(['en','zh'].map(lang => [lang, JSON
 const index={format:1,title:studioTitle,description:studioDescription,metadata:{categories:{vision:{title:{en:'Image and video',zh:'图像与视频'}}},labels},plugins:[{name:'dsh-qwen-studio',title:studioTitle,description:studioDescription,icon,author:'kingcharleslzy-ai',homepage:`https://github.com/${repo}#readme`,repository:{url:`https://github.com/${repo}`},metadata:{category:'vision',labels:Object.keys(labels)},versions:versions.sort((a,b)=>b.publishTimestamp-a.publishTimestamp)}]};
 mkdirSync('market-dist',{recursive:true});writeFileSync('market-dist/index.json',JSON.stringify(index,null,2)+'\n');
 copyFileSync('market/index.html', 'market-dist/index.html');
-copyFileSync('docs/media/mlx-native-edit.png', 'market-dist/cup.png');
 console.log(`Market generated with ${versions.length} immutable precompiled versions`);

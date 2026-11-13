@@ -1,17 +1,17 @@
 {
   "name": "dsh-qwen-studio",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "完美适配 purge 的 nsfw content creation 插件",
   "type": "module",
   "author": "kingcharleslzy-ai",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kingcharleslzy-ai/dsh-qwen-studio.git"
+    "url": "git+https://github.com/kingcharleslzy-ai/DSH-Spicy.git"
   },
   "bugs": {
-    "url": "https://github.com/kingcharleslzy-ai/dsh-qwen-studio/issues"
+    "url": "https://github.com/kingcharleslzy-ai/DSH-Spicy/issues"
   },
-  "homepage": "https://github.com/kingcharleslzy-ai/dsh-qwen-studio#readme",
+  "homepage": "https://github.com/kingcharleslzy-ai/DSH-Spicy#readme",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
   "exports": {

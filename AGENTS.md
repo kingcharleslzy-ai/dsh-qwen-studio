@@ -25,8 +25,9 @@
 
 ## 安装：使用预编译包或预编译市场版本
 
-- 推荐在 DSH 自定义插件市场添加 `https://kingcharleslzy-ai.github.io/dsh-qwen-studio/index.json`；共享市场 `https://kingcharleslzy-ai.github.io/dsh-purge/index.json` 也收录本插件。
+- 推荐在 DSH 自定义插件市场添加 `https://kingcharleslzy-ai.github.io/DSH-Spicy/index.json`；共享市场 `https://kingcharleslzy-ai.github.io/dsh-purge/index.json` 也收录本插件。
 - 市场启用方法：插件 → 实验性插件 → 自定义插件市场 → 发现 → 添加索引源。市场安装前仍由 DSH 显示确认。索引使用固定提交的预编译快照，不在用户电脑上构建前端。
+- 仓库更名后，从 3.0.1 或更早版本升级时，通过新索引或 Release TGZ 原位安装一次；3.0.2 起内置更新器使用新地址。
 - 手动下载：从 Releases 取 `dsh-qwen-studio-<版本>.tgz` 和 `SHA256SUMS.txt`，核对该文件对应的一行 SHA256。校验文件还列出了固定下载名的同内容安装包，不能因没有下载另一个别名文件就忽略真正的校验失败。
 - 安装命令：`dsh plugin --profile <实际profile> add <安装包绝对路径>`。macOS 没有全局 dsh 时，使用 `/bin/sh "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" plugin --profile <实际profile> add <安装包绝对路径>`。
 - 预编译 tgz 安装不需要全局 npm、tsc 或 Git；市场使用 Git 来源，因此需有可用的 Git（没有时用 tgz）。模型权重另行准备。源码开发才需要 Node.js 和 `npm ci --ignore-scripts && npm run check`。
