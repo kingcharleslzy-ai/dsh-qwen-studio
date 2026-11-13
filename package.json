@@ -1,6 +1,6 @@
 {
   "name": "dsh-qwen-studio",
-  "version": "3.1.1",
+  "version": "3.1.2",
   "description": "完美适配 purge 的 nsfw content creation 插件",
   "type": "module",
   "author": "kingcharleslzy-ai",
