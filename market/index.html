@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Qwen Studio for DeepSeek Harness. Qwen Image 2.1、MiniMax H3 有声视频与多镜头长片创作，附本机及远程模型部署技能。">
+<title>Qwen Studio · 创作工作室</title>
+<style>
+:root{color-scheme:light;--ink:#17272e;--teal:#145359;--rule:#c5cfc8}
+*{box-sizing:border-box}body{margin:0;background:#f7f6ef;color:var(--ink);font:16px/1.65 system-ui,sans-serif}main,header,footer{max-width:1120px;margin:auto;padding:0 clamp(20px,5vw,64px)}header{display:flex;align-items:center;justify-content:space-between;padding-block:20px;border-bottom:1px solid var(--rule)}a{color:var(--teal);text-underline-offset:.22em}header strong{letter-spacing:.04em}h1{margin:0;font-size:clamp(48px,8vw,96px);line-height:1.08;letter-spacing:-.06em}h2{font-size:clamp(22px,3vw,32px);margin:0 0 10px}p{margin:0 0 16px}.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:clamp(20px,5vw,70px);align-items:center;padding:clamp(40px,8vw,85px) 0}.hero p{margin:22px 0;font-size:clamp(17px,2vw,21px)}figure{margin:0}figure img{display:block;width:100%;max-height:315px;object-fit:cover;border-radius:8px}figcaption{font-size:13px;margin-top:6px}.actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.primary{background:var(--teal);color:white;padding:10px 18px;border-radius:6px;text-decoration:none}section:not(.hero){border-top:1px solid var(--rule);padding:28px 0}.setup{display:grid;grid-template-columns:1fr 1fr;gap:32px}code{font-size:.88em;overflow-wrap:anywhere}ul{padding:0;list-style:none;margin:0}li{margin:7px 0}footer{padding-block:25px;font-size:14px}button{padding:5px 12px;margin-left:8px;background:white;color:var(--ink);border:1px solid var(--rule);border-radius:5px;cursor:pointer}button:focus-visible,a:focus-visible{outline:3px solid #e3a832;outline-offset:3px}@media(max-width:690px){.hero,.setup{grid-template-columns:1fr}.hero figure{max-width:380px}}
+</style>
+<header><strong>Qwen Studio</strong><a href="https://github.com/kingcharleslzy-ai/dsh-qwen-studio">GitHub 仓库 ↗</a></header>
+<main>
+<section class="hero"><div><h1>创作工作室</h1><p>在 DeepSeek Harness 里，用 Qwen 画出参考图，用 H3 拍成有声镜头，再让 Agent 逐镜审片、剪辑成片。</p><div class="actions"><a class="primary" href="https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest">下载安装包</a><a href="https://github.com/kingcharleslzy-ai/dsh-qwen-studio/blob/main/AGENTS.md">Agent 安装指南</a></div></div><figure><img src="cup.png" alt="Qwen 本机原生参考编辑生成的水彩陶杯"><figcaption>Qwen Image 2.1 · 实际参考编辑输出 · <a href="https://github.com/kingcharleslzy-ai/dsh-qwen-studio/blob/main/docs/media/CREDITS.md">图像署名</a></figcaption></figure></section>
+<section class="setup"><div><h2>加入 DSH 插件市场</h2><p>在「插件 → 发现 → 索引源」添加以下地址，选择 <code>dsh-qwen-studio</code>。需要 DSH 0.2.2-rc.1 或更新版本。</p><code><a id="index" href="index.json">https://kingcharleslzy-ai.github.io/dsh-qwen-studio/index.json</a></code><button id="copy" hidden>复制</button><span role="status" id="copied"></span></div>
+<div><h2>装载自己的模型</h2><ul><li><a href="https://github.com/kingcharleslzy-ai/dsh-qwen-studio/blob/main/docs/SETUP.md">Apple Silicon 本机图像 · MLX / MFLUX</a></li><li><a href="https://github.com/kingcharleslzy-ai/dsh-qwen-studio/blob/main/docs/REMOTE.md">本机或远程 NVIDIA · Qwen 网关</a></li><li><a href="https://github.com/kingcharleslzy-ai/dsh-qwen-studio/blob/main/docs/H3-SETUP.md">MiniMax H3 · 视频权重、角色库和长片剪辑</a></li></ul></div></section></main>
+<footer><a href="https://github.com/kingcharleslzy-ai/dsh-qwen-studio/blob/main/README.en.md">English installation guide</a> · <a href="https://github.com/kingcharleslzy-ai/dsh-qwen-studio/blob/main/CHANGELOG.md">更新记录</a></footer>
+<script>
+const button=document.getElementById("copy"),link=document.getElementById("index"),status=document.getElementById("copied");
+if(navigator.clipboard){button.hidden=false;button.onclick=async()=>{try{await navigator.clipboard.writeText(link.href);status.textContent=" 已复制"}catch{status.textContent=" 请选取链接并复制"}}}
+</script>
+</html>
