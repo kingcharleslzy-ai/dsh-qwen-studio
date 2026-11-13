@@ -1,8 +1,10 @@
 <div align="center">
 
-![Qwen Studio · Image, Video and Film](docs/media/hero.svg)
+![DSH-Spicy · Image, Video and Film](docs/media/hero.svg)
 
-# 创作工作室 · Qwen Studio
+# DSH-Spicy
+
+**完美适配 purge 的 nsfw content creation 插件**
 
 在 DeepSeek Harness 里用 **Qwen Image 2.1** 画图、改图，用 **MiniMax H3** 把参考图拍成有声镜头，再由 Agent 逐镜审片、剪辑并交付完整 MP4。
 
@@ -14,7 +16,7 @@
 
 ## 安装
 
-DSH **0.2.2-rc.1 或更新版本**。在「插件 → 发现 → 索引源」添加 [本项目市场索引](https://kingcharleslzy-ai.github.io/dsh-qwen-studio/index.json)，安装 `dsh-qwen-studio`。也可以从 Release 下载 [预编译 TGZ](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest/download/dsh-qwen-studio.tgz)，与 [SHA256SUMS.txt](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest/download/SHA256SUMS.txt) 中同名文件核对，再从实际 profile 安装。桌面版可用插件管理器，CLI 示例：
+DSH **0.2.2-rc.1 或更新版本**。在「插件 → 发现 → 索引源」添加 [本项目市场索引](https://kingcharleslzy-ai.github.io/dsh-qwen-studio/index.json)，选择 **DSH-Spicy**（安装包 `dsh-qwen-studio`）。也可以从 Release 下载 [预编译 TGZ](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest/download/dsh-qwen-studio.tgz)，与 [SHA256SUMS.txt](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest/download/SHA256SUMS.txt) 中同名文件核对，再从实际 profile 安装。桌面版可用插件管理器，CLI 示例：
 
 ```sh
 dsh plugin --profile desktop add /absolute/path/to/dsh-qwen-studio.tgz
@@ -22,7 +24,7 @@ dsh plugin --profile desktop add /absolute/path/to/dsh-qwen-studio.tgz
 
 **从旧版升级**：原图像包直接升级。已有独立视频或长片插件时，等任务结束，停用旧的 `dsh-h3-video`、`dsh-h3-film-local` 两个 bundle，再重新加载创作插件。图库、预设、视频、角色卡和未完成工程沿用原位置。兼容过渡与回退见 [迁移说明](AGENTS.md#旧插件迁移与回退)。
 
-## 打开「创作」，或直接在对话里说
+## 打开「DSH-Spicy」，或直接在对话里说
 
 | 要做什么 | 可以这样说 | 交付结果 |
 | --- | --- | --- |

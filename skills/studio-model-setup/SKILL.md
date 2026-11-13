@@ -1,6 +1,6 @@
 ---
 name: studio-model-setup
-description: Install and migrate Qwen Studio in DSH, provision Qwen Image 2.1 and MiniMax H3 on a local machine or remote GPU, and configure the film editor and character library.
+description: Install and migrate DSH-Spicy in DSH, provision Qwen Image 2.1 and MiniMax H3 on a local machine or remote GPU, and configure the film editor and character library.
 whenToUse: 安装或升级创作插件、准备图像或视频模型、配置 GPU 或 SSH、长片环境、排查模型缺失及首次运行时使用。
 ---
 

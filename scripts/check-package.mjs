@@ -21,6 +21,7 @@ for (const file of [
   "scripts/setup-image-python.py",
   "backend/score_image.py",
   "AGENTS.md",
+  "locale/en.json", "locale/zh.json",
   "video/index.js", "video/worker.py", "video/workflows/H3-Reference-Quality.json",
   "film/index.js", "film/bridge.py", "film/characters.py", "film/video_pipeline/qa.py",
   "film/requirements.txt", "film/upstream_h3studio/LICENSE", "scripts/check-h3-models.py",

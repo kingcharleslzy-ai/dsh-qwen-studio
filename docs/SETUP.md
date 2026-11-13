@@ -33,10 +33,10 @@ nvidia-smi --query-gpu=name,memory.total --format=csv
 
 ## 1. 安装插件
 
-三种入口，任选其一；装完**手动退出并重开 DSH**，再在插件设置里启用创作插件，打开「创作 → 图像」。
+三种入口，任选其一；装完**手动退出并重开 DSH**，再在插件设置里启用创作插件，打开「DSH-Spicy → 图像」。
 
 **A. 插件市场**（最省事）：DSH → 插件 → 自定义插件市场 → 发现 → 添加索引
-`https://kingcharleslzy-ai.github.io/dsh-qwen-studio/index.json`，选择创作工作室安装。
+`https://kingcharleslzy-ai.github.io/dsh-qwen-studio/index.json`，选择DSH-Spicy安装。
 
 **B. 安装包（推荐给 Agent 执行）**：从 [Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载 `dsh-qwen-studio-3.0.0.tgz`，然后：
 
@@ -143,7 +143,7 @@ SSH 首次信任主机密钥、配置公钥登录，都要先在终端手工完�
 ## 4. 连接与第一张图
 
 1. 保存配置 → 点「保存并检查连接」。直连远程检查服务；按需 SSH 离线时只验证配置，不建立隧道，实际生成才握手。本机先检查 Python 与模型目录；
-2. 左侧「创作 → 图像」，输入「一只坐在窗台上的橘猫，下午光」，尺寸 1024×1024，步数 20；
+2. 左侧「DSH-Spicy → 图像」，输入「一只坐在窗台上的橘猫，下午光」，尺寸 1024×1024，步数 20；
 3. 判读：
    - **进度条有真实步数** → 后端通了；
    - 卡在 0% 且无日志 → 看 §5；

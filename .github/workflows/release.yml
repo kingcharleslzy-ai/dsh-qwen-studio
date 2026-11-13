@@ -35,4 +35,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release create "$RELEASE_TAG" *.tgz SHA256SUMS.txt --verify-tag --title "创作工作室 · Qwen Studio $RELEASE_TAG" --notes-file release-notes.md
+        run: gh release create "$RELEASE_TAG" *.tgz SHA256SUMS.txt --verify-tag --title "DSH-Spicy $RELEASE_TAG" --notes-file release-notes.md

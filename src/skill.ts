@@ -19,7 +19,7 @@ export function parseImageSkill(source: string, expectedName = "qwen-image") {
 }
 export function bundledSkill(name: string) {
   const path = fileURLToPath(new URL(`../skills/${name}/SKILL.md`, import.meta.url));
-  return { ...parseImageSkill(readFileSync(path, "utf8"), name), path, source: "创作工作室", invocation: { modelInvocable: true, userInvocable: true } };
+  return { ...parseImageSkill(readFileSync(path, "utf8"), name), path, source: "DSH-Spicy", invocation: { modelInvocable: true, userInvocable: true } };
 }
 export function bundledImageSkill() {
   return bundledSkill("qwen-image");

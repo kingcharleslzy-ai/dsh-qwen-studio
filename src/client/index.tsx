@@ -109,7 +109,7 @@ export function apply(ctx: Context) {
         name: "sidebar.panellist",
         id: "qwen-studio",
         order: 10,
-        label: "创作",
+        label: "DSH-Spicy",
       },
       StudioIcon,
     ),

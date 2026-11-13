@@ -1,8 +1,10 @@
-![Qwen Studio — Image, Video and Film](docs/media/hero.svg)
+![DSH-Spicy — Image, Video and Film](docs/media/hero.svg)
 
-# Qwen Studio for DeepSeek Harness
+# DSH-Spicy
 
-Generate and edit images with Qwen Image 2.1, turn a reference into a MiniMax H3 shot with sound, or have your DSH agent storyboard, review and cut an entire film. The **创作** sidebar opens both image and video workspaces. [中文](README.md)
+**An NSFW content creation plugin for purge.**
+
+Generate and edit images with Qwen Image 2.1, turn a reference into a MiniMax H3 shot with sound, or have your DSH agent storyboard, review and cut an entire film. The **DSH-Spicy** sidebar opens both image and video workspaces. [中文](README.md)
 
 ## Install the compiled plugin
 
