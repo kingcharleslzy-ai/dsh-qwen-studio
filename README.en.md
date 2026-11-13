@@ -1,6 +1,16 @@
-![DSH-Spicy — Image, Video and Film](docs/media/hero.svg)
-
 # DSH-Spicy
+
+## Send this to your DSH agent
+
+Open a DeepSeek Harness chat with a configured chat model and send this line:
+
+```text
+Install DSH-Spicy and help me generate an image and a video on this computer. https://github.com/kingcharleslzy-ai/DSH-Spicy
+```
+
+In the Windows test, the agent used the repository link to find the guide, verify and install the release, and load the deployment skill. Review the host’s installation and folder access prompts. Check the image and playable video returned by your agent to verify both local models. The base weights total about 57 GB, plus space for the runtime and cache. [Windows walkthrough](docs/WINDOWS-LOCAL.md)
+
+![DSH-Spicy — Image, Video and Film](docs/media/hero.svg)
 
 **An NSFW content creation plugin for purge.**
 

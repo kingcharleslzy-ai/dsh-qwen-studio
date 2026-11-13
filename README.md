@@ -1,8 +1,18 @@
+# DSH-Spicy
+
+## 把这句话发给你的 DSH Agent
+
+在已配置对话模型的 DeepSeek Harness 会话里，复制并发送下面整行：
+
+```text
+帮我装 DSH-Spicy，在本机生图和做视频。https://github.com/kingcharleslzy-ai/DSH-Spicy
+```
+
+Windows 实测中，Agent 从这个链接找到了安装手册，校验并安装了发布包，随后加载了模型部署技能。按 DSH 提示确认本次安装或写入目录。插件装好后，等 Agent 在你的机器上实际交付一张图和一段有声视频，再确认模型可用。基础双模型需要约 57 GB 权重，另需运行环境和缓存空间。[Windows 安装与验收](docs/WINDOWS-LOCAL.md)
+
 <div align="center">
 
 ![DSH-Spicy · Image, Video and Film](docs/media/hero.svg)
-
-# DSH-Spicy
 
 **完美适配 purge 的 nsfw content creation 插件**
 
