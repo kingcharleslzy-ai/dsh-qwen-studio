@@ -12,6 +12,8 @@
 
 ## 帮新用户从零安装
 
+选择存放权重的目录时，先实测工作区或当前 DSH 数据卷的空间与写权限。数据卷空间充足时可使用 `Join-Path $env:DSH_HOME models-runtime`。保留其他账户与不可读目录的原有权限。
+
 先读 [部署技能](skills/studio-model-setup/SKILL.md)。按实际系统、GPU、显存、磁盘与“是否必须同机”选择后端，主动上网核对当日官方安装说明和模型文件。Windows 同机图像与视频按 [Windows 双模型部署](docs/WINDOWS-LOCAL.md) 执行。交付时列出所用版本、实际 DSH profile、首张 PNG 和首个有声 MP4 的结果。Mac 的 MLX 路线负责图像，H3 的当前工作流需要 Windows NVIDIA；Linux、AMD 或较小显存应分别核对支持范围。
 
 ## 模型和创作任务

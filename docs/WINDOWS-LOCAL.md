@@ -6,7 +6,7 @@
 
 运行 `nvidia-smi`、`py -0p`、`Get-PSDrive -PSProvider FileSystem`。记录显卡、驱动、显存、Python 和剩余空间。按实际模型仓库的文件大小计算预算。基础质量档图像和纯文字质量档视频共七个权重，约 57.4 GB，另留环境、缓存、临时文件和输出空间。Turbo、参考图视频和 ControlNet 需要额外权重。
 
-**选择部署位置。** 先检查当前工作区以及 `$env:DSH_HOME` 所在的卷。工作区空间足够时在其中新建专用目录。若系统盘空间紧张而 DSH 数据卷充足，优先在用户管理的 DSH 数据目录下新建 `models-runtime`，将 ComfyUI、venv、权重和下载缓存放在同一卷。可用 PowerShell 的 `Get-Item env:DSH_HOME` 和 `Get-PSDrive -PSProvider FileSystem` 定位，实际创建、写入并删除一个小文件验证权限。宿主对工作区外写入弹出确认时，只申请本次所需目录。已有安装先核对内容，缺少可用目录、空间不足或会改动其他人的文件时再请用户选择。
+**选择部署位置。** 先检查当前工作区以及 `$env:DSH_HOME` 所在的卷。工作区空间足够时在其中新建专用目录。若系统盘空间紧张而 DSH 数据卷充足，优先在用户管理的 DSH 数据目录下新建 `models-runtime`，将 ComfyUI、venv、权重和下载缓存放在同一卷。可用 PowerShell 的 `Get-Item env:DSH_HOME` 和 `Get-PSDrive -PSProvider FileSystem` 定位，实际创建、写入并删除一个小文件验证权限。宿主对工作区外写入弹出确认时，只申请本次所需目录。已有模型目录无法读取或无法写入时，跳过该目录，改用上述专用子目录。已有安装先核对内容，缺少可用目录、空间不足或会改动其他人的文件时再请用户选择。
 
 用户同时要求生图和视频时，默认先装 Qwen 并生成一张图，再装 H3 并生成一段带声视频。使用同一块 GPU 串行验收。在工具回执中记录生成文件和任务 ID。除非用户要求特定模型或下载预算，两个阶段可沿用同一个安装决定。
 
@@ -29,8 +29,9 @@
 准备 Git、64 位 Python（本流程使用 3.12）和 NVIDIA 驱动。先查 [PyTorch 官方选择器](https://pytorch.org/get-started/locally/) 与 [ComfyUI 手动安装](https://docs.comfy.org/installation/manual_install)。根据当前驱动、GPU 与系统选择 CUDA wheel。以下目录同时存放网关、模型和软件。
 
 ```powershell
-$Root = 'D:\CreativeModels'
 $Data = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE '.dsh' }
+# 此示例假设上一步已确认 DSH 数据卷空间充足。工作区更合适时改用工作区内的新目录。
+$Root = Join-Path $Data 'models-runtime'
 $Pkg = Join-Path $Data 'profiles\desktop\node_modules\dsh-qwen-studio'
 New-Item -ItemType Directory -Force $Root | Out-Null
 Set-Location $Root
