@@ -8,7 +8,7 @@
 帮我装 DSH-Spicy，在本机生图和做视频。https://github.com/kingcharleslzy-ai/DSH-Spicy
 ```
 
-Windows 实测中，Agent 从这个链接找到了安装手册，校验并安装了发布包，随后加载了模型部署技能。按 DSH 提示确认本次安装或写入目录。插件装好后，等 Agent 在你的机器上实际交付一张图和一段有声视频，再确认模型可用。基础双模型需要约 57 GB 权重，另需运行环境和缓存空间。[Windows 安装与验收](docs/WINDOWS-LOCAL.md)
+在 Windows 11、RTX 4090 D 24 GB 的空白测试会话里，Agent 从这个链接找到教程、安装插件、下载七个权重，并通过 DSH 交付了 512×512 PNG 和 3.04 秒的有声 MP4。测试使用有足够空间的可写工作区，用户按 DSH 提示确认了安装和本机服务权限。基础双模型需要约 57 GB 权重，另需运行环境和缓存空间。[Windows 安装与验收](docs/WINDOWS-LOCAL.md)
 
 <div align="center">
 

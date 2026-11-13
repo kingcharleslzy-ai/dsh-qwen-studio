@@ -8,7 +8,7 @@ Open a DeepSeek Harness chat with a configured chat model and send this line:
 Install DSH-Spicy and help me generate an image and a video on this computer. https://github.com/kingcharleslzy-ai/DSH-Spicy
 ```
 
-In the Windows test, the agent used the repository link to find the guide, verify and install the release, and load the deployment skill. Review the host’s installation and folder access prompts. Check the image and playable video returned by your agent to verify both local models. The base weights total about 57 GB, plus space for the runtime and cache. [Windows walkthrough](docs/WINDOWS-LOCAL.md)
+In a fresh Windows 11 session on an RTX 4090 D (24 GB), the agent followed the repository link, installed the plugin, downloaded seven weights and returned a 512×512 PNG and a 3.04-second MP4 with audio through DSH. The test used a writable workspace with sufficient free space and the user approved DSH’s installation and service prompts. The base weights total about 57 GB, plus space for the runtime and cache. [Windows walkthrough](docs/WINDOWS-LOCAL.md)
 
 ![DSH-Spicy — Image, Video and Film](docs/media/hero.svg)
 
