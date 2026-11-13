@@ -33,7 +33,7 @@ nvidia-smi --query-gpu=name,memory.total --format=csv
 
 ## 1. 安装插件
 
-三种入口，任选其一；装完**手动退出并重开 DSH**，再在插件设置里启用创作插件，打开「DSH-Spicy → 图像」。
+三种入口，任选其一；装完**手动退出并重开 DSH**，再在插件设置里启用创作插件，打开「创作 → 图像」。
 
 **A. 插件市场**（最省事）：DSH → 插件 → 自定义插件市场 → 发现 → 添加索引
 `https://kingcharleslzy-ai.github.io/DSH-Spicy/index.json`，选择DSH-Spicy安装。
@@ -74,11 +74,11 @@ certutil -hashfile dsh-qwen-studio.tgz SHA256   # Windows
    sh scripts/setup-local.sh ~/qwen-studio-venv
    ```
 
-   脚本只创建虚拟环境并安装 **MFLUX 0.22.0**，不下载模型。
+   脚本创建虚拟环境，安装 **MFLUX 0.22.0** 和兼容 Python 3.12 的 Pillow，并测试 Qwen 类是否能导入。权重需要另行下载。
 
-2. 准备完整 Qwen Image 2.1 完整权重（含视觉编码器与 `processor`）。使用 MFLUX 支持的本地导出，或从 [Qwen 官方模型](https://huggingface.co/Qwen/Qwen-Image-2.1) 获取完整目录（例如 `hf download Qwen/Qwen-Image-2.1 --local-dir /absolute/path/to/qwen-image-2.1`）。，参考
+2. 准备完整的 Qwen Image 2.1 权重（含视觉编码器与 `processor`）。使用 MFLUX 支持的本地导出，或从 [Qwen 官方模型](https://huggingface.co/Qwen/Qwen-Image-2.1) 获取完整目录（例如 `hf download Qwen/Qwen-Image-2.1 --local-dir /absolute/path/to/qwen-image-2.1`）。请参考
    [MFLUX 官方说明](https://github.com/mflux-community/mflux/blob/main/src/mflux/models/qwen21/README.md)。
-   模型目录必须包含 `model_index.json` 或等价配置文件；**只下一个 safetensors 不算完整模型**。
+   模型目录应完整保留导出结构。MFLUX 分片导出可通过 transformer、text_encoder、vae 三个分片索引识别；**只下一个 safetensors 不算完整模型**。
 
 3. 在 DSH 插件设置选「本地 Mac」，填三个路径：
    - Python：选虚拟环境**文件夹**（脚本会追加 `bin/python`，避免符号链接解析到系统解释器）；
@@ -143,7 +143,7 @@ SSH 首次信任主机密钥、配置公钥登录，都要先在终端手工完�
 ## 4. 连接与第一张图
 
 1. 保存配置 → 点「保存并检查连接」。直连远程检查服务；按需 SSH 离线时只验证配置，不建立隧道，实际生成才握手。本机先检查 Python 与模型目录；
-2. 左侧「DSH-Spicy → 图像」，输入「一只坐在窗台上的橘猫，下午光」，尺寸 1024×1024，步数 20；
+2. 左侧「创作 → 图像」，输入「一只坐在窗台上的橘猫，下午光」，尺寸 1024×1024，步数 20；
 3. 判读：
    - **进度条有真实步数** → 后端通了；
    - 卡在 0% 且无日志 → 看 §5；

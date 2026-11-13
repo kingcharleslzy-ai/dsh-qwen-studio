@@ -20,7 +20,10 @@ from PIL import Image
 from qwen_workflow import FEATURES, SCHEDULERS, graph, normalize, sigmas
 
 ROOT=Path(os.environ.get('QWEN_REMOTE_ROOT',Path(__file__).resolve().parent))
-COMFY='http://127.0.0.1:19489'
+# Isolated deployments can choose unused loopback ports without editing code.
+COMFY_PORT=int(os.environ.get('QWEN_COMFY_PORT', '19489'))
+GATEWAY_PORT=int(os.environ.get('QWEN_GATEWAY_PORT', '19488'))
+COMFY=f'http://127.0.0.1:{COMFY_PORT}'
 MODEL='qwen-image-2.1-int8'
 CONFIG=ROOT/'gateway-config.json'
 WINDOWS=os.name=='nt'
@@ -104,7 +107,7 @@ class Service:
             raise ValueError(f'ComfyUI main.py missing in {runtime}')
         if not interpreter.is_file():
             raise ValueError(f'ComfyUI Python missing at {interpreter}')
-        command = [str(interpreter), '-u', 'main.py', '--listen', '127.0.0.1', '--port', '19489',
+        command = [str(interpreter), '-u', 'main.py', '--listen', '127.0.0.1', '--port', str(COMFY_PORT),
                    '--disable-auto-launch', '--disable-all-custom-nodes', '--whitelist-custom-nodes',
                    'dsh_qwen', '--preview-method', 'none', '--offline']
         if self.config.get('use_sage_attention') is True:
@@ -119,7 +122,10 @@ class Service:
 
     async def ensure(self):
         if self.process and self.process.poll() is None: return
-        for port in (19489,8188,8189):
+        video_ports = self.config.get('video_ports', [8188, 8189])
+        if not isinstance(video_ports, list) or not video_ports or any(type(p) is not int or not 1 <= p <= 65535 for p in video_ports):
+            raise ValueError('video_ports must list the ComfyUI ports used for video on this GPU')
+        for port in (COMFY_PORT, *video_ports):
             with socket.socket() as sock:
                 if sock.connect_ex(('127.0.0.1',port))==0: raise RuntimeError(f'GPU service port {port} is occupied; inspect it before starting Qwen')
         used=int(subprocess.check_output(['nvidia-smi','--query-gpu=memory.used','--format=csv,noheader,nounits'],text=True,**PROCESS_FLAGS).strip().splitlines()[0])
@@ -325,4 +331,4 @@ def create_app():
 if __name__=='__main__':
     ROOT.mkdir(parents=True,exist_ok=True)
     logging.basicConfig(filename=ROOT/'gateway.log',level=logging.INFO,format='%(asctime)s %(message)s')
-    web.run_app(create_app(),host='127.0.0.1',port=19488,print=None)
+    web.run_app(create_app(),host='127.0.0.1',port=GATEWAY_PORT,print=None)

@@ -16,6 +16,7 @@ const css = `
   .h3head{border-bottom:1px solid color-mix(in srgb,currentColor 20%,transparent);margin-bottom:24px;padding:8px 0 20px;display:flex;justify-content:space-between;align-items:end;gap:12px}.h3page small,.h3meta{opacity:.72}
   .h3grid{display:grid;grid-template-columns:minmax(240px,5fr) minmax(270px,7fr);gap:clamp(16px,3vw,40px)}.h3form{display:grid;gap:14px;align-content:start}.h3form label{display:grid;gap:5px;font-weight:600}
   .h3page textarea,.h3page select,.h3page input,.h3page button,.h3page a{font:inherit}.h3page textarea,.h3page select,.h3page input{border:1px solid color-mix(in srgb,currentColor 28%,transparent);border-radius:5px;color:inherit;background:transparent;padding:9px;width:100%}.h3page select option{color:CanvasText;background:Canvas}
+  .h3advanced{border-block:1px solid color-mix(in srgb,currentColor 18%,transparent);padding-block:10px}.h3advanced summary{cursor:pointer;font-weight:600}.h3advanced label{margin-top:10px}.h3advanced small{display:block;margin-top:4px}
   .h3page textarea{resize:vertical;min-height:130px}.h3options{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .h3page button,.h3page a{color:inherit;cursor:pointer}.h3page button{border:1px solid color-mix(in srgb,currentColor 25%,transparent);background:transparent;border-radius:5px;padding:7px 12px}
   .h3page button:disabled{opacity:.45;cursor:default}.h3page .h3go{background:#a7e8c0;color:#112d20;border-color:#75ae8b;font-weight:700;padding:11px}.h3screen{background:#121b18;color:#bcd4c6;aspect-ratio:16/9;display:grid;place-items:center;border-radius:7px;overflow:hidden}.h3screen video{width:100%;height:100%;object-fit:contain}
@@ -223,12 +224,15 @@ function Library({clips,refresh,privacy,setPrivacy}){
 }
 
 export function VideoPage() {
-  const [page,setPage]=useState('library');
+  const [page,setPage]=useState('create');
   const [privacy,setPrivacyState]=useState(()=>localStorage.getItem('h3-private-library')!=='off');
   function setPrivacy(value){setPrivacyState(value);localStorage.setItem('h3-private-library',value?'on':'off');}
   const [prompt,setPrompt]=useState(''),[preset,setPreset]=useState('turbo480'),[seed,setSeed]=useState('');
   const [duration,setDuration]=useState('5');
   const [invalidRefs,setInvalidRefs]=useState(false),[refs,setRefs]=useState([]),[uploading,setUploading]=useState(false);
+  const [aspect,setAspect]=useState(''),[steps,setSteps]=useState('');
+  const quality=preset.startsWith('quality');
+  const validSteps=!quality || steps==='' || (Number.isInteger(Number(steps)) && Number(steps)>=4 && Number(steps)<=50);
   const seconds=Number(duration);
   const validDuration=Number.isFinite(seconds) && seconds>=1 && seconds<=15;
   const [pending,setPending]=useState(()=>localStorage.getItem(pendingKey)||'');
@@ -279,17 +283,17 @@ export function VideoPage() {
     }catch(e){setInvalidRefs(true);setRefs([]);setError(e.message);}finally{setUploading(false);}
   }
   async function generate(){
-    if(submitLock.current || pending || !prompt.trim() || !validDuration)return;
+    if(submitLock.current || pending || !prompt.trim() || !validDuration || !validSteps)return;
     if(seed!=='' && (!Number.isInteger(Number(seed)) || Number(seed)<0 || Number(seed)>2147483647)){setError('种子范围为 0–2147483647');return;}
     submitLock.current=true;setSending(true);setError('');setMessage('正在连接 H3…');
     const id=crypto.randomUUID();localStorage.setItem(pendingKey,id);setPending(id);
-    try{await api('generate',{id,prompt,preset,reference_images:refs.map(r=>r.id),duration_seconds:seconds,...(seed!==''?{seed:Number(seed)}:{})});setMessage('已提交');}
+    try{await api('generate',{id,prompt,preset,reference_images:refs.map(r=>r.id),duration_seconds:seconds,...(aspect?{aspect}:{}),...(quality && steps!==''?{steps:Number(steps)}:{}),...(seed!==''?{seed:Number(seed)}:{})});setMessage('已提交');}
     catch(e){setError(e.message);setMessage('可按任务 ID 查询提交结果');}
     finally{submitLock.current=false;setSending(false);}
   }
   async function release(){setError('');try{const r=await api('release',{});setMessage(({released:'显卡已释放，可切回 Qwen 生图。',busy:'队列或视频调度器仍在使用显卡。',shared:'当前没有由本插件启动的工作台。'})[r.status] || r.message);}catch(e){setError(e.message);}}
   return h('main',{className:'h3page'},h('div',{className:'h3wrap'},
-    h('header',{className:'h3head'},h('div',null,h('h1',null,'视频'),h('span',{className:'h3meta'},'MiniMax H3')),h('nav',{className:'h3nav','aria-label':'视频导航'},[['library','视频库'],['create','创作']].map(([id,label])=>h('button',{key:id,'aria-pressed':page===id,onClick:()=>setPage(id)},label))),page==='create'&&h('button',{onClick:release,disabled:!!pending},'释放显卡')),
+    h('header',{className:'h3head'},h('div',null,h('h1',null,'视频'),h('span',{className:'h3meta'},'MiniMax H3')),h('nav',{className:'h3nav','aria-label':'视频导航'},[['create','创作'],['library','视频库']].map(([id,label])=>h('button',{key:id,'aria-pressed':page===id,onClick:()=>setPage(id)},label))),page==='create'&&h('button',{onClick:release,disabled:!!pending},'释放显卡')),
     page==='library'&&error&&h('p',{role:'alert'},error),
     page==='library'&&h(Library,{clips,refresh,privacy,setPrivacy}),
     h('div',{hidden:page!=='create'},
@@ -299,10 +303,15 @@ export function VideoPage() {
       (invalidRefs || refs.length>0) && h('button',{onClick:e=>{e.currentTarget.parentElement.querySelector('input[type=file]').value='';setRefs([]);setInvalidRefs(false);setError('');},disabled:uploading},'清空参考图'),
       uploading && h('small',null,'正在导入参考图…'),
       refs.length>0 && h('small',null,refs.map((r,i)=>'<Picture '+(i+1)+'> '+r.name).join(' · ')),
-      h('div',{className:'h3options'},h('label',null,'生成档位',h('select',{value:preset,onChange:e=>setPreset(e.target.value)},modes.filter(([id])=>!refs.length||id.startsWith('quality')).map(([id,label])=>h('option',{key:id,value:id},label)))),
-        h('label',null,'随机种子',h('input',{type:'number',min:0,max:2147483647,value:seed,onChange:e=>setSeed(e.target.value),placeholder:'自动'}))),
+      h('label',null,'生成档位',h('select',{value:preset,onChange:e=>setPreset(e.target.value)},modes.filter(([id])=>!refs.length||id.startsWith('quality')).map(([id,label])=>h('option',{key:id,value:id},label)))),
+      h('details',{className:'h3advanced'},h('summary',null,'高级设置'),
+        h('label',null,'画幅',h('select',{value:aspect,onChange:e=>setAspect(e.target.value)},
+          [['','跟随工作流'],['landscape','横屏'],['portrait','竖屏'],['square','方形']].map(([id,title])=>h('option',{key:id,value:id},title)))),
+        h('label',null,'采样步数',h('input',{type:'number',min:4,max:50,step:1,disabled:!quality,value:quality?steps:'8',placeholder:'工作流默认（内置 20 步）',onChange:e=>setSteps(e.target.value),'aria-invalid':!validSteps})),
+        h('small',null,quality?'4–50 步。步数越高通常越慢，可固定种子比较效果。':'内置 Turbo 使用 8 步蒸馏采样。选择质量档可调整步数。'),
+        h('label',null,'随机种子',h('input',{type:'number',min:0,max:2147483647,value:seed,onChange:e=>setSeed(e.target.value),placeholder:'自动'})),h('small',null,'留空自动抽取；填写 0–2147483647 可复用同一随机输入。')),
       h('label',null,'单镜时长（秒）',h('input',{type:'number',min:1,max:15,step:'any',value:duration,onChange:e=>setDuration(e.target.value),'aria-invalid':!validDuration})),
-      h('small',null,validDuration?'24 fps · 帧数按 H3 支持的长度向上对齐':'请输入 1–15 秒'),h('button',{className:'h3go',onClick:generate,disabled:uploading||invalidRefs||!validDuration||!prompt.trim()||!!pending||sending},pending?'正在处理…':'生成视频'),
+      h('small',null,validDuration?'24 fps · 帧数按 H3 支持的长度向上对齐':'请输入 1–15 秒'),h('button',{className:'h3go',onClick:generate,disabled:uploading||invalidRefs||!validDuration||!validSteps||!prompt.trim()||!!pending||sending},pending?'正在处理…':'生成视频'),
       h('div',{className:'h3msg',role:'status'},message),error && h('div',{className:'h3msg',role:'alert'},error),
       pending && h('small',null,'任务 ',pending),pending && !sending && error && h('button',{onClick:()=>{localStorage.removeItem(pendingKey);setPending('');setMessage('已停止跟踪；原任务可在对话中按 ID 查询。');}},'停止跟踪此任务')),
       h('section',null,h('h2',null,'成片预览'),selected?h(Player,{key:selected,id:selected,title:'成片预览'}):h('div',{className:'h3screen'},'完成后可在这里播放'))))));

@@ -6,7 +6,7 @@ whenToUse: 用户提到 H3 生视频、480p Turbo 预览、768p 质量档、指�
 
 ## 从对话到镜头
 
-调用 `h3_generate_video`，将档位填入 `preset`，将用户要求的秒数作为数值填入 `duration_seconds`。每次生成一个横屏、有声镜头。
+调用 `h3_generate_video`，将档位填入 `preset`，将用户要求的秒数作为数值填入 `duration_seconds`。每次生成一个有声镜头。创作页和工具共用参数。用户要指定画幅时传 aspect（landscape / portrait / square）；质量档 steps 可设 4–50，Turbo 省略 steps；seed 填 0–2147483647 的整数。没要求覆盖时使用工作流默认值。
 
 | 用户说法 | preset |
 | --- | --- |

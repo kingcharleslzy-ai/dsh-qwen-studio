@@ -32,7 +32,7 @@ dsh plugin --profile desktop add /absolute/path/to/dsh-qwen-studio.tgz
 
 **从 3.0.1 或更早版本升级**：在上面的新市场索引安装一次，或使用 Release 的 TGZ 原位升级。旧版内置更新器校验旧仓库地址；从 3.0.2 起会检查新仓库。已有独立视频或长片插件时，等任务结束，停用旧的 `dsh-h3-video`、`dsh-h3-film-local` 两个 bundle，再重新加载创作插件。图库、预设、视频、角色卡和未完成工程沿用原位置。兼容过渡与回退见 [迁移说明](AGENTS.md#旧插件迁移与回退)。
 
-## 打开「DSH-Spicy」，或直接在对话里说
+## 打开左栏「创作」，或直接在对话里说
 
 | 要做什么 | 可以这样说 | 交付结果 |
 | --- | --- | --- |
@@ -43,6 +43,8 @@ dsh plugin --profile desktop add /absolute/path/to/dsh-qwen-studio.tgz
 图像页支持 LoRA、ControlNet、蒙版、预设、检索和批量任务；视频页支持 480p / 768p、Turbo / 质量档、1–9 张参考图、收藏、归档和本地播放。参考图用质量档，单镜可请求 1–15 秒。长片由对话 Agent 推进，先审代表镜，完成的母版会进入视频库。
 
 ![隔离 DSH 实例中的 H3 视频创作页](docs/media/h3-workspace.png)
+
+首次在 Windows NVIDIA 电脑同时部署图像和视频，可从 [Windows 双模型部署与验收](docs/WINDOWS-LOCAL.md) 开始。视频默认进入创作页，[高级设置](docs/VIDEO.md#视频创作的高级设置)可指定画幅、种子和质量档步数。
 
 ## 按设备选择模型
 

@@ -229,9 +229,12 @@ export class Worker {
     await access(python);
     try {
       await Promise.any(
-        ["model_index.json", "config.json", "transformer/config.json"].map(
-          (file) => access(join(model, file)),
-        ),
+        [
+          ...["model_index.json", "config.json", "transformer/config.json"].map(file => access(join(model, file))),
+          Promise.all(["transformer", "text_encoder", "vae"].map(component =>
+            access(join(model, component, "model.safetensors.index.json")),
+          )),
+        ],
       );
     } catch {
       throw Error(

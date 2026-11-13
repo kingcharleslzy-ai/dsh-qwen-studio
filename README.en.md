@@ -4,13 +4,15 @@
 
 **An NSFW content creation plugin for purge.**
 
-Create NSFW images, clips with sound and multi-shot films on your own hardware. Design a fictional adult character in Qwen Image 2.1, refine the wardrobe or lighting with masked edits, and reuse the portrait as a MiniMax H3 shot reference. For a longer film, your DSH agent can build character cards, storyboard scenes, revise individual shots and cut the final MP4. The **DSH-Spicy** sidebar opens both image and video workspaces. [中文](README.md)
+Create NSFW images, clips with sound and multi-shot films on your own hardware. Design a fictional adult character in Qwen Image 2.1, refine the wardrobe or lighting with masked edits, and reuse the portrait as a MiniMax H3 shot reference. For a longer film, your DSH agent can build character cards, storyboard scenes, revise individual shots and cut the final MP4. The **创作** sidebar entry opens both image and video workspaces. [中文](README.md)
 
 ## Install the compiled plugin
 
 Use DSH 0.2.2-rc.1 or later. Add the [native market index](https://kingcharleslzy-ai.github.io/DSH-Spicy/index.json) under Plugins → Discover → Index sources. Install `dsh-qwen-studio`. Alternatively, download the TGZ and checksum list from the [latest release](https://github.com/kingcharleslzy-ai/DSH-Spicy/releases/latest), verify the matching checksum, and run `dsh plugin --profile desktop add /absolute/path/to/dsh-qwen-studio.tgz` for that profile.
 
 For version 3.0.1 or earlier, upgrade in place once using the new index or release TGZ. The earlier built-in updater checks the old repository address. Version 3.0.2 uses the renamed repository. If a standalone H3 video or film bundle is selected, let active calls finish, disable those two bundles, then reload the combined plugin. Keep your data home, models, connection settings, project directory, character library and attachments. During transition the selected standalone bundles continue to own their tools. [Agent installation and migration](AGENTS.md)
+
+Windows NVIDIA users can deploy both models on the DSH machine. The Windows walkthrough includes model downloads, loopback configuration and checks for the first image and video. [Windows setup and tested results (Chinese)](docs/WINDOWS-LOCAL.md)
 
 ## Choose a backend
 
