@@ -35,7 +35,7 @@
 - 手动下载：从 Releases 取 `dsh-qwen-studio-<版本>.tgz` 和 `SHA256SUMS.txt`，核对该文件对应的一行 SHA256。校验文件还列出了固定下载名的同内容安装包，不能因没有下载另一个别名文件就忽略真正的校验失败。
 - 安装命令：`dsh plugin --profile <实际profile> add <安装包绝对路径>`。macOS 没有全局 dsh 时，使用 `/bin/sh "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" plugin --profile <实际profile> add <安装包绝对路径>`。
 - 预编译 tgz 安装不需要全局 npm、tsc 或 Git；市场使用 Git 来源，因此需有可用的 Git（没有时用 tgz）。模型权重另行准备。源码开发才需要 Node.js 和 `npm ci --ignore-scripts && npm run check`。
-- 安装后由用户在合适时手动退出并重新打开 DSH。不要自动重启或强行刷新其正在运行的会话。
+- 桌面 Agent 可用 `plugin_manager` 的 `install_bundle` 安装已校验的本地 TGZ。随后检查当前会话是否已注册图像和视频工具，已就绪就继续部署。宿主提示必须重新加载时由用户选择合适的时机。
 - 远程 Qwen 网关是独立 Python 进程；改网关代码后用 部署时由用户设置的 Windows 计划任务 重启，不要用 SSH 里直接 `Start-Process`（会话结束会被回收）。
 
 ## 本机 Mac：完整模型与 Python 环境

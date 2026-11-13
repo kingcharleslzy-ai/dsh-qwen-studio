@@ -14,6 +14,10 @@
 
 安装前，Agent 可以按名字在 GitHub 查找 DSH-Spicy，在仓库根目录打开 AGENTS.md，再从源码读取部署技能。安装后同一技能由插件注册。完成的依据是该会话取得的 PNG、MP4 以及可播放的音轨；只给出命令、链接或建议时，安装仍未验收。
 
+已有同名 TGZ 时，先从本次选定的官方 Release 获取校验清单，按包名、版本及哈希核对。桌面 Agent 可以调用 `plugin_manager` 的 `install_bundle`，将 `target` 设为 `file:<已核验的本地绝对路径>`。安装后在当前会话检查 `qwen_generate_image` 和 `h3_generate_video` 是否可用；已热加载就直接继续。宿主的插件安装和写配置确认会显示给用户。
+
+检验首次部署时要分别记录 DSH profile、推理环境和权重的初始状态。新建会话或 profile 后，Windows 仍能找到同一账户的旧 TGZ、服务、缓存和权重。全新验收应在无法读取这些资源的 GPU 环境中开始，记录下载来源、实际文件大小与校验结果。在普通安装中复用已有后端时，记录复用项，并用当前会话的新任务验收。
+
 ## 2. 创建独立的 GPU 环境
 
 准备 Git、64 位 Python（本流程使用 3.12）和 NVIDIA 驱动。先查 [PyTorch 官方选择器](https://pytorch.org/get-started/locally/) 与 [ComfyUI 手动安装](https://docs.comfy.org/installation/manual_install)。根据当前驱动、GPU 与系统选择 CUDA wheel。以下目录同时存放网关、模型和软件。
