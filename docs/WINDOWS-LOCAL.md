@@ -6,6 +6,10 @@
 
 运行 `nvidia-smi`、`py -0p`、`Get-PSDrive -PSProvider FileSystem`。记录显卡、驱动、显存、Python 和剩余空间。按实际模型仓库的文件大小计算预算。基础质量档图像和纯文字质量档视频共七个权重，约 57.4 GB，另留环境、缓存、临时文件和输出空间。Turbo、参考图视频和 ControlNet 需要额外权重。
 
+**选择部署位置。** 先检查当前工作区以及 `$env:DSH_HOME` 所在的卷。工作区空间足够时在其中新建专用目录。若系统盘空间紧张而 DSH 数据卷充足，优先在用户管理的 DSH 数据目录下新建 `models-runtime`，将 ComfyUI、venv、权重和下载缓存放在同一卷。可用 PowerShell 的 `Get-Item env:DSH_HOME` 和 `Get-PSDrive -PSProvider FileSystem` 定位，实际创建、写入并删除一个小文件验证权限。宿主对工作区外写入弹出确认时，只申请本次所需目录。已有安装先核对内容，缺少可用目录、空间不足或会改动其他人的文件时再请用户选择。
+
+用户同时要求生图和视频时，默认先装 Qwen 并生成一张图，再装 H3 并生成一段带声视频。使用同一块 GPU 串行验收。在工具回执中记录生成文件和任务 ID。除非用户要求特定模型或下载预算，两个阶段可沿用同一个安装决定。
+
 安装 [DeepSeek Harness Desktop](https://github.com/deepseek-ai/deepseek-harness/tree/master/apps/desktop)。在插件市场添加 [DSH-Spicy 索引](https://kingcharleslzy-ai.github.io/DSH-Spicy/index.json)，安装并启用插件。手动从侧栏创作时，可以在欢迎页选择「稍后配置」。使用 TGZ 时从 [GitHub Release](https://github.com/kingcharleslzy-ai/DSH-Spicy/releases/latest) 下载编译包和校验文件，以 `Get-FileHash -Algorithm SHA256` 核对同名文件。在插件详情确认版本，在侧栏找「创作」。包内文档、网关和工作流位于当前 profile 的 node_modules/dsh-qwen-studio。
 
 ### 让自己的 AI 代装
