@@ -1,6 +1,6 @@
 # 图像插件：安装、硬件自查与连接
 
-插件包 `dsh-qwen-studio`（当前 **2.19.0**）。模型权重和推理环境**不包含**在插件包里，需要单独准备。
+插件包 `dsh-qwen-studio`（当前 **3.0.0**）。模型权重和推理环境**不包含**在插件包里，需要单独准备。
 
 Agent 照这份文档做，就能把「用户机器够不够 → 装 → 连 → 出第一张图」走完；每一步都给了可执行命令和判读标准。
 
@@ -33,27 +33,27 @@ nvidia-smi --query-gpu=name,memory.total --format=csv
 
 ## 1. 安装插件
 
-三种入口，任选其一；装完**手动退出并重开 DSH**，再在插件设置里启用「图像」。
+三种入口，任选其一；装完**手动退出并重开 DSH**，再在插件设置里启用创作插件，打开「创作 → 图像」。
 
 **A. 插件市场**（最省事）：DSH → 插件 → 自定义插件市场 → 发现 → 添加索引
-`https://kingcharleslzy-ai.github.io/dsh-qwen-studio/index.json`，选 2.19.0 安装。
+`https://kingcharleslzy-ai.github.io/dsh-qwen-studio/index.json`，选择创作工作室安装。
 
-**B. 安装包（推荐给 Agent 执行）**：从 [Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载 `dsh-qwen-studio-2.19.0.tgz`，然后：
+**B. 安装包（推荐给 Agent 执行）**：从 [Releases](https://github.com/kingcharleslzy-ai/dsh-qwen-studio/releases/latest) 下载 `dsh-qwen-studio-3.0.0.tgz`，然后：
 
 ```sh
 # macOS / Linux（全局有 dsh 时）
-dsh plugin --profile desktop add /绝对路径/dsh-qwen-studio-2.19.0.tgz
+dsh plugin --profile desktop add /绝对路径/dsh-qwen-studio-3.0.0.tgz
 
 # macOS 没有全局 dsh：用桌面版内置 CLI
 sh "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" \
-  plugin --profile desktop add /绝对路径/dsh-qwen-studio-2.19.0.tgz
+  plugin --profile desktop add /绝对路径/dsh-qwen-studio-3.0.0.tgz
 ```
 
 ```powershell
 # Windows PowerShell 可以直接调用 dsh.cmd；含空格的完整路径需使用 & 运算符
-dsh.cmd plugin --profile desktop add "C:\绝对路径\dsh-qwen-studio-2.19.0.tgz"
+dsh.cmd plugin --profile desktop add "C:\绝对路径\dsh-qwen-studio-3.0.0.tgz"
 # 没有 PATH 入口时，替换为桌面安装目录下的实际文件：
-# & "C:\实际安装目录\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\绝对路径\dsh-qwen-studio-2.19.0.tgz"
+# & "C:\实际安装目录\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\绝对路径\dsh-qwen-studio-3.0.0.tgz"
 ```
 
 **C. 源码**：仅开发用，链接安装不会被自动更新覆盖。
@@ -61,8 +61,8 @@ dsh.cmd plugin --profile desktop add "C:\绝对路径\dsh-qwen-studio-2.19.0.tgz
 安装前校验：将以下输出与同一 Release 的 SHA256SUMS.txt 中对应文件一行逐字核对，不匹配就停止。
 
 ```sh
-shasum -a 256 dsh-qwen-studio-2.19.0.tgz   # macOS
-certutil -hashfile dsh-qwen-studio-2.19.0.tgz SHA256   # Windows
+shasum -a 256 dsh-qwen-studio-3.0.0.tgz   # macOS
+certutil -hashfile dsh-qwen-studio-3.0.0.tgz SHA256   # Windows
 ```
 
 ## 2. Apple Silicon 本机（MLX）
@@ -76,7 +76,7 @@ certutil -hashfile dsh-qwen-studio-2.19.0.tgz SHA256   # Windows
 
    脚本只创建虚拟环境并安装 **MFLUX 0.22.0**，不下载模型。
 
-2. 准备完整 Qwen Image 2.1 MLX 权重（含视觉编码器与 `processor`），参考
+2. 准备完整 Qwen Image 2.1 完整权重（含视觉编码器与 `processor`）。使用 MFLUX 支持的本地导出，或从 [Qwen 官方模型](https://huggingface.co/Qwen/Qwen-Image-2.1) 获取完整目录（例如 `hf download Qwen/Qwen-Image-2.1 --local-dir /absolute/path/to/qwen-image-2.1`）。，参考
    [MFLUX 官方说明](https://github.com/mflux-community/mflux/blob/main/src/mflux/models/qwen21/README.md)。
    模型目录必须包含 `model_index.json` 或等价配置文件；**只下一个 safetensors 不算完整模型**。
 
@@ -143,7 +143,7 @@ SSH 首次信任主机密钥、配置公钥登录，都要先在终端手工完�
 ## 4. 连接与第一张图
 
 1. 保存配置 → 点「保存并检查连接」。直连远程检查服务；按需 SSH 离线时只验证配置，不建立隧道，实际生成才握手。本机先检查 Python 与模型目录；
-2. 左侧「图像 → 创作」，输入「一只坐在窗台上的橘猫，下午光」，尺寸 1024×1024，步数 20；
+2. 左侧「创作 → 图像」，输入「一只坐在窗台上的橘猫，下午光」，尺寸 1024×1024，步数 20；
 3. 判读：
    - **进度条有真实步数** → 后端通了；
    - 卡在 0% 且无日志 → 看 §5；

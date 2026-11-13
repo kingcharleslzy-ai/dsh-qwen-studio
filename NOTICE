@@ -30,3 +30,8 @@ Isaac Z. Schlueter and Contributors. Its license is in LICENSES/SEMVER-ISC.txt.
 Windows process launching bundles cross-spawn 7.0.6 (MIT) and its dependencies
 path-key, which, isexe, shebang-command and shebang-regex. Their licenses are
 included in LICENSES/*-LICENSE.txt.
+
+H3 media integration incorporates the MIT-licensed dsh-comfyui client and a
+Comfy-Org workflow template. See video/vendor/*/LICENSE. The character card
+library is adapted from erdinoral/minimax-h3-studio under MIT. The upstream
+revision and license are in film/upstream_h3studio/.

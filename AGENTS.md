@@ -1,10 +1,24 @@
-# Qwen Studio：Agent 安装、配置和维护指南
+# 创作工作室 · Agent 安装、配置与使用
 
-包名 `dsh-qwen-studio`；DSH 中的入口名称是「图像」。这是插件，不是模型下载器，也不是独立的生图 App。
+包名 `dsh-qwen-studio`。安装后打开左侧「创作」，切换图像或视频；多镜头影片在对话中制作。安装前可以直接阅读下面的技能，安装后由 DSH 注册。
+
+## 旧插件迁移与回退
+
+1. 用 DSH 的 `plugin_manager`、action=list_bundles 列出当前 profile。记录 Qwen 和两个旧 H3 bundle 的版本与启用状态。确认当前任务已结束；记录未完成工程 ID。保留原配置与数据。
+2. 从项目市场或 Release 安装编译后的 dsh-qwen-studio。若旧的 dsh-h3-video 或 dsh-h3-film-local 仍在所选 bundle 清单，合并包分别让它们提供单镜或长片工具。升级完成后，用 set_bundle 将实际存在的这两个旧包 enabled 设为 false。使用 bundle 开关，勿只关闭其中的 plugin entry。
+3. 按宿主提示重新加载合并包或在合适时手动重开 DSH。验证只出现一个「创作」入口，能看到 qwen_generate_image、h3_generate_video、h3_film_create 和下面五个技能。旧工具名、视频 API、连接、角色库、工程与媒体目录继续使用。DSH 启用状态发生变化后要重新加载，运行中的插件在加载时读取 bundle 清单。
+4. 旧长片配置中的 bridge 如指向原自定义文件则继续使用。希望使用包内版本时，先备份自己的 film.json，再仅移除 bridge 字段，保留原 Python、data_home、project_root、volume、voice、path。新装用户无需设置 bridge。
+5. 回退时恢复之前的 Qwen 版本及旧 bundle 原有启用状态，再重新加载。保留现有工程、模型权重、附件及配置。
+
+## 模型和创作任务
+
+- **安装者**先加载 [studio-model-setup](skills/studio-model-setup/SKILL.md)。按设备走 [Mac 图像](docs/SETUP.md)、[本机或远程 CUDA 图像](docs/REMOTE.md)、[H3 与剪辑环境](docs/H3-SETUP.md)。
+- **创作 Agent** 先看 [studio-creation](skills/studio-creation/SKILL.md)。[qwen-image](skills/qwen-image/SKILL.md) 管图像；[h3-video](skills/h3-video/SKILL.md) 管单镜；[h3-long-film](skills/h3-long-film/SKILL.md) 管人物、分镜、审片及交付。
+- **验收**先读连接和模型清单，再做用户要求的实际样片。分别报告界面/工具、模型文件、真实生成、母版审片的状态。图片任务用图片 ID 恢复，单镜用视频 ID，整片用项目 ID。
 
 ## 先确认环境，保留已有数据
 
-1. 确认 DSH 版本、profile 和 DSH_HOME。插件要求 DSH `>=0.2.1-rc.1`。新宿主发布时用实际运行时测试面板和工具；保留开放的版本上限。
+1. 确认 DSH 版本、profile 和 DSH_HOME。插件要求 DSH `>=0.2.2-rc.1`。新宿主发布时用实际运行时测试面板和工具；保留开放的版本上限。
 2. 先读 profile 的 package.json 和 Qwen 已有设置，只报告必要的非敏感字段。不要打印 API Key、SSH 配置密钥或整份用户配置。
 3. 已安装用户：保留 localMfluxDirectory、Python/模型/HF 缓存路径、连接模式、SSH、空闲时间。保留图库的 state、images、trash、assets、loras；不要用示例覆盖它们。预设不需要迁移。
 4. 新用户：请根据实际设备选择 Apple Silicon MLX 或用户自己的 NVIDIA 服务器。本项目不提供公共 GPU、预配置服务器地址、个人主机别名或通用密钥。不存在能直接照抄的作者部署。

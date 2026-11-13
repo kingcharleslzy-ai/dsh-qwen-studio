@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { VideoPage, installVideoPlayers } from "dsh-qwen-studio/video-client";
 import { Images } from "lucide-react";
 import type {} from "@deepseek-ai/dsh-client-ui-slots";
 import type { Context } from "@deepseek-ai/cordis";
@@ -23,6 +24,10 @@ import { request } from "./api.js";
 import { Settings, type Scope } from "./settings.js";
 export const inject = ["slots", "connection", "remote"];
 export function apply(ctx: Context) {
+  ctx.inject([], async (owner) => {
+    const legacy = await request<{video: boolean}>("legacy");
+    if (!legacy.video) installVideoPlayers(owner);
+  });
   const forms = ctx.get("configForms") as
       | { get(id: string): Scope }
       | undefined,
@@ -104,7 +109,7 @@ export function apply(ctx: Context) {
         name: "sidebar.panellist",
         id: "qwen-studio",
         order: 10,
-        label: "图像",
+        label: "创作",
       },
       StudioIcon,
     ),
@@ -114,16 +119,13 @@ function StudioIcon({ size = 16 }: { size?: number }) {
   return <Images size={size} aria-hidden="true" />;
 }
 function StudioPage() {
-  return (
-    <div
-      style={{
-        height: "100%",
-        minHeight: 0,
-        boxSizing: "border-box",
-        paddingTop: "min(var(--dsh-frame-top-clearance, 0px), 28px)",
-      }}
-    >
-      <Studio />
-    </div>
-  );
+  const [mode, setMode] = useState(() => localStorage.getItem("qwen-studio-medium") === "video" ? "video" : "image");
+  return <div style={{height: "100%", display: "flex", flexDirection: "column", minHeight: 0}}>
+    <nav aria-label="创作类型" style={{display: "flex", gap: 6, padding: "max(8px,var(--dsh-frame-top-clearance,0px)) 16px 8px", borderBottom: "1px solid color-mix(in srgb,currentColor 15%,transparent)"}}>
+      {([["image", "图像"], ["video", "视频"]] as const).map(([id, label]) =>
+        <button key={id} aria-pressed={mode === id} onClick={() => { setMode(id); localStorage.setItem("qwen-studio-medium", id); }}
+          style={{cursor: "pointer", borderRadius: 5, padding: "4px 14px", color: mode === id ? "Canvas" : "inherit", background: mode === id ? "CanvasText" : "transparent", border: "1px solid color-mix(in srgb,currentColor 25%,transparent)"}}>{label}</button>)}
+    </nav>
+    <div style={{flex: 1, minHeight: 0}}>{mode === "image" ? <Studio /> : <VideoPage />}</div>
+  </div>;
 }

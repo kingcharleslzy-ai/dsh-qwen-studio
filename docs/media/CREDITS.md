@@ -6,3 +6,5 @@
 - `hero.svg`: project artwork, Apache-2.0.
 
 Image licenses in this file are separate from the code's Apache-2.0 license. Model weights are not distributed here.
+
+- `h3-workspace.png`: the empty video creation panel in a fresh DSH 0.2.2-rc.2 profile. No user media or connection settings.

@@ -21,6 +21,11 @@ for (const file of [
   "scripts/setup-image-python.py",
   "backend/score_image.py",
   "AGENTS.md",
+  "video/index.js", "video/worker.py", "video/workflows/H3-Reference-Quality.json",
+  "film/index.js", "film/bridge.py", "film/characters.py", "film/video_pipeline/qa.py",
+  "film/requirements.txt", "film/upstream_h3studio/LICENSE", "scripts/check-h3-models.py",
+  "skills/h3-video/SKILL.md", "skills/h3-long-film/SKILL.md",
+  "skills/studio-creation/SKILL.md", "skills/studio-model-setup/SKILL.md",
   "backend/server.py",
   "backend/normalize_image.py",
   "backend/qwen_gateway.py",
@@ -47,6 +52,7 @@ for (const path of paths) {
     !/\.(?:png|jpe?g|webp|safetensors|gguf|log|tgz|pyc)$/.test(path),
     `Unexpected data file in package: ${path}`,
   );
+  assert(!/(^|\/)(?:film\.json|connection\.json|asset_library\.json|gateway-config\.json|\.env|credentials\.ya?ml)$|\.(?:mp4|webm|aiff|wav|pem|key)$/i.test(path), `Private runtime data: ${path}`);
   if (/\.(?:js|ts|py|md|json|sh|yml)$/.test(path)) {
     const text = readFileSync(path, "utf8");
     if (path.startsWith("lib/") && path.endsWith(".js")) {

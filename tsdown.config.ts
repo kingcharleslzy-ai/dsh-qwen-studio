@@ -16,7 +16,7 @@ const host: UserConfig = {
   format: ["esm"],
   platform: "node",
   // Resolve host services from DSH instead of bundling another host runtime.
-  external: [/^@deepseek-ai\//],
+  external: [/^@deepseek-ai\//, /^dsh-qwen-studio\/(video|film)-host$/],
   target: "es2024",
   fixedExtension: false,
   dts: false,

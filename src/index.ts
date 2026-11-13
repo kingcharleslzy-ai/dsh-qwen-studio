@@ -28,9 +28,23 @@ import {
   loadPreset,
   exportPresets,
 } from "./presets.js";
-import { bundledImageSkill } from "./skill.js";
+import { apply as applyVideo } from "dsh-qwen-studio/video-host";
+import { apply as applyFilm } from "dsh-qwen-studio/film-host";
+import { bundledSkill } from "./skill.js";
 import { sshOptions } from "./remote-lifecycle.js";
 import { registerConnectionTool, type ConnectionSettings } from "./connection-tools.js";
+import { installedPaths } from "./updates.js";
+import { readFileSync } from "node:fs";
+
+// A selected standalone bundle owns its original tools until the user migrates.
+function selectedLegacyBundles() {
+  let profile: string;
+  try { profile = installedPaths().profile; }
+  catch { return { video: false, film: false }; }
+  const manifest = JSON.parse(readFileSync(join(profile, "package.json"), "utf8"));
+  const selected: string[] = manifest.dsh?.profile?.bundles ?? [];
+  return { video: selected.includes("dsh-h3-video"), film: selected.includes("dsh-h3-film-local") };
+}
 export { Config };
 export const name = "qwen-studio";
 export const inject = ["webServer", "tools", "attachments"];
@@ -68,6 +82,9 @@ export function apply(ctx: Context, config: Config = {}) {
     } catch(e) { updateError = e instanceof Error ? e.message : String(e); }
   })();
   ctx.effect(() => () => { updater?.stop(); closeGalleryIndexes(); }, "qwen-studio updates and gallery index");
+  const legacy = selectedLegacyBundles();
+  if (!legacy.video) applyVideo(ctx);
+  if (!legacy.film) applyFilm(ctx);
   registerTools(ctx, worker);
   (ctx.inject as unknown as (services: string[], callback: (owner: Context) => void) => void)(["settings"], (owner) => {
     registerConnectionTool(owner, worker, owner.get("settings") as ConnectionSettings);
@@ -81,9 +98,12 @@ export function apply(ctx: Context, config: Config = {}) {
     const skills = owner.get("skills") as {
       register(skill: object): () => void;
     };
-    owner.effect(() => skills.register(bundledImageSkill()), "图像 skill");
+    for (const name of ["qwen-image", "studio-model-setup", "studio-creation", ...(!legacy.video ? ["h3-video"] : []), ...(!legacy.film ? ["h3-long-film"] : [])]) {
+      owner.effect(() => skills.register(bundledSkill(name)), name);
+    }
   });
   for (const route of [
+    "legacy",
     "updates",
     "gallery-restore",
     "state",
@@ -112,6 +132,7 @@ export function apply(ctx: Context, config: Config = {}) {
               res.end(JSON.stringify(value));
             };
             try {
+              if (route === "legacy" && req.method === "GET") return json(200, legacy);
               if (route === "attachment" && req.method === "POST") {
                 const data = await body(req);
                 const stored = await ctx.attachments.readImage(data.attachment);

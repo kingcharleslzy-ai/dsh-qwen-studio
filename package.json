@@ -1,7 +1,7 @@
 {
   "name": "dsh-qwen-studio",
-  "version": "2.19.3",
-  "description": "Qwen Image 2.1 for DeepSeek Harness: native reference editing on Apple Silicon MLX and self-hosted CUDA, LoRA, ControlNet, inpainting and live chat progress",
+  "version": "3.0.0",
+  "description": "Qwen Studio for DeepSeek Harness: Qwen Image 2.1, MiniMax H3 video and multi-shot filmmaking with agent skills for self-hosted model setup, generation and review.",
   "type": "module",
   "author": "kingcharleslzy-ai",
   "repository": {
@@ -23,7 +23,10 @@
       "types": "./lib/types/client/index.d.ts",
       "default": "./lib/client.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./video-host": "./video/index.js",
+    "./film-host": "./film/index.js",
+    "./video-client": "./video/client.js"
   },
   "files": [
     "lib/index.js",
@@ -51,7 +54,17 @@
     "backend/score_image.py",
     "scripts/npm-command.mjs",
     "scripts/setup-image-python.py",
-    "docs/recipes/*.md"
+    "docs/recipes/*.md",
+    "video/*.js",
+    "video/worker.py",
+    "video/workflows/*.json",
+    "video/vendor/**/*",
+    "film/*.js",
+    "film/**/*.py",
+    "film/upstream_h3studio/LICENSE",
+    "film/upstream_h3studio/REVISION",
+    "film/requirements.txt",
+    "scripts/check-h3-models.py"
   ],
   "dsh": {
     "bundle": {
@@ -82,7 +95,7 @@
   },
   "engines": {
     "node": "^22.19.0 || >=24.0.0",
-    "dsh": ">=0.2.1-rc.1"
+    "dsh": ">=0.2.2-rc.1"
   },
   "license": "Apache-2.0",
   "keywords": [
@@ -101,7 +114,15 @@
     "controlnet",
     "inpainting",
     "private-gallery",
-    "self-hosted"
+    "self-hosted",
+    "minimax-h3",
+    "video-generation",
+    "reference-to-video",
+    "storyboard",
+    "filmmaking",
+    "comfyui",
+    "agent-skills",
+    "dsh"
   ],
   "peerDependencies": {
     "@deepseek-ai/cordis": ">=4.0.0 <5",
