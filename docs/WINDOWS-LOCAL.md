@@ -6,7 +6,13 @@
 
 运行 `nvidia-smi`、`py -0p`、`Get-PSDrive -PSProvider FileSystem`。记录显卡、驱动、显存、Python 和剩余空间。按实际模型仓库的文件大小计算预算。基础质量档图像和纯文字质量档视频共七个权重，约 57.4 GB，另留环境、缓存、临时文件和输出空间。Turbo、参考图视频和 ControlNet 需要额外权重。
 
-安装 [DeepSeek Harness Desktop](https://github.com/deepseek-ai/deepseek-harness/tree/master/apps/desktop)。在插件市场添加 [DSH-Spicy 索引](https://kingcharleslzy-ai.github.io/DSH-Spicy/index.json)，安装并启用插件。首次进入桌面可选择稍后配置对话模型密钥，先用侧栏完成本机创作。使用 TGZ 时从 [GitHub Release](https://github.com/kingcharleslzy-ai/DSH-Spicy/releases/latest) 下载编译包和校验文件，以 `Get-FileHash -Algorithm SHA256` 核对同名文件。在插件详情确认版本，在侧栏找「创作」。包内文档、网关和工作流位于当前 profile 的 node_modules/dsh-qwen-studio。
+安装 [DeepSeek Harness Desktop](https://github.com/deepseek-ai/deepseek-harness/tree/master/apps/desktop)。在插件市场添加 [DSH-Spicy 索引](https://kingcharleslzy-ai.github.io/DSH-Spicy/index.json)，安装并启用插件。手动从侧栏创作时，可以在欢迎页选择「稍后配置」。使用 TGZ 时从 [GitHub Release](https://github.com/kingcharleslzy-ai/DSH-Spicy/releases/latest) 下载编译包和校验文件，以 `Get-FileHash -Algorithm SHA256` 核对同名文件。在插件详情确认版本，在侧栏找「创作」。包内文档、网关和工作流位于当前 profile 的 node_modules/dsh-qwen-studio。
+
+### 让自己的 AI 代装
+
+首次打开 Windows DSH 时，先登录可用账户，或在欢迎页 /「模型」设置中配置自己的对话模型。新建会话，点输入框旁的模型选择器，选择能调用工具的模型，再发送「帮我装 DSH-Spicy，在本机生图和做视频」。如果选择器显示「暂无可用模型」，或会话提示 `no API key for provider route`，先完成该服务商的凭据配置，再新建会话重试。密钥填在 DSH 的凭据设置里。
+
+安装前，Agent 可以按名字在 GitHub 查找 DSH-Spicy，在仓库根目录打开 AGENTS.md，再从源码读取部署技能。安装后同一技能由插件注册。完成的依据是该会话取得的 PNG、MP4 以及可播放的音轨；只给出命令、链接或建议时，安装仍未验收。
 
 ## 2. 创建独立的 GPU 环境
 
